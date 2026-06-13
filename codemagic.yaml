@@ -3,9 +3,9 @@ workflows:
     name: iOS — App Store Distribution
     max_build_duration: 120
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Codemagic
     environment:
+      groups:
+        - appstore_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.rushingtechnologies.aiwingman
@@ -65,7 +65,9 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         beta_groups:
           - External Testers

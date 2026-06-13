@@ -71,7 +71,7 @@ workflows:
           - External Testers
       email:
         recipients:
-          - $NOTIFICATION_EMAIL
+          - mrnickrushing@yahoo.com
         notify:
           success: true
           failure: true
@@ -124,7 +124,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - $NOTIFICATION_EMAIL
+          - mrnickrushing@yahoo.com
         notify:
           success: true
           failure: true

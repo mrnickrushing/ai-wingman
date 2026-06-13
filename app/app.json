@@ -35,6 +35,9 @@
         }
       ]
     ],
-    "scheme": "aiwingman"
+    "scheme": "aiwingman",
+    "extra": {
+      "serverUrl": "wss://wingman-server-production-5146.up.railway.app/ws"
+    }
   }
 }

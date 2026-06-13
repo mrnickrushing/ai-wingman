@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PreCallScreen } from './src/screens/SalesMode/PreCallScreen';
 import { ActiveCallScreen } from './src/screens/SalesMode/ActiveCallScreen';
@@ -25,8 +28,40 @@ type Screen =
   | 'pitching-precall' | 'pitching-active' | 'pitching-postcall'
   | 'hardconvo-precall' | 'hardconvo-active' | 'hardconvo-postcall';
 
+const ONBOARDED_KEY = 'wingman:onboarded';
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDED_KEY)
+      .then((value) => setOnboarded(value === 'true'))
+      .catch(() => setOnboarded(false));
+  }, []);
+
+  const completeOnboarding = () => {
+    setOnboarded(true);
+    AsyncStorage.setItem(ONBOARDED_KEY, 'true').catch(() => {});
+  };
+
+  if (onboarded === null) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: '#050510' }} />
+      </>
+    );
+  }
+
+  if (!onboarded) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <OnboardingScreen onComplete={completeOnboarding} />
+      </>
+    );
+  }
 
   return (
     <>

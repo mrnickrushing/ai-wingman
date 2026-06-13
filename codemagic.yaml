@@ -73,6 +73,8 @@ workflows:
           EOF
       - name: Build iOS archive
         script: |
+          set -o pipefail
+          mkdir -p /tmp/xcodebuild_logs
           cd app/ios
           xcodebuild \
             -workspace $XCODE_WORKSPACE \
@@ -85,14 +87,20 @@ workflows:
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_SPECIFIER" \
             archive \
+            2>&1 \
+            | tee /tmp/xcodebuild_logs/archive.log \
             | xcpretty
       - name: Export IPA
         script: |
+          set -o pipefail
+          mkdir -p /tmp/xcodebuild_logs
           xcodebuild \
             -exportArchive \
             -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
             -exportOptionsPlist /tmp/aiwingman-export-options.plist \
             -exportPath $CM_BUILD_DIR/build/ipa \
+            2>&1 \
+            | tee /tmp/xcodebuild_logs/export.log \
             | xcpretty
     artifacts:
       - build/ipa/*.ipa

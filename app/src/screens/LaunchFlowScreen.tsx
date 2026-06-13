@@ -89,8 +89,6 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     || googleConfig.webClientId
     || googleConfig.expoClientId
   );
-  const [googleRequest, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest(googleConfig as any);
-
   useEffect(() => {
     let active = true;
     loadLaunchSnapshot()
@@ -130,19 +128,6 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
       useNativeDriver: true,
     }).start();
   }, [contentAnim, stage]);
-
-  useEffect(() => {
-    if (googleResponse?.type !== 'success') return;
-    const token =
-      googleResponse.authentication?.idToken
-      ?? (googleResponse.params as Record<string, string | undefined> | undefined)?.id_token;
-    if (!token) {
-      setError('Google sign-in did not return an ID token.');
-      return;
-    }
-    void handleGoogleToken(token);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleResponse]);
 
   const handleIntroContinue = async () => {
     setLoadingAction('intro');
@@ -237,28 +222,6 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     }
   };
 
-  const handleGooglePress = async () => {
-    if (!googleConfigured) {
-      setError('Google sign-in is not configured yet. Add the Google OAuth client IDs to the app env.');
-      return;
-    }
-    if (!googleRequest) {
-      setError('Google sign-in is not ready yet.');
-      return;
-    }
-    setError(null);
-    setLoadingAction('google');
-    try {
-      const result = await promptGoogle();
-      if (result?.type !== 'success') {
-        setLoadingAction(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign in failed.');
-      setLoadingAction(null);
-    }
-  };
-
   const handleStartMembership = async () => {
     setLoadingAction('paywall');
     setError(null);
@@ -319,8 +282,9 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
                 setPassword={setPassword}
                 onSubmit={handleEmailSubmit}
                 onApple={handleAppleSignIn}
-                onGoogle={handleGooglePress}
                 googleEnabled={googleConfigured}
+                googleConfig={googleConfig}
+                onGoogleToken={handleGoogleToken}
                 loading={loadingAction}
                 error={error}
                 prompt={accountPrompt}
@@ -435,8 +399,9 @@ function AccountStage({
   setPassword,
   onSubmit,
   onApple,
-  onGoogle,
   googleEnabled,
+  googleConfig,
+  onGoogleToken,
   loading,
   error,
   prompt,
@@ -452,8 +417,14 @@ function AccountStage({
   setPassword: (value: string) => void;
   onSubmit: () => void;
   onApple: () => void;
-  onGoogle: () => void;
   googleEnabled: boolean;
+  googleConfig: {
+    androidClientId?: string;
+    iosClientId?: string;
+    webClientId?: string;
+    expoClientId?: string;
+  };
+  onGoogleToken: (token: string) => void;
   loading: string | null;
   error: string | null;
   prompt: string;
@@ -536,18 +507,20 @@ function AccountStage({
           />
         )}
 
-        <Pressable
-          style={[s.googleButton, !googleEnabled && s.googleButtonDisabled]}
-          onPress={onGoogle}
-          disabled={!googleEnabled || loading === 'google'}
-        >
-          <View style={s.googleLogo}>
-            <Text style={s.googleLogoText}>G</Text>
+        {googleEnabled ? (
+          <GoogleButton
+            loading={loading === 'google'}
+            onToken={onGoogleToken}
+            config={googleConfig}
+          />
+        ) : (
+          <View style={[s.googleButton, s.googleButtonDisabled]}>
+            <View style={s.googleLogo}>
+              <Text style={s.googleLogoText}>G</Text>
+            </View>
+            <Text style={s.googleButtonText}>Continue with Google</Text>
           </View>
-          <Text style={s.googleButtonText}>
-            {loading === 'google' ? 'Signing in…' : 'Continue with Google'}
-          </Text>
-        </Pressable>
+        )}
 
         {!googleEnabled && (
           <Text style={s.helperText}>
@@ -641,6 +614,51 @@ function Field({
         style={[s.field, props.style]}
       />
     </View>
+  );
+}
+
+function GoogleButton({
+  loading,
+  onToken,
+  config,
+}: {
+  loading: boolean;
+  onToken: (token: string) => void;
+  config: {
+    androidClientId?: string;
+    iosClientId?: string;
+    webClientId?: string;
+    expoClientId?: string;
+  };
+}) {
+  const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
+
+  useEffect(() => {
+    if (response?.type !== 'success') return;
+    const token =
+      response.authentication?.idToken
+      ?? (response.params as Record<string, string | undefined> | undefined)?.id_token;
+    if (token) onToken(token);
+  }, [onToken, response]);
+
+  const handlePress = async () => {
+    if (!request || loading) return;
+    await promptGoogle();
+  };
+
+  return (
+    <Pressable
+      style={s.googleButton}
+      onPress={handlePress}
+      disabled={!request || loading}
+    >
+      <View style={s.googleLogo}>
+        <Text style={s.googleLogoText}>G</Text>
+      </View>
+      <Text style={s.googleButtonText}>
+        {loading ? 'Signing in…' : 'Continue with Google'}
+      </Text>
+    </Pressable>
   );
 }
 

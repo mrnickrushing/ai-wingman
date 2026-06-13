@@ -2,6 +2,10 @@ export type ConversationMode = 'sales' | 'dating' | 'networking' | 'pitching' | 
 
 export interface SessionConfig {
   mode: ConversationMode;
+  // Optional mode-specific terms to bias STT toward (e.g. "anchor",
+  // "counter-offer", "objection"). Passed through to Deepgram as keyword
+  // boosts so domain jargon is transcribed more accurately.
+  keywords?: string[];
   // Sales
   prospectContext?: string;
   callGoal?: string;

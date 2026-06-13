@@ -3,6 +3,95 @@ import { ConversationTurn } from '../types';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const COACHING_MODEL = 'claude-sonnet-4-6';
+const COACHING_MAX_TOKENS = 80;
+
+/**
+ * Called as the coaching response streams in, once per sentence-boundary chunk
+ * (a complete thought). Lets the caller pipeline each chunk into TTS without
+ * waiting for the full response. See {@link createChunker} for the chunking rules.
+ */
+export type ChunkHandler = (chunk: string) => void;
+
+/**
+ * Incremental sentence-boundary buffer. Tokens are appended via `push`; whenever
+ * the buffer ends on `.`/`!`/`?` OR grows past ~40 chars, the accumulated text
+ * is flushed as one chunk. `flush` emits any trailing remainder at end-of-stream.
+ *
+ * We chunk so each piece handed to TTS is a complete-ish thought — this is what
+ * lets the first audio byte leave the server long before Claude finishes
+ * generating the whole (short) coaching line.
+ */
+function createChunker(onChunk: ChunkHandler) {
+  let buffer = '';
+
+  const tryFlush = () => {
+    const trimmed = buffer.trim();
+    if (!trimmed) return;
+    const endsSentence = /[.!?]$/.test(trimmed);
+    if (endsSentence || trimmed.length >= 40) {
+      onChunk(trimmed);
+      buffer = '';
+    }
+  };
+
+  return {
+    push(textDelta: string) {
+      buffer += textDelta;
+      tryFlush();
+    },
+    flush() {
+      const trimmed = buffer.trim();
+      if (trimmed) onChunk(trimmed);
+      buffer = '';
+    },
+  };
+}
+
+/**
+ * Stream a coaching completion. Emits sentence-boundary chunks through
+ * `onChunk` as tokens arrive and resolves with the full concatenated text once
+ * the stream ends. If `onChunk` is omitted this is a plain (non-pipelined)
+ * completion — behaviour is identical to the old `messages.create` path, so all
+ * existing callers keep working unchanged.
+ */
+async function streamCoaching(
+  systemPrompt: string,
+  messages: Anthropic.MessageParam[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  if (!onChunk) {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: COACHING_MAX_TOKENS,
+      system: systemPrompt,
+      messages,
+    });
+    const block = response.content[0];
+    return block.type === 'text' ? block.text.trim() : 'HOLD';
+  }
+
+  const chunker = createChunker((chunk) => {
+    // Never speak the HOLD sentinel — it's a "stay silent" signal, not coaching.
+    if (chunk.trim() === 'HOLD') return;
+    onChunk(chunk);
+  });
+
+  const stream = anthropic.messages.stream({
+    model: COACHING_MODEL,
+    max_tokens: COACHING_MAX_TOKENS,
+    system: systemPrompt,
+    messages,
+  });
+
+  stream.on('text', (textDelta) => chunker.push(textDelta));
+
+  const finalText = (await stream.finalText()).trim();
+  // Flush any trailing partial sentence that never hit a boundary.
+  chunker.flush();
+  return finalText || 'HOLD';
+}
+
 const SALES_SYSTEM_PROMPT = `You are an AI sales coach whispering live coaching to a salesperson during a call. They hear you through their earpiece — only they can hear you.
 
 RULES:
@@ -33,38 +122,38 @@ const FALLBACK_OBJECTION_LIBRARY = `- "Too expensive" → Ask: "What ROI would m
 - "We already have a solution" → Ask: "What's the one thing your current solution doesn't do well?"
 - "Need to check with my boss" → Ask: "If it were just your decision, would you move forward?"`;
 
+/**
+ * Build the message list sent to Claude. `history` is already the rolling,
+ * summarized context assembled by the Session (see Session.ts), so we send it
+ * as-is rather than re-slicing here.
+ */
+function buildMessages(
+  history: ConversationTurn[],
+  latestTranscript: string
+): Anthropic.MessageParam[] {
+  return [
+    ...history.map((t) => ({ role: t.role, content: t.content })),
+    {
+      role: 'user',
+      content: `New transcript: "${latestTranscript}"`,
+    },
+  ];
+}
+
 export async function generateSalesCoaching(
   latestTranscript: string,
   prospectContext: string,
   callGoal: string,
   objectionLibrary: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
   const systemPrompt = SALES_SYSTEM_PROMPT
     .replace('{{PROSPECT_CONTEXT}}', prospectContext.trim() || 'Not provided')
     .replace('{{CALL_GOAL}}', callGoal.trim() || 'Book a follow-up call or close the deal')
     .replace('{{OBJECTION_LIBRARY}}', objectionLibrary.trim() || FALLBACK_OBJECTION_LIBRARY);
 
-  const messages: Anthropic.MessageParam[] = [
-    ...history.slice(-8).map((t) => ({
-      role: t.role,
-      content: t.content,
-    })),
-    {
-      role: 'user',
-      content: `New transcript: "${latestTranscript}"`,
-    },
-  ];
-
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 80,
-    system: systemPrompt,
-    messages,
-  });
-
-  const block = response.content[0];
-  return block.type === 'text' ? block.text.trim() : 'HOLD';
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
 }
 
 // Shared live-coaching rules for the dating/networking/pitching modes. These
@@ -79,28 +168,10 @@ const LIVE_RULES = `RULES:
 async function generateCoaching(
   systemPrompt: string,
   latestTranscript: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
-  const messages: Anthropic.MessageParam[] = [
-    ...history.slice(-8).map((t) => ({
-      role: t.role,
-      content: t.content,
-    })),
-    {
-      role: 'user',
-      content: `New transcript: "${latestTranscript}"`,
-    },
-  ];
-
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 80,
-    system: systemPrompt,
-    messages,
-  });
-
-  const block = response.content[0];
-  return block.type === 'text' ? block.text.trim() : 'HOLD';
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
 }
 
 export async function generateDatingCoaching(
@@ -108,7 +179,8 @@ export async function generateDatingCoaching(
   name: string,
   profileUrl: string,
   intent: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
   const systemPrompt = `You are an expert dating coach whispering live coaching to someone on a date. They hear you through their earpiece — only they can hear you.
 
@@ -125,14 +197,15 @@ DATE: ${name.trim() || 'Not provided'}
 PROFILE: ${profileUrl.trim() || 'Not provided'}
 INTENT: ${intent.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
 }
 
 export async function generateNetworkingCoaching(
   latestTranscript: string,
   eventName: string,
   attendeeList: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
   const systemPrompt = `You are an expert networking coach whispering live coaching to someone working a room. They hear you through their earpiece — only they can hear you.
 
@@ -147,7 +220,7 @@ EVENT: ${eventName.trim() || 'Not provided'}
 TARGET CONTACTS:
 ${attendeeList.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
 }
 
 export async function generatePitchingCoaching(
@@ -155,7 +228,8 @@ export async function generatePitchingCoaching(
   title: string,
   deck: string,
   audience: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
   const systemPrompt = `You are an expert pitch coach whispering live coaching to a presenter mid-pitch. They hear you through their earpiece — only they can hear you.
 
@@ -173,5 +247,48 @@ AUDIENCE: ${audience.trim() || 'Not provided'}
 DECK / KEY POINTS:
 ${deck.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+}
+
+/**
+ * Condense a slice of older conversation turns into a few sentences, used by
+ * the Session's rolling context window (see Session.ts). Runs as its own small,
+ * non-streaming Claude call so it never blocks the live coaching path. Returns
+ * an empty string on failure so the caller can fall back gracefully (keep the
+ * raw turns) rather than dropping context.
+ */
+export async function summarizeConversation(
+  turns: ConversationTurn[],
+  priorSummary = ''
+): Promise<string> {
+  if (turns.length === 0) return priorSummary;
+
+  const transcript = turns
+    .map((t) => `${t.role === 'user' ? 'Speaker' : 'Coach'}: ${t.content}`)
+    .join('\n');
+
+  const priorBlock = priorSummary
+    ? `Existing summary so far:\n${priorSummary}\n\nNewer turns to fold in:\n`
+    : 'Conversation so far:\n';
+
+  try {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: 200,
+      system:
+        'You compress conversation history for context. Output only the summary, no preamble.',
+      messages: [
+        {
+          role: 'user',
+          content: `${priorBlock}${transcript}\n\nSummarize the key points of this conversation so far in 3-5 sentences for context.`,
+        },
+      ],
+    });
+    const block = response.content[0];
+    const summary = block.type === 'text' ? block.text.trim() : '';
+    return summary || priorSummary;
+  } catch {
+    // On any failure, keep the prior summary; the Session will retain raw turns.
+    return priorSummary;
+  }
 }

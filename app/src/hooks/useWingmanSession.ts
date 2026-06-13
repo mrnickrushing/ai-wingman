@@ -159,6 +159,18 @@ export function useWingmanSession() {
       // Start a new recording segment. We record a complete AAC/m4a container
       // each cycle (reliable on both iOS and Android); Deepgram auto-detects
       // the codec server-side.
+      //
+      // NOISE SUPPRESSION / ECHO CANCELLATION: expo-av's RecordingOptions does
+      // NOT expose noise suppression, echo cancellation, or AGC — its API
+      // surface (extension/outputFormat/encoder/sampleRate/channels/bitRate)
+      // has no field for them, and it does not wire up the platform voice-comm
+      // audio sources (Android VOICE_COMMUNICATION / iOS AVAudioSession
+      // .voiceChat mode) that enable the OS DSP. We instead lean on Deepgram's
+      // server-side denoising (see server/src/services/deepgram.ts). FLAGGED
+      // FOR A FUTURE NATIVE MODULE: to get on-device suppression we'd need a
+      // custom native recorder (e.g. AudioRecord with VOICE_COMMUNICATION +
+      // NoiseSuppressor/AcousticEchoCanceler on Android, and an AVAudioSession
+      // configured for voice chat on iOS).
       const recording = new Audio.Recording();
       try {
         await recording.prepareToRecordAsync({

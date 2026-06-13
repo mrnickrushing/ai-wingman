@@ -3,8 +3,6 @@ workflows:
     name: iOS — App Store Distribution
     max_build_duration: 120
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Codemagic
     environment:
       groups:
         - appstore_credentials

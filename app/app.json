@@ -12,14 +12,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.aiwingman.app",
+      "bundleIdentifier": "com.rushingtechnologies.aiwingman",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
         "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods."
       }
     },
     "android": {
-      "package": "com.aiwingman.app",
+      "package": "com.rushingtechnologies.aiwingman",
       "permissions": [
         "RECORD_AUDIO",
         "BLUETOOTH",

@@ -1,0 +1,127 @@
+workflows:
+  ios-distribution:
+    name: iOS — App Store Distribution
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: App Store Connect
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.rushingtechnologies.aiwingman
+      vars:
+        BUNDLE_ID: com.rushingtechnologies.aiwingman
+        XCODE_PROJECT: AIWingman.xcodeproj
+        XCODE_WORKSPACE: AIWingman.xcworkspace
+        XCODE_SCHEME: AIWingman
+      node: 22
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $CM_BUILD_DIR/app/node_modules
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd app
+          npm ci
+      - name: Expo prebuild
+        script: |
+          cd app
+          npx expo prebuild --platform ios --clean
+      - name: Set bundle version
+        script: |
+          cd app/ios
+          agvtool new-version -all $BUILD_NUMBER
+      - name: Install CocoaPods
+        script: |
+          cd app/ios
+          pod install
+      - name: Build iOS archive
+        script: |
+          cd app/ios
+          xcodebuild \
+            -workspace $XCODE_WORKSPACE \
+            -scheme $XCODE_SCHEME \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=PH4AKDQ4Q7 \
+            archive \
+            | xcpretty
+      - name: Export IPA
+        script: |
+          xcode-project use-profiles
+          xcodebuild \
+            -exportArchive \
+            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
+            -exportOptionsPlist /Users/builder/export_options.plist \
+            -exportPath $CM_BUILD_DIR/build/ipa \
+            | xcpretty
+    artifacts:
+      - build/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - External Testers
+      email:
+        recipients:
+          - nickrushing849@icloud.com
+        notify:
+          success: true
+          failure: true
+
+  ios-development:
+    name: iOS — Development Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.rushingtechnologies.aiwingman
+      vars:
+        BUNDLE_ID: com.rushingtechnologies.aiwingman
+        XCODE_WORKSPACE: AIWingman.xcworkspace
+        XCODE_SCHEME: AIWingman
+      node: 22
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $CM_BUILD_DIR/app/node_modules
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd app
+          npm ci
+      - name: Expo prebuild
+        script: |
+          cd app
+          npx expo prebuild --platform ios --clean
+      - name: Install CocoaPods
+        script: |
+          cd app/ios
+          pod install
+      - name: Build iOS (debug)
+        script: |
+          cd app/ios
+          xcodebuild \
+            -workspace $XCODE_WORKSPACE \
+            -scheme $XCODE_SCHEME \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            build \
+            | xcpretty
+    artifacts:
+      - app/ios/build/*.ipa
+    publishing:
+      email:
+        recipients:
+          - nickrushing849@icloud.com
+        notify:
+          success: true
+          failure: true

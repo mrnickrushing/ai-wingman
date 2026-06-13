@@ -37,6 +37,28 @@ workflows:
         script: |
           cd app/ios
           pod install
+      - name: Set up keychain
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          cd app/ios
+          app-store-connect fetch-signing-files \
+            --issuer-id @env:APP_STORE_CONNECT_ISSUER_ID \
+            --key-id @env:APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY \
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
+            --type IOS_APP_STORE \
+            --create \
+            "$BUNDLE_ID"
+      - name: Set up signing certificate
+        script: |
+          keychain add-certificates
+      - name: Set up code signing settings
+        script: |
+          cd app/ios
+          xcode-project use-profiles \
+            --project "$XCODE_PROJECT"
       - name: Build iOS archive
         script: |
           cd app/ios
@@ -52,7 +74,6 @@ workflows:
             | xcpretty
       - name: Export IPA
         script: |
-          xcode-project use-profiles
           xcodebuild \
             -exportArchive \
             -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \

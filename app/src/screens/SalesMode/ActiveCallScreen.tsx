@@ -1,22 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Animated,
-  Alert,
+  View, Text, TouchableOpacity, StyleSheet,
+  SafeAreaView, Animated, Alert, Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
+import { AudioWaveform } from '../../components/AudioWaveform';
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+const { width } = Dimensions.get('window');
+
+function formatTime(s: number): string {
+  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
 interface Props {
@@ -26,249 +23,261 @@ interface Props {
 export function ActiveCallScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
   const {
-    isConnected,
-    isRecording,
-    transcript,
-    currentCoaching,
-    elapsedSeconds,
-    wordsSelf,
-    salesSetup,
+    isConnected, isRecording, transcript, currentCoaching,
+    elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching,
+    coachingHistory,
   } = useSessionStore();
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ringAnim = useRef(new Animated.Value(1)).current;
+  const ringOpacity = useRef(new Animated.Value(0.6)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const [showCoaching, setShowCoaching] = useState(false);
 
-  // Start session on mount
+  useEffect(() => { start(); return () => { stop(); }; }, []);
+
+  // Header entrance
   useEffect(() => {
-    start();
-    return () => {
-      stop();
-    };
+    Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
-  // Pulse animation when recording
+  // Mic pulse ring
   useEffect(() => {
     if (isRecording) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.15, duration: 900, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+          Animated.parallel([
+            Animated.timing(ringAnim, { toValue: 1.6, duration: 1200, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ringAnim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+          ]),
         ])
       ).start();
     } else {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
+      ringAnim.setValue(1);
+      ringOpacity.setValue(0);
     }
   }, [isRecording]);
 
+  // Show coaching bubble when new coaching arrives
+  useEffect(() => {
+    if (currentCoaching) setShowCoaching(true);
+  }, [currentCoaching]);
+
+  const dismissCoaching = () => {
+    setShowCoaching(false);
+    setCurrentCoaching(null);
+  };
+
   const handleEnd = () => {
-    Alert.alert('End Call?', 'This will stop the session and disconnect.', [
+    Alert.alert('End Session?', 'This will stop the call and show your summary.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End Call',
-        style: 'destructive',
-        onPress: async () => {
-          await stop();
-          onEnd();
-        },
-      },
+      { text: 'End Call', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
     ]);
   };
 
-  // Talk ratio — just our word count vs expected 50/50
-  const talkRatio = wordsSelf > 0 ? Math.min(100, Math.round((wordsSelf / Math.max(wordsSelf, 50)) * 100)) : 0;
-  const talkRatioColor = talkRatio > 65 ? '#FF3D8F' : talkRatio > 50 ? '#F5A623' : '#00C9A7';
+  // Talk ratio: estimate based on words spoken vs a 50/50 benchmark
+  const totalWords = Math.max(wordsSelf, 1);
+  const talkPct = Math.min(100, Math.round((wordsSelf / Math.max(totalWords, 80)) * 100));
+  const talkColor = talkPct > 65 ? '#ec4899' : talkPct > 50 ? '#f59e0b' : '#4ade80';
+
+  const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <CoachingBubble text={currentCoaching} />
+    <View style={s.root}>
+      <LinearGradient colors={['#080818', '#050510']} style={StyleSheet.absoluteFillObject} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerLabel}>SALES MODE</Text>
-          <Text style={styles.headerProspect} numberOfLines={1}>
-            {salesSetup.prospectName
-              ? `${salesSetup.prospectName}${salesSetup.company ? ` · ${salesSetup.company}` : ''}`
-              : 'Active call'}
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={[styles.statusDot, { backgroundColor: isConnected ? '#00C9A7' : '#FF3D8F' }]} />
-          <Text style={styles.timer}>{formatTime(elapsedSeconds)}</Text>
-        </View>
-      </View>
+      {/* Ambient glow when coaching arrives */}
+      {showCoaching && currentCoaching && (
+        <View style={s.glowOverlay} pointerEvents="none" />
+      )}
 
-      {/* Talk ratio bar */}
-      <View style={styles.ratioRow}>
-        <Text style={styles.ratioLabel}>Talk ratio</Text>
-        <View style={styles.ratioBar}>
-          <View
-            style={[
-              styles.ratioFill,
-              { width: `${talkRatio}%` as any, backgroundColor: talkRatioColor },
-            ]}
-          />
-        </View>
-        <Text style={[styles.ratioValue, { color: talkRatioColor }]}>{talkRatio}%</Text>
-      </View>
+      {/* Coaching bubble — overlays header */}
+      {showCoaching && currentCoaching && (
+        <CoachingBubble text={currentCoaching} onDismiss={dismissCoaching} />
+      )}
 
-      {/* Transcript */}
-      <View style={styles.transcriptArea}>
-        <Text style={styles.sectionLabel}>TRANSCRIPT</Text>
-        <TranscriptView entries={transcript} />
-      </View>
-
-      {/* Record button */}
-      <View style={styles.footer}>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <View style={[styles.recordIndicator, isRecording && styles.recordIndicatorActive]}>
-            <View style={styles.recordDot} />
+      <SafeAreaView style={s.safe}>
+        {/* Status bar */}
+        <Animated.View style={[s.statusBar, { opacity: headerAnim }]}>
+          <View style={s.statusLeft}>
+            <View style={[s.statusDot, { backgroundColor: isConnected ? '#4ade80' : '#ec4899' }]} />
+            <Text style={[s.statusText, { color: isConnected ? '#4ade80' : '#ec4899' }]}>
+              {isConnected ? (isRecording ? 'Listening' : 'Connected') : 'Disconnected'}
+            </Text>
+          </View>
+          <View style={s.timerBox}>
+            <Text style={s.timerText}>{formatTime(elapsedSeconds)}</Text>
+          </View>
+          <View style={s.coachingCount}>
+            <Text style={s.coachingCountVal}>{coachingHistory.length}</Text>
+            <Text style={s.coachingCountLbl}>tips</Text>
           </View>
         </Animated.View>
-        <Text style={styles.recordLabel}>
-          {isRecording ? 'Listening' : isConnected ? 'Connecting…' : 'Disconnected'}
-        </Text>
-        <TouchableOpacity style={styles.endBtn} onPress={handleEnd}>
-          <Text style={styles.endBtnText}>End Call</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+
+        {/* Prospect header */}
+        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+          <View style={s.prospectAvatar}>
+            <Text style={s.prospectInitial}>
+              {salesSetup.prospectName?.[0]?.toUpperCase() ?? '?'}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.prospectName} numberOfLines={1}>{prospectLabel}</Text>
+            {salesSetup.callGoal ? (
+              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {salesSetup.callGoal}</Text>
+            ) : null}
+          </View>
+          <View style={s.talkRatioChip}>
+            <Text style={[s.talkRatioPct, { color: talkColor }]}>{talkPct}%</Text>
+            <Text style={s.talkRatioLbl}>you</Text>
+          </View>
+        </Animated.View>
+
+        {/* Talk ratio bar */}
+        <View style={s.ratioTrack}>
+          <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
+        </View>
+
+        {/* Transcript */}
+        <View style={s.transcriptArea}>
+          <View style={s.transcriptHeader}>
+            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+            {transcript.length > 0 && (
+              <Text style={s.wordCount}>{wordsSelf} words</Text>
+            )}
+          </View>
+          <TranscriptView entries={transcript} />
+        </View>
+
+        {/* Bottom controls */}
+        <View style={s.bottomBar}>
+          <LinearGradient
+            colors={['rgba(5,5,16,0)', 'rgba(5,5,16,0.95)', '#050510']}
+            style={s.bottomFade}
+            pointerEvents="none"
+          />
+          <View style={s.waveContainer}>
+            <AudioWaveform isActive={isRecording} color="#6366f1" height={36} barCount={20} />
+          </View>
+          <View style={s.controls}>
+            <View style={s.micWrap}>
+              <Animated.View style={[s.micRing, {
+                transform: [{ scale: ringAnim }],
+                opacity: ringOpacity,
+              }]} />
+              <View style={[s.micBtn, isRecording && s.micBtnActive]}>
+                <Text style={s.micIcon}>🎙️</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
+              <Text style={s.endBtnText}>End Call</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0A0A14',
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#050510' },
+  safe: { flex: 1 },
+  glowOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(99,102,241,0.04)',
+    zIndex: 50,
   },
-  header: {
-    flexDirection: 'row',
+
+  statusBar: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#5C6BFF22',
-    marginTop: 56, // space for coaching bubble
   },
-  headerLabel: {
-    color: '#5C6BFF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
+  statusLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.4 },
+  timerBox: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5,
   },
-  headerProspect: {
-    color: '#F0F0FA',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 2,
-    maxWidth: 220,
+  timerText: {
+    color: '#f1f5f9', fontSize: 15, fontWeight: '700',
+    letterSpacing: 1, fontVariant: ['tabular-nums'],
   },
-  headerRight: {
-    alignItems: 'flex-end',
-    gap: 4,
+  coachingCount: { alignItems: 'center' },
+  coachingCountVal: { color: '#8b5cf6', fontSize: 16, fontWeight: '800' },
+  coachingCountLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
+
+  prospectBar: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 12, gap: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  prospectAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(99,102,241,0.2)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.35)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  timer: {
-    color: '#888899',
-    fontSize: 16,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
+  prospectInitial: { color: '#6366f1', fontSize: 18, fontWeight: '800' },
+  prospectName: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
+  prospectGoal: { color: '#475569', fontSize: 11, marginTop: 2, lineHeight: 16 },
+  talkRatioChip: { alignItems: 'center', flexShrink: 0 },
+  talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
+
+  ratioTrack: {
+    height: 3, marginHorizontal: 20, marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden',
   },
-  ratioRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E30',
+  ratioFill: { height: '100%', borderRadius: 2 },
+
+  transcriptArea: { flex: 1 },
+  transcriptHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingHorizontal: 20, marginBottom: 6,
   },
-  ratioLabel: {
-    color: '#666680',
-    fontSize: 11,
-    fontWeight: '600',
-    width: 70,
+  sectionLabel: { color: '#1e293b', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
+  wordCount: { color: '#334155', fontSize: 10, fontWeight: '600' },
+
+  bottomBar: {
+    paddingBottom: 8, position: 'relative',
   },
-  ratioBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#1E1E30',
-    borderRadius: 2,
-    overflow: 'hidden',
+  bottomFade: {
+    position: 'absolute', top: -40, left: 0, right: 0, height: 50,
   },
-  ratioFill: {
-    height: '100%',
-    borderRadius: 2,
+  waveContainer: {
+    alignItems: 'center', paddingHorizontal: 20,
+    paddingTop: 8, paddingBottom: 4,
   },
-  ratioValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    width: 36,
-    textAlign: 'right',
+  controls: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 24,
+    paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8,
   },
-  transcriptArea: {
-    flex: 1,
-    paddingTop: 12,
+  micWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  micRing: {
+    position: 'absolute', width: 70, height: 70,
+    borderRadius: 35, borderWidth: 2, borderColor: '#6366f1',
   },
-  sectionLabel: {
-    color: '#44445A',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
-    paddingHorizontal: 20,
-    marginBottom: 4,
+  micBtn: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: 'rgba(99,102,241,0.12)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#1E1E30',
+  micBtnActive: {
+    backgroundColor: 'rgba(99,102,241,0.22)',
+    borderColor: 'rgba(99,102,241,0.6)',
   },
-  recordIndicator: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1E1E30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#2E2E44',
-  },
-  recordIndicatorActive: {
-    backgroundColor: '#5C6BFF22',
-    borderColor: '#5C6BFF66',
-  },
-  recordDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#5C6BFF',
-  },
-  recordLabel: {
-    color: '#666680',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
+  micIcon: { fontSize: 24 },
   endBtn: {
-    marginTop: 4,
-    paddingHorizontal: 28,
-    paddingVertical: 10,
-    backgroundColor: '#FF3D8F22',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF3D8F44',
+    backgroundColor: 'rgba(236,72,153,0.12)',
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
   },
-  endBtnText: {
-    color: '#FF3D8F',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  endBtnText: { color: '#ec4899', fontSize: 14, fontWeight: '700' },
 });

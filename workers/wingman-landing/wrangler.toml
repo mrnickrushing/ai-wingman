@@ -1,0 +1,9 @@
+name = "wingman-landing"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+account_id = "2e9f8521c5b27a3dede0ef667a6b8151"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wingman-db"
+database_id = "1dcddd5c-7eb9-4cd0-a236-62444dba8888"

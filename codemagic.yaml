@@ -8,9 +8,6 @@ workflows:
     environment:
       groups:
         - appstore_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.rushingtechnologies.aiwingman
       vars:
         BUNDLE_ID: com.rushingtechnologies.aiwingman
         XCODE_PROJECT: AIWingman.xcodeproj

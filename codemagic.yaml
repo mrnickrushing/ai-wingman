@@ -12,7 +12,6 @@ workflows:
         XCODE_WORKSPACE: AIWingman.xcworkspace
         XCODE_SCHEME: AIWingman
         APPLE_TEAM_ID: PH4AKDQ4Q7
-        EAS_PROJECT_ID: $EAS_PROJECT_ID
       node: 22
     cache:
       cache_paths:
@@ -141,8 +140,6 @@ workflows:
     environment:
       groups:
         - appstore_credentials
-      vars:
-        EAS_PROJECT_ID: $EAS_PROJECT_ID
       node: 22
     scripts:
       - name: Install npm dependencies

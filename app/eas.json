@@ -11,8 +11,5 @@
       "channel": "development",
       "developmentClient": true
     }
-  },
-  "update": {
-    "channel": "production"
   }
 }

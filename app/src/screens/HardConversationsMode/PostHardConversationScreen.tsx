@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
+import { recordSessionStats } from '../../utils/statsStorage';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -39,12 +40,14 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
   const statAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    recordSession(computeWingmanScore({
+    const score = computeWingmanScore({
       coachingTipsTaken: coachingHistory.length,
       elapsedSeconds,
       wordsSelf,
       rating: lastRating,
-    }));
+    });
+    recordSession(score);
+    recordSessionStats(score);
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),

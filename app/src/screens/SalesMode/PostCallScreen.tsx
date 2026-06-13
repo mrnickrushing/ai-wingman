@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
+import { recordSessionStats } from '../../utils/statsStorage';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -24,12 +25,14 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
   const [rating, setRating] = useState(0);
 
   useEffect(() => {
-    recordSession(computeWingmanScore({
+    const score = computeWingmanScore({
       coachingTipsTaken: coachingHistory.length,
       elapsedSeconds,
       wordsSelf,
       rating: 0,
-    }));
+    });
+    recordSession(score);
+    recordSessionStats(score);
   }, []);
 
   // North Star metric: "Did Wingman help you get the outcome you wanted?"

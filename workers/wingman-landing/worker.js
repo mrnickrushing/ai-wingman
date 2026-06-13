@@ -199,7 +199,7 @@ const PAGES = {
     <div class="mode-card">
       <div class="mode-icon">💼</div>
       <h3>Sales &amp; Cold Calls</h3>
-      <p>Detects objections and whispers instant rebuttals. Spots buying signals. Monitors talk-to-listen ratio.</p>
+      <p>Detects objections and whispers instant rebuttals. Spots buying signals. Tracks your speaking pace.</p>
       <span class="mode-tag">Live now</span>
     </div>
     <div class="mode-card">

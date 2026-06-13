@@ -3,6 +3,7 @@ import { SessionConfig } from '../types';
 export type WingmanEvent =
   | { type: 'connected' }
   | { type: 'disconnected' }
+  | { type: 'reconnecting'; attempt: number }
   | { type: 'session_started'; sessionId: string }
   | { type: 'transcript'; text: string; isFinal: boolean }
   | { type: 'coaching'; text: string }
@@ -19,6 +20,9 @@ export class WingmanClient {
   private handlers: EventHandler[] = [];
   private reconnectAttempts = 0;
   private maxReconnects = 3;
+  private config: SessionConfig | null = null;
+  private intentionalClose = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   on(handler: EventHandler): () => void {
     this.handlers.push(handler);
@@ -32,14 +36,24 @@ export class WingmanClient {
   }
 
   connect(config: SessionConfig): void {
-    if (this.ws) this.disconnect();
+    this.config = config;
+    this.intentionalClose = false;
+    this.reconnectAttempts = 0;
+    this.open();
+  }
+
+  private open(): void {
+    if (!this.config) return;
+    if (this.ws) {
+      try { this.ws.close(); } catch { /* noop */ }
+    }
 
     this.ws = new WebSocket(SERVER_URL);
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.emit({ type: 'connected' });
-      this.send({ type: 'start_session', config });
+      this.send({ type: 'start_session', config: this.config });
     };
 
     this.ws.onmessage = (event) => {
@@ -52,8 +66,18 @@ export class WingmanClient {
     };
 
     this.ws.onclose = () => {
-      this.emit({ type: 'disconnected' });
       this.ws = null;
+      this.emit({ type: 'disconnected' });
+
+      // Auto-reconnect on unexpected drops (network blips mid-call).
+      if (!this.intentionalClose && this.reconnectAttempts < this.maxReconnects) {
+        this.reconnectAttempts += 1;
+        const delay = Math.min(8000, 1000 * 2 ** (this.reconnectAttempts - 1));
+        this.emit({ type: 'reconnecting', attempt: this.reconnectAttempts });
+        this.reconnectTimer = setTimeout(() => this.open(), delay);
+      } else if (!this.intentionalClose) {
+        this.emit({ type: 'error', message: 'Lost connection. Please restart the call.' });
+      }
     };
 
     this.ws.onerror = () => {
@@ -61,8 +85,8 @@ export class WingmanClient {
     };
   }
 
-  sendAudioChunk(base64Audio: string): void {
-    this.send({ type: 'audio_chunk', data: base64Audio });
+  sendAudioChunk(base64Audio: string, mimeType?: string): void {
+    this.send({ type: 'audio_chunk', data: base64Audio, mimeType });
   }
 
   endSession(): void {
@@ -70,6 +94,12 @@ export class WingmanClient {
   }
 
   disconnect(): void {
+    this.intentionalClose = true;
+    this.config = null;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;

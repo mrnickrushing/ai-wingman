@@ -18,8 +18,16 @@ interface Props {
 }
 
 export function PostCallScreen({ onDone, onCallAgain }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating } = useSessionStore();
   const [rating, setRating] = useState(0);
+
+  // North Star metric: "Did Wingman help you get the outcome you wanted?"
+  // Capture it into the store so it survives this screen and can be sent
+  // to the backend once a ratings endpoint exists.
+  const handleRate = (star: number) => {
+    setRating(star);
+    persistRating(star);
+  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -84,7 +92,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                 ]}
               >
                 <Text style={s.statIcon}>{stat.icon}</Text>
-                <Text style={[s.statValue, stat.color ? { color: stat.color } : {}]}>
+                <Text style={s.statValue}>
                   {stat.value}
                 </Text>
                 <Text style={s.statLabel}>{stat.label}</Text>
@@ -131,7 +139,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
               {[1, 2, 3, 4, 5].map(star => (
                 <TouchableOpacity
                   key={star}
-                  onPress={() => setRating(star)}
+                  onPress={() => handleRate(star)}
                   style={s.starBtn}
                   activeOpacity={0.7}
                 >

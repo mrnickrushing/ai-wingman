@@ -10,7 +10,7 @@ export interface SessionConfig {
 // Messages from client → server
 export type ClientMessage =
   | { type: 'start_session'; config: SessionConfig }
-  | { type: 'audio_chunk'; data: string }   // base64-encoded PCM audio
+  | { type: 'audio_chunk'; data: string; mimeType?: string }   // base64-encoded audio container (m4a/aac/wav)
   | { type: 'end_session' };
 
 // Messages from server → client

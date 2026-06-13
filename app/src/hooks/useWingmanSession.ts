@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import { wingmanClient } from '../services/wingmanClient';
 import { useSessionStore } from '../store/sessionStore';
 import { TranscriptEntry, CoachingEntry } from '../types';
@@ -8,20 +9,80 @@ import { TranscriptEntry, CoachingEntry } from '../types';
 let idCounter = 0;
 const nextId = () => String(++idCounter);
 
+const COACHING_VISIBLE_MS = 6000;
+
 export function useWingmanSession() {
-  const store = useSessionStore();
   const recordingRef = useRef<Audio.Recording | null>(null);
   const chunkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef = useRef(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Wire up WebSocket events
+  // Coaching-audio playback queue so overlapping tips play in order, not on top
+  // of each other.
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingRef = useRef(false);
+
+  const playCoachingAudio = useCallback(async (base64Mp3: string) => {
+    audioQueueRef.current.push(base64Mp3);
+    if (isPlayingRef.current) return;
+    isPlayingRef.current = true;
+
+    const { setWingmanSpeaking } = useSessionStore.getState();
+    while (audioQueueRef.current.length > 0) {
+      const b64 = audioQueueRef.current.shift()!;
+      const uri = `${FileSystem.cacheDirectory}wm-coach-${nextId()}.mp3`;
+      let sound: Audio.Sound | null = null;
+      try {
+        await FileSystem.writeAsStringAsync(uri, b64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const created = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: true, volume: 1.0 }
+        );
+        sound = created.sound;
+        setWingmanSpeaking(true);
+        await new Promise<void>((resolve) => {
+          sound!.setOnPlaybackStatusUpdate((status) => {
+            if (!status.isLoaded) {
+              if (status.error) resolve();
+              return;
+            }
+            if (status.didJustFinish) resolve();
+          });
+        });
+      } catch {
+        // ignore playback errors — text coaching is still shown on screen
+      } finally {
+        if (sound) {
+          try { await sound.unloadAsync(); } catch { /* noop */ }
+        }
+        FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+      }
+    }
+
+    setWingmanSpeaking(false);
+    isPlayingRef.current = false;
+  }, []);
+
+  // Wire up WebSocket events. Actions are read via getState() so this effect
+  // never needs to re-subscribe and runs exactly once.
   useEffect(() => {
     const unsubscribe = wingmanClient.on((event) => {
+      const store = useSessionStore.getState();
+
       if (event.type === 'connected') {
         store.setConnected(true);
+        store.setReconnecting(false);
+        store.setError(null);
+      } else if (event.type === 'reconnecting') {
+        store.setConnected(false);
+        store.setReconnecting(true);
       } else if (event.type === 'disconnected') {
         store.setConnected(false);
+      } else if (event.type === 'error') {
+        store.setError(event.message);
       } else if (event.type === 'session_started') {
         store.setSessionId(event.sessionId);
       } else if (event.type === 'transcript') {
@@ -33,7 +94,7 @@ export function useWingmanSession() {
             timestamp: Date.now(),
           };
           store.addTranscript(entry);
-          store.incrementWords(event.text.split(' ').length);
+          store.incrementWords(event.text.split(/\s+/).filter(Boolean).length);
         } else {
           store.updateLastTranscript(event.text);
         }
@@ -45,15 +106,24 @@ export function useWingmanSession() {
         };
         store.addCoaching(entry);
         store.setCurrentCoaching(event.text);
-        // Auto-dismiss coaching after 6 seconds
-        setTimeout(() => store.setCurrentCoaching(null), 6000);
+        // Tactile nudge so the user knows to listen — they can't watch the screen.
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+        // Reset the auto-dismiss timer each time a new tip arrives so a previous
+        // timer can't clear a fresh tip early.
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = setTimeout(
+          () => useSessionStore.getState().setCurrentCoaching(null),
+          COACHING_VISIBLE_MS
+        );
+      } else if (event.type === 'coaching_audio') {
+        void playCoachingAudio(event.audio);
       } else if (event.type === 'session_ended') {
         store.setSessionId(null);
       }
     });
 
     return unsubscribe;
-  }, []);
+  }, [playCoachingAudio]);
 
   const startChunkRecording = useCallback(async () => {
     await Audio.requestPermissionsAsync();
@@ -61,12 +131,13 @@ export function useWingmanSession() {
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
       shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
     });
 
     const captureAndSend = async () => {
       if (!isActiveRef.current) return;
 
-      // Stop any existing recording and grab audio
+      // Stop the current segment and ship it as a complete container file.
       if (recordingRef.current) {
         try {
           await recordingRef.current.stopAndUnloadAsync();
@@ -75,7 +146,7 @@ export function useWingmanSession() {
             const b64 = await FileSystem.readAsStringAsync(uri, {
               encoding: FileSystem.EncodingType.Base64,
             });
-            wingmanClient.sendAudioChunk(b64);
+            wingmanClient.sendAudioChunk(b64, 'audio/mp4');
             await FileSystem.deleteAsync(uri, { idempotent: true });
           }
         } catch {
@@ -85,30 +156,33 @@ export function useWingmanSession() {
 
       if (!isActiveRef.current) return;
 
-      // Start a new recording segment
+      // Start a new recording segment. We record a complete AAC/m4a container
+      // each cycle (reliable on both iOS and Android); Deepgram auto-detects
+      // the codec server-side.
       const recording = new Audio.Recording();
       try {
         await recording.prepareToRecordAsync({
           isMeteringEnabled: false,
           android: {
-            extension: '.wav',
-            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+            extension: '.m4a',
+            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+            audioEncoder: Audio.AndroidAudioEncoder.AAC,
             sampleRate: 16000,
             numberOfChannels: 1,
-            bitRate: 16 * 16000,
+            bitRate: 64000,
           },
           ios: {
-            extension: '.wav',
+            extension: '.m4a',
+            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
             audioQuality: Audio.IOSAudioQuality.MEDIUM,
             sampleRate: 16000,
             numberOfChannels: 1,
-            bitRate: 16 * 16000,
-            linearPCMBitDepth: 16,
-            linearPCMIsBigEndian: false,
-            linearPCMIsFloat: false,
+            bitRate: 64000,
           },
-          web: {},
+          web: {
+            mimeType: 'audio/webm',
+            bitsPerSecond: 64000,
+          },
         });
         await recording.startAsync();
         recordingRef.current = recording;
@@ -123,20 +197,18 @@ export function useWingmanSession() {
     chunkTimerRef.current = setInterval(captureAndSend, 1500);
   }, []);
 
-  const start = useCallback(
-    async (config = store.getSessionConfig()) => {
-      store.reset();
-      isActiveRef.current = true;
-      wingmanClient.connect(config);
+  const start = useCallback(async (config = useSessionStore.getState().getSessionConfig()) => {
+    const store = useSessionStore.getState();
+    store.reset();
+    isActiveRef.current = true;
+    wingmanClient.connect(config);
 
-      // Elapsed time clock
-      clockRef.current = setInterval(() => store.incrementElapsed(), 1000);
+    // Elapsed time clock
+    clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
 
-      await startChunkRecording();
-      store.setRecording(true);
-    },
-    [store, startChunkRecording]
-  );
+    await startChunkRecording();
+    useSessionStore.getState().setRecording(true);
+  }, [startChunkRecording]);
 
   const stop = useCallback(async () => {
     isActiveRef.current = false;
@@ -149,6 +221,10 @@ export function useWingmanSession() {
       clearInterval(clockRef.current);
       clockRef.current = null;
     }
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
 
     if (recordingRef.current) {
       try {
@@ -159,10 +235,14 @@ export function useWingmanSession() {
       recordingRef.current = null;
     }
 
+    audioQueueRef.current = [];
+
     wingmanClient.endSession();
     wingmanClient.disconnect();
+    const store = useSessionStore.getState();
     store.setRecording(false);
-  }, [store]);
+    store.setWingmanSpeaking(false);
+  }, []);
 
   return { start, stop };
 }

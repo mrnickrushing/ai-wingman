@@ -1,44 +1,30 @@
-import { createClient, LiveTranscriptionEvents, LiveClient } from '@deepgram/sdk';
+import { createClient } from '@deepgram/sdk';
 
-export type TranscriptHandler = (text: string, isFinal: boolean) => void;
+const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
-export function createDeepgramStream(onTranscript: TranscriptHandler): LiveClient {
-  const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
-
-  const connection = deepgram.listen.live({
+/**
+ * Transcribe a single, self-contained audio chunk (a complete container file
+ * such as m4a/aac/wav/webm) using Deepgram's pre-recorded API.
+ *
+ * We intentionally do NOT use the live/streaming socket with a raw `linear16`
+ * encoding here: the mobile client (expo-av) cannot produce raw PCM on Android,
+ * and shipping discrete container files into a raw-PCM stream corrupted the
+ * audio. Deepgram auto-detects the codec from the container header, so this
+ * path works identically on iOS and Android.
+ */
+export async function transcribeChunk(audio: Buffer): Promise<string> {
+  const { result, error } = await deepgram.listen.prerecorded.transcribeFile(audio, {
     model: 'nova-3',
     language: 'en-US',
     smart_format: true,
-    interim_results: true,
-    utterance_end_ms: 1000,
-    vad_events: true,
-    encoding: 'linear16',
-    sample_rate: 16000,
-    channels: 1,
+    punctuate: true,
   });
 
-  connection.on(LiveTranscriptionEvents.Open, () => {
-    console.log('[Deepgram] Connection opened');
-  });
+  if (error) {
+    throw new Error(error.message ?? 'Deepgram transcription failed');
+  }
 
-  connection.on(LiveTranscriptionEvents.Transcript, (data) => {
-    const transcript = data.channel?.alternatives?.[0]?.transcript;
-    if (transcript?.trim()) {
-      onTranscript(transcript, data.is_final ?? false);
-    }
-  });
-
-  connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
-    // Utterance ended — useful for triggering coaching on natural pauses
-  });
-
-  connection.on(LiveTranscriptionEvents.Error, (err) => {
-    console.error('[Deepgram] Error:', err);
-  });
-
-  connection.on(LiveTranscriptionEvents.Close, () => {
-    console.log('[Deepgram] Connection closed');
-  });
-
-  return connection;
+  const transcript =
+    result?.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? '';
+  return transcript.trim();
 }

@@ -12,6 +12,7 @@ workflows:
         XCODE_WORKSPACE: AIWingman.xcworkspace
         XCODE_SCHEME: AIWingman
         APPLE_TEAM_ID: PH4AKDQ4Q7
+        EAS_PROJECT_ID: $EAS_PROJECT_ID
       node: 22
     cache:
       cache_paths:
@@ -55,6 +56,13 @@ workflows:
             --archive-directory $CM_BUILD_DIR/build \
             --ipa-directory $CM_BUILD_DIR/build/ipa \
             2>&1 | tee /tmp/xcodebuild_logs/build.log
+      - name: Publish OTA update
+        script: |
+          cd app
+          npx eas-cli update \
+            --channel production \
+            --message "Build $BUILD_NUMBER from branch $CM_BRANCH" \
+            --non-interactive
     artifacts:
       - build/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -118,6 +126,36 @@ workflows:
             | xcpretty
     artifacts:
       - app/ios/build/*.ipa
+    publishing:
+      email:
+        recipients:
+          - mrnickrushing@yahoo.com
+        notify:
+          success: true
+          failure: true
+
+  ota-update:
+    name: OTA Update (EAS)
+    max_build_duration: 20
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - appstore_credentials
+      vars:
+        EAS_PROJECT_ID: $EAS_PROJECT_ID
+      node: 22
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd app
+          npm ci
+      - name: Publish OTA update
+        script: |
+          cd app
+          npx eas-cli update \
+            --channel production \
+            --message "OTA: $CM_COMMIT" \
+            --non-interactive
     publishing:
       email:
         recipients:

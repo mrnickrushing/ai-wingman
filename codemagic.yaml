@@ -148,7 +148,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Publish OTA update
         script: |
           cd app

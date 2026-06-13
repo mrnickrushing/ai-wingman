@@ -13,9 +13,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rushingtechnologies.aiwingman",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
-        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods."
+        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods.",
+        "NSFaceIDUsageDescription": "AI Wingman uses Face ID to protect your account."
       }
     },
     "android": {
@@ -32,7 +34,9 @@
         {
           "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-apple-authentication"
     ],
     "scheme": "aiwingman"
   }

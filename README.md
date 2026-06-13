@@ -16,6 +16,18 @@ The core loop: **Listen → Understand → Coach → Stay invisible.**
 4. **Coaching whispered to you** — Short, punchy suggestions delivered to your earpiece in <700ms total
 5. **You decide** — Wingman never controls you; it's a suggestion engine, not a script
 
+## Launch Flow
+
+The app now uses a gated first-run flow:
+
+1. A short onboarding carousel explains the app
+2. The user creates an account or signs in
+3. Apple Sign In is available on iOS
+4. Google Sign In is available when the OAuth client IDs are configured in the app environment
+5. A membership screen shows the monthly price before the user reaches the main app
+
+Google Cloud service-account JSON is not enough for mobile sign-in. The app needs OAuth client IDs for the Google auth flow.
+
 ---
 
 ## Modes

@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { WingmanScore } from '../../components/WingmanScore';
+import { computeWingmanScore } from '../../utils/scoring';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, coachingHistory, networkingSetup, loggedContacts } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, networkingSetup, loggedContacts, lastRating, recordSession } = useSessionStore();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -30,6 +32,12 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
+    recordSession(computeWingmanScore({
+      coachingTipsTaken: coachingHistory.length,
+      elapsedSeconds,
+      wordsSelf,
+      rating: lastRating,
+    }));
   }, []);
 
   const eventLabel = networkingSetup.eventName || 'Networking event';
@@ -48,6 +56,13 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
             <Text style={s.title}>Event Recap</Text>
             <Text style={s.prospectLabel}>{eventLabel}</Text>
           </Animated.View>
+
+          <WingmanScore
+            coachingHistory={coachingHistory}
+            elapsedSeconds={elapsedSeconds}
+            wordsSelf={wordsSelf}
+            rating={lastRating}
+          />
 
           <View style={s.statsRow}>
             <View style={s.statCard}>

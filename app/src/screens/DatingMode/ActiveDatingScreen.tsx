@@ -9,6 +9,10 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
+import { LiveStats } from '../../components/LiveStats';
+
+const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
+const NEGATIVE_VIBE = ['slow', 'awkward', 'silence'];
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -31,8 +35,25 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   const ringOpacity = useRef(new Animated.Value(0.6)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
+  const [silenceCount, setSilenceCount] = useState(0);
+  const stoppedAtRef = useRef<number | null>(null);
+  const prevRecordingRef = useRef(isRecording);
 
   useEffect(() => { start(getSessionConfig('dating')); return () => { stop(); }; }, []);
+
+  // Count silence gaps: each time recording resumes after a >3s pause.
+  useEffect(() => {
+    const prev = prevRecordingRef.current;
+    if (prev && !isRecording) {
+      stoppedAtRef.current = Date.now();
+    } else if (!prev && isRecording && stoppedAtRef.current != null) {
+      if (Date.now() - stoppedAtRef.current > 3000) {
+        setSilenceCount((c) => c + 1);
+      }
+      stoppedAtRef.current = null;
+    }
+    prevRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
@@ -79,6 +100,14 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   const wpm = Math.round(wordsSelf / minutes);
   const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
   const talkColor = wpm > 150 ? '#f43f5e' : wpm > 120 ? '#f59e0b' : '#4ade80';
+  const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
+
+  const coachLower = (currentCoaching ?? '').toLowerCase();
+  const vibe = POSITIVE_VIBE.some((w) => coachLower.includes(w))
+    ? '🔥 Hot'
+    : NEGATIVE_VIBE.some((w) => coachLower.includes(w))
+    ? '❄️ Cool'
+    : '✨ Good';
 
   const dateLabel = datingSetup.name || 'Active Date';
 
@@ -90,6 +119,8 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#150818', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <View style={s.ambientOrb1} pointerEvents="none" />
+      <View style={s.ambientOrb2} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
         <View style={s.glowOverlay} pointerEvents="none" />
@@ -143,6 +174,14 @@ export function ActiveDatingScreen({ onEnd }: Props) {
           <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
         </View>
 
+        <LiveStats
+          chips={[
+            { icon: '🤐', value: silenceCount.toString(), label: 'SILENCES' },
+            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
+            { icon: '💞', value: vibe, label: 'VIBE' },
+          ]}
+        />
+
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
             <Text style={s.sectionLabel}>TRANSCRIPT</Text>
@@ -189,6 +228,14 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(236,72,153,0.04)',
     zIndex: 50,
+  },
+  ambientOrb1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    bottom: 100, right: -60, backgroundColor: 'rgba(236,72,153,0.06)',
+  },
+  ambientOrb2: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    bottom: 60, left: -70, backgroundColor: 'rgba(244,63,94,0.05)',
   },
 
   statusBar: {

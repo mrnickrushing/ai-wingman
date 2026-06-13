@@ -9,6 +9,7 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
+import { LiveStats } from '../../components/LiveStats';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -82,6 +83,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
   const wpm = Math.round(wordsSelf / minutes);
   const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
   const talkColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
+  const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
 
   const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
 
@@ -93,6 +95,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#080818', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <View style={s.ambientOrb} pointerEvents="none" />
 
       {/* Ambient glow when coaching arrives */}
       {showCoaching && currentCoaching && (
@@ -154,6 +157,15 @@ export function ActiveCallScreen({ onEnd }: Props) {
           <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
         </View>
 
+        {/* Live stats */}
+        <LiveStats
+          chips={[
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS USED' },
+            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
+            { icon: '🎯', value: (salesSetup.callGoal || '—').slice(0, 20), label: 'GOAL' },
+          ]}
+        />
+
         {/* Transcript */}
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
@@ -202,6 +214,10 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(99,102,241,0.04)',
     zIndex: 50,
+  },
+  ambientOrb: {
+    position: 'absolute', width: 240, height: 240, borderRadius: 120,
+    top: -70, right: -70, backgroundColor: 'rgba(99,102,241,0.07)',
   },
 
   statusBar: {

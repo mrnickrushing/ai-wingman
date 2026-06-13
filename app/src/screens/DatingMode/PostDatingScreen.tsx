@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { WingmanScore } from '../../components/WingmanScore';
+import { computeWingmanScore } from '../../utils/scoring';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -18,7 +20,16 @@ interface Props {
 }
 
 export function PostDatingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
+
+  useEffect(() => {
+    recordSession(computeWingmanScore({
+      coachingTipsTaken: coachingHistory.length,
+      elapsedSeconds,
+      wordsSelf,
+      rating: lastRating,
+    }));
+  }, []);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -67,6 +78,13 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
             <Text style={s.title}>Date Recap</Text>
             <Text style={s.prospectLabel}>{datingSetup.name || 'Session ended'}</Text>
           </Animated.View>
+
+          <WingmanScore
+            coachingHistory={coachingHistory}
+            elapsedSeconds={elapsedSeconds}
+            wordsSelf={wordsSelf}
+            rating={lastRating}
+          />
 
           <View style={s.statsRow}>
             {stats.map((stat, i) => (

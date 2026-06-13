@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { WingmanScore } from '../../components/WingmanScore';
+import { computeWingmanScore } from '../../utils/scoring';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -26,7 +28,7 @@ interface Props {
 }
 
 export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, hardConvoSetup } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, hardConvoSetup, lastRating, recordSession } = useSessionStore();
 
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [finalNumber, setFinalNumber] = useState('');
@@ -37,6 +39,12 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
   const statAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
+    recordSession(computeWingmanScore({
+      coachingTipsTaken: coachingHistory.length,
+      elapsedSeconds,
+      wordsSelf,
+      rating: lastRating,
+    }));
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -81,6 +89,13 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
               <Text style={s.title}>Conversation Recap</Text>
               <Text style={s.prospectLabel}>{hardConvoSetup.situation || 'Session ended'}</Text>
             </Animated.View>
+
+            <WingmanScore
+              coachingHistory={coachingHistory}
+              elapsedSeconds={elapsedSeconds}
+              wordsSelf={wordsSelf}
+              rating={lastRating}
+            />
 
             <View style={s.statsRow}>
               {stats.map((stat, i) => (

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSessionStore } from '../store/sessionStore';
 
 interface Mode {
   id: string;
@@ -77,6 +78,15 @@ interface Props {
 export function HomeScreen({ onSelectMode }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
+  const sessions = useSessionStore((s) => s.sessions);
+  const bestScore = useSessionStore((s) => s.bestScore);
+  const streak = useSessionStore((s) => s.streak);
+
+  const liveStats = [
+    { val: sessions.toString(), lbl: 'sessions' },
+    { val: bestScore > 0 ? bestScore.toString() : '--', lbl: 'best score' },
+    { val: streak > 0 ? `${streak}d` : '--', lbl: 'streak' },
+  ];
 
   const handlePress = (mode: Mode) => {
     if (mode.available) {
@@ -122,11 +132,7 @@ export function HomeScreen({ onSelectMode }: Props) {
         </Animated.View>
 
         <Animated.View style={[s.statsRow, { opacity: headerAnim }]}>
-          {[
-            { val: '<700ms', lbl: 'end-to-end' },
-            { val: '15 words', lbl: 'max coaching' },
-            { val: '5 modes', lbl: 'coming soon' },
-          ].map((st, i) => (
+          {liveStats.map((st, i) => (
             <View key={i} style={[s.statCell, i < 2 && s.statBorder]}>
               <Text style={s.statVal}>{st.val}</Text>
               <Text style={s.statLbl}>{st.lbl}</Text>

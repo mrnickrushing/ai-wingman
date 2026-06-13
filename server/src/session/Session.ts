@@ -29,7 +29,9 @@ export class Session {
 
   receiveAudio(base64Chunk: string): void {
     const buf = Buffer.from(base64Chunk, 'base64');
-    this.deepgram.send(buf);
+    // Deepgram SDK expects ArrayBuffer, not Node Buffer
+    const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+    this.deepgram.send(arrayBuffer);
   }
 
   private async triggerCoaching(transcript: string): Promise<void> {

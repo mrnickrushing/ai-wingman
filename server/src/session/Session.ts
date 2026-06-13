@@ -1,8 +1,28 @@
 import { WebSocket } from 'ws';
 import { transcribeChunk } from '../services/deepgram';
-import { generateSalesCoaching } from '../services/claude';
+import {
+  generateSalesCoaching,
+  generateDatingCoaching,
+  generateNetworkingCoaching,
+  generatePitchingCoaching,
+  summarizeConversation,
+  generateHardConversationCoaching,
+} from '../services/claude';
 import { textToSpeech } from '../services/elevenlabs';
 import { SessionConfig, ServerMessage, ConversationTurn } from '../types';
+
+// --- Rolling context window tuning -------------------------------------------
+// Keep the most recent KEEP_RECENT_TURNS turns verbatim; everything older is
+// folded into a running summary. A "turn" here is one entry in `history`
+// (user transcript or assistant coaching), so a single coaching exchange is 2.
+const KEEP_RECENT_TURNS = 20;
+// Re-summarize at most once every RESUMMARIZE_EVERY new turns to avoid paying
+// for a summary call on every single exchange.
+const RESUMMARIZE_EVERY = 20;
+// Rough token budget. We estimate ~4 chars/token; if the assembled context
+// would blow past this we force a resummary regardless of turn count.
+const MAX_CONTEXT_TOKENS = 80_000;
+const CHARS_PER_TOKEN = 4;
 
 export class Session {
   readonly id: string;
@@ -11,6 +31,21 @@ export class Session {
   private wordCount = 0;
   private latestTranscript = '';
   private coachedTranscript = '';
+
+  // --- Rolling context state (persists for the session lifetime) ---
+  private rollingSummary = '';
+  // Number of turns already absorbed into `rollingSummary`. Turns at indices
+  // [0, summarizedUpTo) in `history` are represented by the summary.
+  private summarizedUpTo = 0;
+  // Turn count at the last summarization, so we only resummarize periodically.
+  private lastSummaryAtTurn = 0;
+
+  // --- TTS pipeline state ---
+  // Coaching audio is generated chunk-by-chunk as Claude streams. Chunks are
+  // queued here and drained by a single sequential worker so the spoken tips
+  // play back in order and never overlap on the wire.
+  private ttsQueue: string[] = [];
+  private ttsDraining = false;
 
   constructor(
     id: string,
@@ -38,7 +73,7 @@ export class Session {
 
     let text = '';
     try {
-      text = await transcribeChunk(buf);
+      text = await transcribeChunk(buf, this.config.keywords ?? []);
     } catch (err) {
       console.error(`[Session ${this.id}] Transcription error:`, (err as Error).message);
       return;
@@ -58,6 +93,13 @@ export class Session {
    * Single-flight coaching: only one Claude+TTS round-trip runs at a time.
    * If newer speech arrived while we were busy, we re-run for the latest line
    * instead of silently dropping it.
+   *
+   * Streaming pipeline: we ask Claude to stream the coaching response and hand
+   * each sentence-boundary chunk straight to the TTS queue as it arrives. This
+   * means the first spoken word can leave the server long before Claude has
+   * finished generating the full tip — the app starts hearing audio sooner. The
+   * full text `coaching` message is still sent once at the end so the on-screen
+   * transcript and the existing WebSocket message shape are unchanged.
    */
   private async maybeCoach(): Promise<void> {
     if (this.isCoaching) return;
@@ -67,22 +109,22 @@ export class Session {
     this.isCoaching = true;
     this.coachedTranscript = transcript;
     try {
-      const coaching = await generateSalesCoaching(
-        transcript,
-        this.config.prospectContext ?? '',
-        this.config.callGoal ?? '',
-        this.config.objectionLibrary ?? '',
-        this.history
-      );
+      const onChunk = (chunk: string) => {
+        // Pipe each streamed chunk to TTS immediately (fire-and-forget); the
+        // queue preserves order and serializes playback.
+        this.enqueueTts(chunk);
+      };
+
+      const coaching = await this.generateCoaching(transcript, onChunk);
 
       if (coaching && coaching !== 'HOLD') {
-        this.history.push(
-          { role: 'user', content: `Transcript: "${transcript}"` },
-          { role: 'assistant', content: coaching }
-        );
-
+        this.recordTurns(transcript, coaching);
+        // Send the full coaching text for the on-screen bubble. Audio for this
+        // tip has already been streaming via enqueueTts as chunks arrived.
         this.send({ type: 'coaching', text: coaching });
-        await this.sendAudio(coaching);
+        // Refresh the rolling summary if we've crossed the window threshold.
+        // Done after sending so it never delays the live tip.
+        void this.maybeRollUpContext();
       }
     } catch (err) {
       console.error(`[Session ${this.id}] Coaching error:`, err);
@@ -95,17 +137,172 @@ export class Session {
     }
   }
 
-  private async sendAudio(text: string): Promise<void> {
-    if (!process.env.ELEVENLABS_API_KEY) return;
+  private generateCoaching(
+    transcript: string,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    const c = this.config;
+    const history = this.buildContext();
+    switch (c.mode) {
+      case 'dating':
+        return generateDatingCoaching(
+          transcript,
+          c.datingName ?? '',
+          c.datingProfileUrl ?? '',
+          c.datingIntent ?? '',
+          history,
+          onChunk
+        );
+      case 'networking':
+        return generateNetworkingCoaching(
+          transcript,
+          c.eventName ?? '',
+          c.attendeeList ?? '',
+          history,
+          onChunk
+        );
+      case 'pitching':
+        return generatePitchingCoaching(
+          transcript,
+          c.pitchTitle ?? '',
+          c.pitchDeck ?? '',
+          c.audienceType ?? '',
+          history,
+          onChunk
+        );
+      case 'hard_conversations':
+        return generateHardConversationCoaching(
+          transcript,
+          c.scenario ?? 'confrontation',
+          c.situation ?? '',
+          c.conversationGoal ?? '',
+          history,
+          onChunk
+        );
+      default:
+        return generateSalesCoaching(
+          transcript,
+          c.prospectContext ?? '',
+          c.callGoal ?? '',
+          c.objectionLibrary ?? '',
+          history,
+          onChunk
+        );
+    }
+  }
+
+  // --- Rolling context window --------------------------------------------------
+
+  private recordTurns(transcript: string, coaching: string): void {
+    this.history.push(
+      { role: 'user', content: `Transcript: "${transcript}"` },
+      { role: 'assistant', content: coaching }
+    );
+  }
+
+  /**
+   * Assemble the context handed to Claude: the rolling summary (if any) folded
+   * in as a synthetic opening exchange, followed by the most recent turns kept
+   * verbatim. Older turns already live inside `rollingSummary`.
+   *
+   * Backward-compatible: with a short conversation the summary is empty and we
+   * simply return the recent turns, exactly like the old `history.slice(-8)`.
+   */
+  private buildContext(): ConversationTurn[] {
+    const recent = this.history.slice(this.summarizedUpTo);
+    if (!this.rollingSummary) return recent;
+
+    const summaryTurn: ConversationTurn = {
+      role: 'user',
+      content: `Earlier conversation summary: ${this.rollingSummary}\n\nRecent conversation follows.`,
+    };
+    // A leading user turn needs an assistant reply for a valid alternating
+    // sequence; a tiny acknowledgement keeps the shape correct.
+    const ackTurn: ConversationTurn = {
+      role: 'assistant',
+      content: 'Understood. Continuing to coach with that context in mind.',
+    };
+    return [summaryTurn, ackTurn, ...recent];
+  }
+
+  /**
+   * Decide whether the rolling window needs refreshing and, if so, summarize the
+   * older turns. Triggered (a) once every RESUMMARIZE_EVERY turns once we exceed
+   * KEEP_RECENT_TURNS, or (b) immediately if the estimated context size blows
+   * past MAX_CONTEXT_TOKENS. Runs off the live path so it never delays a tip.
+   */
+  private async maybeRollUpContext(): Promise<void> {
+    const totalTurns = this.history.length;
+    if (totalTurns <= KEEP_RECENT_TURNS) return;
+
+    const turnsSinceSummary = totalTurns - this.lastSummaryAtTurn;
+    const overTokenBudget = this.estimateContextTokens() > MAX_CONTEXT_TOKENS;
+    if (turnsSinceSummary < RESUMMARIZE_EVERY && !overTokenBudget) return;
+
+    // Summarize everything except the most recent KEEP_RECENT_TURNS turns.
+    const summarizeEnd = totalTurns - KEEP_RECENT_TURNS;
+    if (summarizeEnd <= this.summarizedUpTo) return;
+
+    const newlyOldTurns = this.history.slice(this.summarizedUpTo, summarizeEnd);
+    const summary = await summarizeConversation(newlyOldTurns, this.rollingSummary);
+    // summarizeConversation returns the prior summary on failure, so this is
+    // safe even if the summary call errored — we just don't advance the cursor.
+    if (summary && summary !== this.rollingSummary) {
+      this.rollingSummary = summary;
+      this.summarizedUpTo = summarizeEnd;
+    }
+    this.lastSummaryAtTurn = totalTurns;
+  }
+
+  private estimateContextTokens(): number {
+    const recentChars = this.history
+      .slice(this.summarizedUpTo)
+      .reduce((sum, t) => sum + t.content.length, 0);
+    const summaryChars = this.rollingSummary.length;
+    return Math.ceil((recentChars + summaryChars) / CHARS_PER_TOKEN);
+  }
+
+  // --- TTS streaming pipeline --------------------------------------------------
+
+  /**
+   * Queue a text chunk for speech and kick the drain worker. Each chunk becomes
+   * its own ElevenLabs request whose audio is sent as a `coaching_audio`
+   * message — same message shape the app already consumes, just delivered as a
+   * sequence of smaller clips instead of one large one. The app's playback
+   * queue (useWingmanSession) already plays clips back to back in order.
+   */
+  private enqueueTts(text: string): void {
+    if (!text.trim()) return;
+    this.ttsQueue.push(text);
+    void this.drainTts();
+  }
+
+  private async drainTts(): Promise<void> {
+    if (this.ttsDraining) return;
+    if (!process.env.ELEVENLABS_API_KEY) {
+      this.ttsQueue = [];
+      return;
+    }
+    this.ttsDraining = true;
     try {
-      const audio = await textToSpeech(text);
-      this.send({
-        type: 'coaching_audio',
-        audio: audio.toString('base64'),
-        mimeType: 'audio/mpeg',
-      });
-    } catch (err) {
-      console.error(`[Session ${this.id}] TTS error:`, err);
+      while (this.ttsQueue.length > 0) {
+        const text = this.ttsQueue.shift()!;
+        try {
+          const audio = await textToSpeech(text);
+          this.send({
+            type: 'coaching_audio',
+            audio: audio.toString('base64'),
+            mimeType: 'audio/mpeg',
+          });
+        } catch (err) {
+          console.error(`[Session ${this.id}] TTS error:`, (err as Error).message);
+        }
+      }
+    } finally {
+      this.ttsDraining = false;
+      // A chunk may have been enqueued between the loop exit and clearing the
+      // flag; pick it up rather than stranding it.
+      if (this.ttsQueue.length > 0) void this.drainTts();
     }
   }
 
@@ -117,5 +314,6 @@ export class Session {
 
   end(): void {
     // No persistent upstream connection to close in the per-chunk model.
+    this.ttsQueue = [];
   }
 }

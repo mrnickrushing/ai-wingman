@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
         "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods.",
-        "NSFaceIDUsageDescription": "AI Wingman uses Face ID to protect your account."
+        "NSFaceIDUsageDescription": "AI Wingman uses Face ID to protect your account.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -38,6 +39,9 @@
       "expo-secure-store",
       "expo-apple-authentication"
     ],
-    "scheme": "aiwingman"
+    "scheme": "aiwingman",
+    "extra": {
+      "serverUrl": "wss://wingman-server-production-5146.up.railway.app/ws"
+    }
   }
 }

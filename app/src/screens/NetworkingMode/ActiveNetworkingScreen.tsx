@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  SafeAreaView, Animated, Alert, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -19,28 +19,28 @@ interface Props {
   onEnd: () => void;
 }
 
-export function ActiveCallScreen({ onEnd }: Props) {
+export function ActiveNetworkingScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
   const {
     isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
-    elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching, setError,
-    coachingHistory,
+    elapsedSeconds, networkingSetup, setCurrentCoaching, setError,
+    coachingHistory, loggedContacts, addLoggedContact, getSessionConfig,
   } = useSessionStore();
 
   const ringAnim = useRef(new Animated.Value(1)).current;
   const ringOpacity = useRef(new Animated.Value(0.6)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
+  const [logModalOpen, setLogModalOpen] = useState(false);
+  const [contactName, setContactName] = useState('');
 
-  useEffect(() => { start(); return () => { stop(); }; }, []);
+  useEffect(() => { start(getSessionConfig('networking')); return () => { stop(); }; }, []);
 
-  // Header entrance
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
-  // Mic pulse ring
   useEffect(() => {
     if (isRecording) {
       Animated.loop(
@@ -61,7 +61,6 @@ export function ActiveCallScreen({ onEnd }: Props) {
     }
   }, [isRecording]);
 
-  // Show coaching bubble when new coaching arrives
   useEffect(() => {
     if (currentCoaching) setShowCoaching(true);
   }, [currentCoaching]);
@@ -72,49 +71,44 @@ export function ActiveCallScreen({ onEnd }: Props) {
   };
 
   const handleEnd = () => {
-    Alert.alert('End Session?', 'This will stop the call and show your summary.', [
+    Alert.alert('End Session?', 'This will stop coaching and show your follow-ups.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'End Call', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
+      { text: 'End', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
     ]);
   };
 
-  // Speaking pace: words-per-minute relative to a 120 wpm target
-  const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
-  const wpm = Math.round(wordsSelf / minutes);
-  const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
-  const talkColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
-  const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
+  const confirmLogContact = () => {
+    const name = contactName.trim();
+    if (name) addLoggedContact(name);
+    setContactName('');
+    setLogModalOpen(false);
+  };
 
-  const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
+  const eventLabel = networkingSetup.eventName || 'Active Event';
 
-  const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#ec4899';
+  const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#f43f5e';
   const statusLabel = isConnected
     ? (isRecording ? 'Listening' : 'Connected')
     : isReconnecting ? 'Reconnecting…' : 'Disconnected';
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#080818', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFillObject} />
       <View style={s.ambientOrb} pointerEvents="none" />
 
-      {/* Ambient glow when coaching arrives */}
       {showCoaching && currentCoaching && (
         <View style={s.glowOverlay} pointerEvents="none" />
       )}
 
-      {/* Coaching bubble — overlays header */}
       {showCoaching && currentCoaching && (
         <CoachingBubble text={currentCoaching} speaking={isWingmanSpeaking} onDismiss={dismissCoaching} />
       )}
 
       <SafeAreaView style={s.safe}>
-        {/* Status bar */}
         <Animated.View style={[s.statusBar, { opacity: headerAnim }]}>
           <View style={s.statusLeft}>
             <View style={[s.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[s.statusText, { color: statusColor }]}>
-              {statusLabel}
-            </Text>
+            <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
           <View style={s.timerBox}>
             <Text style={s.timerText}>{formatTime(elapsedSeconds)}</Text>
@@ -125,7 +119,6 @@ export function ActiveCallScreen({ onEnd }: Props) {
           </View>
         </Animated.View>
 
-        {/* Error banner */}
         {error && (
           <TouchableOpacity style={s.errorBanner} onPress={() => setError(null)} activeOpacity={0.8}>
             <Text style={s.errorText}>⚠️ {error}</Text>
@@ -133,51 +126,51 @@ export function ActiveCallScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        {/* Prospect header */}
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>
-              {salesSetup.prospectName?.[0]?.toUpperCase() ?? '?'}
-            </Text>
+            <Text style={s.prospectInitial}>🤝</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{prospectLabel}</Text>
-            {salesSetup.callGoal ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {salesSetup.callGoal}</Text>
-            ) : null}
-          </View>
-          <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: talkColor }]}>{wpm}</Text>
-            <Text style={s.talkRatioLbl}>wpm</Text>
+            <Text style={s.prospectName} numberOfLines={1}>{eventLabel}</Text>
+            <Text style={s.prospectGoal} numberOfLines={1}>
+              {loggedContacts.length} contact{loggedContacts.length === 1 ? '' : 's'} logged
+            </Text>
           </View>
         </Animated.View>
 
-        {/* Talk ratio bar */}
-        <View style={s.ratioTrack}>
-          <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
-        </View>
-
-        {/* Live stats */}
         <LiveStats
           chips={[
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS USED' },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
-            { icon: '🎯', value: (salesSetup.callGoal || '—').slice(0, 20), label: 'GOAL' },
+            { icon: '👥', value: loggedContacts.length.toString(), label: 'CONTACTS' },
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+            { icon: '⏱', value: formatTime(elapsedSeconds), label: 'ELAPSED' },
           ]}
         />
 
-        {/* Transcript */}
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
             <Text style={s.sectionLabel}>TRANSCRIPT</Text>
-            {transcript.length > 0 && (
-              <Text style={s.wordCount}>{wordsSelf} words</Text>
+            {loggedContacts.length > 0 && (
+              <Text style={s.wordCount}>{loggedContacts.length} logged</Text>
             )}
           </View>
           <TranscriptView entries={transcript} />
         </View>
 
-        {/* Bottom controls */}
+        {/* Log Contact floating button */}
+        <TouchableOpacity
+          style={s.logFab}
+          onPress={() => setLogModalOpen(true)}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={['#22d3ee', '#0891b2']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.logFabGrad}
+          >
+            <Text style={s.logFabText}>+ Log Contact</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
         <View style={s.bottomBar}>
           <LinearGradient
             colors={['rgba(5,5,16,0)', 'rgba(5,5,16,0.95)', '#050510']}
@@ -185,7 +178,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
             pointerEvents="none"
           />
           <View style={s.waveContainer}>
-            <AudioWaveform isActive={isRecording} color="#6366f1" height={36} barCount={20} />
+            <AudioWaveform isActive={isRecording} color="#22d3ee" height={36} barCount={20} />
           </View>
           <View style={s.controls}>
             <View style={s.micWrap}>
@@ -198,11 +191,52 @@ export function ActiveCallScreen({ onEnd }: Props) {
               </View>
             </View>
             <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
-              <Text style={s.endBtnText}>End Call</Text>
+              <Text style={s.endBtnText}>End</Text>
             </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
+
+      {/* Log Contact modal */}
+      <Modal visible={logModalOpen} transparent animationType="fade" onRequestClose={() => setLogModalOpen(false)}>
+        <KeyboardAvoidingView
+          style={s.modalRoot}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Log a contact</Text>
+            <Text style={s.modalSub}>Who did you just meet?</Text>
+            <TextInput
+              style={s.modalInput}
+              placeholder="Sarah Kim"
+              placeholderTextColor="#334155"
+              value={contactName}
+              onChangeText={setContactName}
+              autoFocus
+              autoCapitalize="words"
+              onSubmitEditing={confirmLogContact}
+              returnKeyType="done"
+            />
+            <View style={s.modalActions}>
+              <TouchableOpacity
+                style={s.modalCancel}
+                onPress={() => { setContactName(''); setLogModalOpen(false); }}
+              >
+                <Text style={s.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.modalSave} onPress={confirmLogContact}>
+                <LinearGradient
+                  colors={['#22d3ee', '#0891b2']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={s.modalSaveGrad}
+                >
+                  <Text style={s.modalSaveText}>Log</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -212,12 +246,12 @@ const s = StyleSheet.create({
   safe: { flex: 1 },
   glowOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(99,102,241,0.04)',
+    backgroundColor: 'rgba(34,211,238,0.04)',
     zIndex: 50,
   },
   ambientOrb: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    top: -70, right: -70, backgroundColor: 'rgba(99,102,241,0.07)',
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    bottom: 80, right: -60, backgroundColor: 'rgba(34,211,238,0.05)',
   },
 
   statusBar: {
@@ -237,18 +271,18 @@ const s = StyleSheet.create({
     letterSpacing: 1, fontVariant: ['tabular-nums'],
   },
   coachingCount: { alignItems: 'center' },
-  coachingCountVal: { color: '#8b5cf6', fontSize: 16, fontWeight: '800' },
+  coachingCountVal: { color: '#22d3ee', fontSize: 16, fontWeight: '800' },
   coachingCountLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
 
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginHorizontal: 16, marginTop: 4, marginBottom: 4,
-    backgroundColor: 'rgba(236,72,153,0.12)',
-    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
   },
   errorText: { color: '#fca5c5', fontSize: 12, fontWeight: '600', flex: 1 },
-  errorDismiss: { color: '#ec4899', fontSize: 11, fontWeight: '700', marginLeft: 12 },
+  errorDismiss: { color: '#f43f5e', fontSize: 11, fontWeight: '700', marginLeft: 12 },
 
   prospectBar: {
     flexDirection: 'row', alignItems: 'center',
@@ -257,37 +291,33 @@ const s = StyleSheet.create({
   },
   prospectAvatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(99,102,241,0.2)',
-    borderWidth: 1, borderColor: 'rgba(99,102,241,0.35)',
+    backgroundColor: 'rgba(34,211,238,0.2)',
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
-  prospectInitial: { color: '#6366f1', fontSize: 18, fontWeight: '800' },
+  prospectInitial: { fontSize: 20 },
   prospectName: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
   prospectGoal: { color: '#475569', fontSize: 11, marginTop: 2, lineHeight: 16 },
-  talkRatioChip: { alignItems: 'center', flexShrink: 0 },
-  talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
-  talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
-
-  ratioTrack: {
-    height: 3, marginHorizontal: 20, marginBottom: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden',
-  },
-  ratioFill: { height: '100%', borderRadius: 2 },
 
   transcriptArea: { flex: 1 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 20, marginBottom: 6,
+    alignItems: 'center', paddingHorizontal: 20, marginBottom: 6, marginTop: 6,
   },
   sectionLabel: { color: '#1e293b', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
   wordCount: { color: '#334155', fontSize: 10, fontWeight: '600' },
 
-  bottomBar: {
-    paddingBottom: 8, position: 'relative',
+  logFab: {
+    position: 'absolute', right: 18, bottom: 150,
+    borderRadius: 24, overflow: 'hidden', zIndex: 80,
+    shadowColor: '#22d3ee', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 10,
   },
-  bottomFade: {
-    position: 'absolute', top: -40, left: 0, right: 0, height: 50,
-  },
+  logFabGrad: { paddingHorizontal: 18, paddingVertical: 12 },
+  logFabText: { color: '#04222a', fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+
+  bottomBar: { paddingBottom: 8, position: 'relative' },
+  bottomFade: { position: 'absolute', top: -40, left: 0, right: 0, height: 50 },
   waveContainer: {
     alignItems: 'center', paddingHorizontal: 20,
     paddingTop: 8, paddingBottom: 4,
@@ -300,23 +330,51 @@ const s = StyleSheet.create({
   micWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   micRing: {
     position: 'absolute', width: 70, height: 70,
-    borderRadius: 35, borderWidth: 2, borderColor: '#6366f1',
+    borderRadius: 35, borderWidth: 2, borderColor: '#22d3ee',
   },
   micBtn: {
     width: 60, height: 60, borderRadius: 30,
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)',
+    backgroundColor: 'rgba(34,211,238,0.12)',
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
   micBtnActive: {
-    backgroundColor: 'rgba(99,102,241,0.22)',
-    borderColor: 'rgba(99,102,241,0.6)',
+    backgroundColor: 'rgba(34,211,238,0.22)',
+    borderColor: 'rgba(34,211,238,0.6)',
   },
   micIcon: { fontSize: 24 },
   endBtn: {
-    backgroundColor: 'rgba(236,72,153,0.12)',
-    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
     borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
   },
-  endBtnText: { color: '#ec4899', fontSize: 14, fontWeight: '700' },
+  endBtnText: { color: '#f43f5e', fontSize: 14, fontWeight: '700' },
+
+  modalRoot: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: '100%', backgroundColor: '#0d0d1f',
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.25)',
+    borderRadius: 18, padding: 20, gap: 12,
+  },
+  modalTitle: { color: '#f1f5f9', fontSize: 18, fontWeight: '800' },
+  modalSub: { color: '#64748b', fontSize: 13 },
+  modalInput: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.3)',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
+    color: '#f1f5f9', fontSize: 16, marginTop: 4,
+  },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  modalCancel: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalCancelText: { color: '#94a3b8', fontSize: 15, fontWeight: '700' },
+  modalSave: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  modalSaveGrad: { paddingVertical: 14, alignItems: 'center' },
+  modalSaveText: { color: '#04222a', fontSize: 15, fontWeight: '800' },
 });

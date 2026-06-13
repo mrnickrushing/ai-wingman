@@ -62,9 +62,10 @@ const DEFAULT_PRICE = '$9.99/mo';
 
 type Props = {
   onComplete: () => void;
+  skipIntro?: boolean;
 };
 
-export function LaunchFlowScreen({ onComplete }: Props) {
+export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   const [stage, setStage] = useState<LaunchStage>('loading');
   const [snapshot, setSnapshot] = useState<LaunchSnapshot | null>(null);
   const [introIndex, setIntroIndex] = useState(0);
@@ -96,7 +97,7 @@ export function LaunchFlowScreen({ onComplete }: Props) {
       .then((loaded) => {
         if (!active) return;
         setSnapshot(loaded);
-        if (!loaded.seenIntro) {
+        if (!loaded.seenIntro && !skipIntro) {
           setStage('intro');
           return;
         }
@@ -118,7 +119,7 @@ export function LaunchFlowScreen({ onComplete }: Props) {
     return () => {
       active = false;
     };
-  }, [onComplete]);
+  }, [onComplete, skipIntro]);
 
   useEffect(() => {
     if (stage === 'loading') return;

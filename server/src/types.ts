@@ -1,10 +1,43 @@
-export type ConversationMode = 'sales' | 'dating' | 'networking' | 'pitching' | 'hardconvos';
+export type ConversationMode =
+  | 'sales'
+  | 'dating'
+  | 'networking'
+  | 'pitching'
+  | 'hard_conversations';
+
+export type HardConversationScenario =
+  | 'salary_negotiation'
+  | 'firing'
+  | 'breakup'
+  | 'confrontation'
+  | 'dispute'
+  | 'therapy';
 
 export interface SessionConfig {
   mode: ConversationMode;
+  // Optional mode-specific terms to bias STT toward (e.g. "anchor",
+  // "counter-offer", "objection"). Passed through to Deepgram as keyword
+  // boosts so domain jargon is transcribed more accurately.
+  keywords?: string[];
+  // Sales
   prospectContext?: string;
   callGoal?: string;
   objectionLibrary?: string;
+  // Dating
+  datingName?: string;
+  datingProfileUrl?: string;
+  datingIntent?: string;
+  // Networking
+  eventName?: string;
+  attendeeList?: string;
+  // Pitching
+  pitchTitle?: string;
+  pitchDeck?: string;
+  audienceType?: string;
+  // Hard Conversations
+  scenario?: HardConversationScenario;
+  situation?: string;
+  conversationGoal?: string;
 }
 
 // Messages from client → server

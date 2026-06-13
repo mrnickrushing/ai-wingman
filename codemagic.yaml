@@ -21,7 +21,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app
@@ -38,77 +38,30 @@ workflows:
         script: |
           set -e
           keychain initialize
-          echo "$IOS_DISTRIBUTION_PRIVATE_KEY_B64" | base64 --decode > /tmp/ios_distribution.key.pem
-          echo "$IOS_DISTRIBUTION_CERTIFICATE_PEM_B64" | base64 --decode > /tmp/ios_distribution.cert.pem
-          openssl pkcs12 -export \
-            -legacy \
-            -inkey /tmp/ios_distribution.key.pem \
-            -in /tmp/ios_distribution.cert.pem \
-            -out /tmp/ios_distribution.p12 \
-            -passout pass:codemagic
-          security import /tmp/ios_distribution.p12 \
-            -P codemagic \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s \
-            -k "$CM_KEYCHAIN_PASSWORD"
-          security find-identity -v -p codesigning
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "$IOS_APP_STORE_PROVISIONING_PROFILE_B64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/AI_Wingman_App_Store.mobileprovision"
-      - name: Write export options
-        script: |
-          cat > /tmp/aiwingman-export-options.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>$APPLE_TEAM_ID</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>$BUNDLE_ID</key>
-              <string>$IOS_PROVISIONING_PROFILE_SPECIFIER</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
-      - name: Build iOS archive
+          app-store-connect fetch-signing-files $BUNDLE_ID \
+            --platform IOS \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build and export IPA
         script: |
           set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
-          cd app/ios
-          xcodebuild \
-            -workspace $XCODE_WORKSPACE \
-            -scheme $XCODE_SCHEME \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_SPECIFIER" \
-            archive \
-            2>&1 \
-            | tee /tmp/xcodebuild_logs/archive.log \
-            | xcpretty
-      - name: Export IPA
+          mkdir -p /tmp/xcodebuild_logs $CM_BUILD_DIR/build/ipa
+          xcode-project build-ipa \
+            --workspace app/ios/$XCODE_WORKSPACE \
+            --scheme $XCODE_SCHEME \
+            --config Release \
+            --archive-directory $CM_BUILD_DIR/build \
+            --ipa-directory $CM_BUILD_DIR/build/ipa \
+            2>&1 | tee /tmp/xcodebuild_logs/build.log
+      - name: Publish OTA update
         script: |
-          set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
-          xcodebuild \
-            -exportArchive \
-            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            -exportOptionsPlist /tmp/aiwingman-export-options.plist \
-            -exportPath $CM_BUILD_DIR/build/ipa \
-            2>&1 \
-            | tee /tmp/xcodebuild_logs/export.log \
-            | xcpretty
+          cd app
+          npx eas-cli update \
+            --channel production \
+            --message "Build $BUILD_NUMBER from branch $CM_BRANCH" \
+            --non-interactive
     artifacts:
       - build/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -148,7 +101,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app
@@ -172,6 +125,34 @@ workflows:
             | xcpretty
     artifacts:
       - app/ios/build/*.ipa
+    publishing:
+      email:
+        recipients:
+          - mrnickrushing@yahoo.com
+        notify:
+          success: true
+          failure: true
+
+  ota-update:
+    name: OTA Update (EAS)
+    max_build_duration: 20
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - appstore_credentials
+      node: 22
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd app
+          npm install
+      - name: Publish OTA update
+        script: |
+          cd app
+          npx eas-cli update \
+            --channel production \
+            --message "OTA: $CM_COMMIT" \
+            --non-interactive
     publishing:
       email:
         recipients:

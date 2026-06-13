@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { loadStats, PersistedStats } from '../utils/statsStorage';
 
 interface Mode {
   id: string;
@@ -36,7 +37,7 @@ const MODES: Mode[] = [
     description: 'Silence detection · Tone reading · Callback cues',
     gradient: ['rgba(236,72,153,0.15)', 'rgba(244,63,94,0.07)', 'rgba(13,13,31,0)'],
     accent: '#ec4899',
-    available: false,
+    available: true,
   },
   {
     id: 'networking',
@@ -46,7 +47,7 @@ const MODES: Mode[] = [
     description: 'Contact prep · Graceful exits · Follow-up generator',
     gradient: ['rgba(34,211,238,0.15)', 'rgba(8,145,178,0.07)', 'rgba(13,13,31,0)'],
     accent: '#22d3ee',
-    available: false,
+    available: true,
   },
   {
     id: 'pitching',
@@ -56,17 +57,17 @@ const MODES: Mode[] = [
     description: 'Slide tracking · Q&A support · Room energy alerts',
     gradient: ['rgba(245,158,11,0.15)', 'rgba(217,119,6,0.07)', 'rgba(13,13,31,0)'],
     accent: '#f59e0b',
-    available: false,
+    available: true,
   },
   {
-    id: 'hardconvos',
+    id: 'hard_conversations',
     emoji: '🔥',
     label: 'Hard Conversations',
     subtitle: 'Negotiations, firings, breakups',
     description: 'De-escalation · Legal phrasing · Empathy cues',
     gradient: ['rgba(139,92,246,0.15)', 'rgba(124,58,237,0.07)', 'rgba(13,13,31,0)'],
     accent: '#8b5cf6',
-    available: false,
+    available: true,
   },
 ];
 
@@ -77,6 +78,19 @@ interface Props {
 export function HomeScreen({ onSelectMode }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
+  const [stats, setStats] = useState<PersistedStats>({
+    sessions: 0, bestScore: 0, streak: 0, lastSessionDate: null,
+  });
+
+  useEffect(() => {
+    loadStats().then(setStats);
+  }, []);
+
+  const liveStats = [
+    { val: stats.sessions.toString(), lbl: 'sessions' },
+    { val: stats.bestScore > 0 ? stats.bestScore.toString() : '--', lbl: 'best score' },
+    { val: stats.streak > 0 ? `${stats.streak}d` : '--', lbl: 'streak' },
+  ];
 
   const handlePress = (mode: Mode) => {
     if (mode.available) {
@@ -122,11 +136,7 @@ export function HomeScreen({ onSelectMode }: Props) {
         </Animated.View>
 
         <Animated.View style={[s.statsRow, { opacity: headerAnim }]}>
-          {[
-            { val: '<700ms', lbl: 'end-to-end' },
-            { val: '15 words', lbl: 'max coaching' },
-            { val: '5 modes', lbl: 'coming soon' },
-          ].map((st, i) => (
+          {liveStats.map((st, i) => (
             <View key={i} style={[s.statCell, i < 2 && s.statBorder]}>
               <Text style={s.statVal}>{st.val}</Text>
               <Text style={s.statLbl}>{st.lbl}</Text>

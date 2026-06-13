@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { ConversationMode, SessionConfig, TranscriptEntry, CoachingEntry } from '../types';
+import {
+  ConversationMode,
+  SessionConfig,
+  TranscriptEntry,
+  CoachingEntry,
+  HardConversationScenario,
+} from '../types';
 
 interface SalesSetup {
   prospectName: string;
@@ -27,6 +33,12 @@ interface PitchingSetup {
   audience: string;
 }
 
+interface HardConvoSetup {
+  scenario: HardConversationScenario | null;
+  situation: string;
+  goal: string;
+}
+
 interface SessionStore {
   // Pre-session configuration (per mode)
   salesSetup: SalesSetup;
@@ -37,6 +49,8 @@ interface SessionStore {
   setNetworkingSetup: (setup: Partial<NetworkingSetup>) => void;
   pitchingSetup: PitchingSetup;
   setPitchingSetup: (setup: Partial<PitchingSetup>) => void;
+  hardConvoSetup: HardConvoSetup;
+  setHardConvoSetup: (setup: Partial<HardConvoSetup>) => void;
 
   // Active session state
   sessionId: string | null;
@@ -100,6 +114,12 @@ const defaultPitchingSetup: PitchingSetup = {
   audience: '',
 };
 
+const defaultHardConvoSetup: HardConvoSetup = {
+  scenario: null,
+  situation: '',
+  goal: '',
+};
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   salesSetup: defaultSalesSetup,
   setSalesSetup: (setup) =>
@@ -113,6 +133,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   pitchingSetup: defaultPitchingSetup,
   setPitchingSetup: (setup) =>
     set((s) => ({ pitchingSetup: { ...s.pitchingSetup, ...setup } })),
+  hardConvoSetup: defaultHardConvoSetup,
+  setHardConvoSetup: (setup) =>
+    set((s) => ({ hardConvoSetup: { ...s.hardConvoSetup, ...setup } })),
 
   sessionId: null,
   isConnected: false,
@@ -181,7 +204,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }),
 
   getSessionConfig: (mode: ConversationMode = 'sales'): SessionConfig => {
-    const { salesSetup, datingSetup, networkingSetup, pitchingSetup } = get();
+    const { salesSetup, datingSetup, networkingSetup, pitchingSetup, hardConvoSetup } = get();
 
     if (mode === 'dating') {
       return {
@@ -206,6 +229,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         pitchTitle: pitchingSetup.title,
         pitchDeck: pitchingSetup.deck,
         audienceType: pitchingSetup.audience,
+      };
+    }
+
+    if (mode === 'hard_conversations') {
+      return {
+        mode: 'hard_conversations',
+        scenario: hardConvoSetup.scenario ?? 'confrontation',
+        situation: hardConvoSetup.situation,
+        conversationGoal: hardConvoSetup.goal,
       };
     }
 

@@ -59,14 +59,14 @@ const MODES: Mode[] = [
     available: true,
   },
   {
-    id: 'hardconvos',
+    id: 'hard_conversations',
     emoji: '🔥',
     label: 'Hard Conversations',
     subtitle: 'Negotiations, firings, breakups',
     description: 'De-escalation · Legal phrasing · Empathy cues',
     gradient: ['rgba(139,92,246,0.15)', 'rgba(124,58,237,0.07)', 'rgba(13,13,31,0)'],
     accent: '#8b5cf6',
-    available: false,
+    available: true,
   },
 ];
 

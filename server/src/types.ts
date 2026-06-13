@@ -1,4 +1,17 @@
-export type ConversationMode = 'sales' | 'dating' | 'networking' | 'pitching' | 'hardconvos';
+export type ConversationMode =
+  | 'sales'
+  | 'dating'
+  | 'networking'
+  | 'pitching'
+  | 'hard_conversations';
+
+export type HardConversationScenario =
+  | 'salary_negotiation'
+  | 'firing'
+  | 'breakup'
+  | 'confrontation'
+  | 'dispute'
+  | 'therapy';
 
 export interface SessionConfig {
   mode: ConversationMode;
@@ -21,6 +34,10 @@ export interface SessionConfig {
   pitchTitle?: string;
   pitchDeck?: string;
   audienceType?: string;
+  // Hard Conversations
+  scenario?: HardConversationScenario;
+  situation?: string;
+  conversationGoal?: string;
 }
 
 // Messages from client → server

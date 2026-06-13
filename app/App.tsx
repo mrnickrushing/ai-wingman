@@ -13,13 +13,17 @@ import { PostNetworkingScreen } from './src/screens/NetworkingMode/PostNetworkin
 import { PrePitchingScreen } from './src/screens/PitchingMode/PrePitchingScreen';
 import { ActivePitchingScreen } from './src/screens/PitchingMode/ActivePitchingScreen';
 import { PostPitchingScreen } from './src/screens/PitchingMode/PostPitchingScreen';
+import { PreHardConversationScreen } from './src/screens/HardConversationsMode/PreHardConversationScreen';
+import { ActiveHardConversationScreen } from './src/screens/HardConversationsMode/ActiveHardConversationScreen';
+import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 
 type Screen =
   | 'home'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
   | 'networking-precall' | 'networking-active' | 'networking-postcall'
-  | 'pitching-precall' | 'pitching-active' | 'pitching-postcall';
+  | 'pitching-precall' | 'pitching-active' | 'pitching-postcall'
+  | 'hardconvo-precall' | 'hardconvo-active' | 'hardconvo-postcall';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -33,6 +37,7 @@ export default function App() {
           else if (mode === 'dating') setScreen('dating-precall');
           else if (mode === 'networking') setScreen('networking-precall');
           else if (mode === 'pitching') setScreen('pitching-precall');
+          else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
         }} />
       )}
 
@@ -101,6 +106,23 @@ export default function App() {
         <PostPitchingScreen
           onHome={() => setScreen('home')}
           onNewSession={() => setScreen('pitching-active')}
+        />
+      )}
+
+      {/* Hard Conversations Mode */}
+      {screen === 'hardconvo-precall' && (
+        <PreHardConversationScreen
+          onStart={() => setScreen('hardconvo-active')}
+          onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'hardconvo-active' && (
+        <ActiveHardConversationScreen onEnd={() => setScreen('hardconvo-postcall')} />
+      )}
+      {screen === 'hardconvo-postcall' && (
+        <PostHardConversationScreen
+          onHome={() => setScreen('home')}
+          onNewSession={() => setScreen('hardconvo-active')}
         />
       )}
     </>

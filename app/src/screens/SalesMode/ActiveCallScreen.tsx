@@ -78,10 +78,11 @@ export function ActiveCallScreen({ onEnd }: Props) {
     ]);
   };
 
-  // Talk ratio: estimate based on words spoken vs a 50/50 benchmark
-  const totalWords = Math.max(wordsSelf, 1);
-  const talkPct = Math.min(100, Math.round((wordsSelf / Math.max(totalWords, 80)) * 100));
-  const talkColor = talkPct > 65 ? '#ec4899' : talkPct > 50 ? '#f59e0b' : '#4ade80';
+  // Speaking pace: words-per-minute relative to a 120 wpm target
+  const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
+  const wpm = Math.round(wordsSelf / minutes);
+  const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
+  const talkColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
 
   const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
 
@@ -131,8 +132,8 @@ export function ActiveCallScreen({ onEnd }: Props) {
             ) : null}
           </View>
           <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: talkColor }]}>{talkPct}%</Text>
-            <Text style={s.talkRatioLbl}>you</Text>
+            <Text style={[s.talkRatioPct, { color: talkColor }]}>{wpm}</Text>
+            <Text style={s.talkRatioLbl}>wpm</Text>
           </View>
         </Animated.View>
 

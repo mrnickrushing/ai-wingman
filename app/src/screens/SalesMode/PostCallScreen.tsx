@@ -38,14 +38,15 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
     });
   }, []);
 
-  const talkPct = Math.min(100, Math.round((wordsSelf / Math.max(wordsSelf, 80)) * 100));
-  const talkColor = talkPct > 65 ? '#ec4899' : talkPct > 50 ? '#f59e0b' : '#4ade80';
-  const talkLabel = talkPct > 65 ? 'You talked too much' : talkPct > 50 ? 'Slightly heavy on talking' : 'Great balance';
+  const minutes = elapsedSeconds / 60;
+  const wpm = minutes > 0 ? Math.round(wordsSelf / minutes) : 0;
+  const wpmColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
+  const wpmLabel = wpm > 150 ? 'Fast pace — slow down a bit' : wpm > 120 ? 'Slightly quick — watch the pace' : 'Good speaking pace';
 
   const stats = [
     { value: formatDuration(elapsedSeconds), label: 'Duration', icon: '⏱' },
     { value: coachingHistory.length.toString(), label: 'Coaching tips', icon: '💡' },
-    { value: `${talkPct}%`, label: 'You talked', icon: '🎙', color: talkColor },
+    { value: wordsSelf.toString(), label: 'Words spoken', icon: '🎙' },
   ];
 
   return (
@@ -91,19 +92,19 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
             ))}
           </View>
 
-          {/* Talk ratio feedback */}
-          {elapsedSeconds > 10 && (
+          {/* Speaking pace feedback */}
+          {elapsedSeconds > 10 && wordsSelf > 0 && (
             <Animated.View style={[s.feedbackCard, { opacity: fadeAnim }]}>
               <View style={s.feedbackRow}>
-                <View style={[s.feedbackDot, { backgroundColor: talkColor }]} />
-                <Text style={s.feedbackText}>{talkLabel}</Text>
+                <View style={[s.feedbackDot, { backgroundColor: wpmColor }]} />
+                <Text style={s.feedbackText}>{wpmLabel}</Text>
               </View>
               <View style={s.ratioBar}>
-                <View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
+                <View style={[s.ratioFill, { width: `${Math.min(100, (wpm / 200) * 100)}%`, backgroundColor: wpmColor }]} />
               </View>
               <View style={s.ratioLabels}>
-                <Text style={s.ratioLabelLeft}>You</Text>
-                <Text style={s.ratioLabelRight}>Them</Text>
+                <Text style={s.ratioLabelLeft}>{wpm} wpm</Text>
+                <Text style={s.ratioLabelRight}>target ≤120</Text>
               </View>
             </Animated.View>
           )}

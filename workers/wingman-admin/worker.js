@@ -658,8 +658,11 @@ export default {
       });
     }
 
-    // Auth gate
-    if (!authed) return redirect('/login');
+    // Auth gate — API routes get 401 JSON so the SPA can handle it; page routes redirect
+    if (!authed) {
+      if (path.startsWith('/api/')) return json({ error: 'Unauthorized' }, 401);
+      return redirect('/login');
+    }
 
     // Admin dashboard SPA
     if (path === '/' || path === '') return html(ADMIN_HTML);

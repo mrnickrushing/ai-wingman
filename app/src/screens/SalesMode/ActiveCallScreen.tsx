@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert, Dimensions,
+  SafeAreaView, Animated, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -9,8 +9,6 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
-
-const { width } = Dimensions.get('window');
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -23,8 +21,9 @@ interface Props {
 export function ActiveCallScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
   const {
-    isConnected, isRecording, transcript, currentCoaching,
-    elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching,
+    isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
+    transcript, currentCoaching,
+    elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching, setError,
     coachingHistory,
   } = useSessionStore();
 
@@ -86,6 +85,11 @@ export function ActiveCallScreen({ onEnd }: Props) {
 
   const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
 
+  const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#ec4899';
+  const statusLabel = isConnected
+    ? (isRecording ? 'Listening' : 'Connected')
+    : isReconnecting ? 'Reconnecting…' : 'Disconnected';
+
   return (
     <View style={s.root}>
       <LinearGradient colors={['#080818', '#050510']} style={StyleSheet.absoluteFillObject} />
@@ -97,16 +101,16 @@ export function ActiveCallScreen({ onEnd }: Props) {
 
       {/* Coaching bubble — overlays header */}
       {showCoaching && currentCoaching && (
-        <CoachingBubble text={currentCoaching} onDismiss={dismissCoaching} />
+        <CoachingBubble text={currentCoaching} speaking={isWingmanSpeaking} onDismiss={dismissCoaching} />
       )}
 
       <SafeAreaView style={s.safe}>
         {/* Status bar */}
         <Animated.View style={[s.statusBar, { opacity: headerAnim }]}>
           <View style={s.statusLeft}>
-            <View style={[s.statusDot, { backgroundColor: isConnected ? '#4ade80' : '#ec4899' }]} />
-            <Text style={[s.statusText, { color: isConnected ? '#4ade80' : '#ec4899' }]}>
-              {isConnected ? (isRecording ? 'Listening' : 'Connected') : 'Disconnected'}
+            <View style={[s.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[s.statusText, { color: statusColor }]}>
+              {statusLabel}
             </Text>
           </View>
           <View style={s.timerBox}>
@@ -117,6 +121,14 @@ export function ActiveCallScreen({ onEnd }: Props) {
             <Text style={s.coachingCountLbl}>tips</Text>
           </View>
         </Animated.View>
+
+        {/* Error banner */}
+        {error && (
+          <TouchableOpacity style={s.errorBanner} onPress={() => setError(null)} activeOpacity={0.8}>
+            <Text style={s.errorText}>⚠️ {error}</Text>
+            <Text style={s.errorDismiss}>Dismiss ✕</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Prospect header */}
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
@@ -211,6 +223,16 @@ const s = StyleSheet.create({
   coachingCount: { alignItems: 'center' },
   coachingCountVal: { color: '#8b5cf6', fontSize: 16, fontWeight: '800' },
   coachingCountLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginTop: 4, marginBottom: 4,
+    backgroundColor: 'rgba(236,72,153,0.12)',
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  errorText: { color: '#fca5c5', fontSize: 12, fontWeight: '600', flex: 1 },
+  errorDismiss: { color: '#ec4899', fontSize: 11, fontWeight: '700', marginLeft: 12 },
 
   prospectBar: {
     flexDirection: 'row', alignItems: 'center',

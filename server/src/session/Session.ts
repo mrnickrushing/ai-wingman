@@ -1,16 +1,16 @@
 import { WebSocket } from 'ws';
-import { LiveClient } from '@deepgram/sdk';
-import { createDeepgramStream } from '../services/deepgram';
+import { transcribeChunk } from '../services/deepgram';
 import { generateSalesCoaching } from '../services/claude';
 import { textToSpeech } from '../services/elevenlabs';
 import { SessionConfig, ServerMessage, ConversationTurn } from '../types';
 
 export class Session {
   readonly id: string;
-  private deepgram: LiveClient;
   private history: ConversationTurn[] = [];
   private isCoaching = false;
-  private wordCount = { self: 0, other: 0 };
+  private wordCount = 0;
+  private latestTranscript = '';
+  private coachedTranscript = '';
 
   constructor(
     id: string,
@@ -18,26 +18,54 @@ export class Session {
     private config: SessionConfig
   ) {
     this.id = id;
-    this.deepgram = createDeepgramStream((text, isFinal) => {
-      this.send({ type: 'transcript', text, isFinal });
-      if (isFinal) {
-        this.wordCount.self += text.split(' ').length;
-        this.triggerCoaching(text);
-      }
-    });
   }
 
-  receiveAudio(base64Chunk: string): void {
-    const buf = Buffer.from(base64Chunk, 'base64');
-    // Deepgram SDK expects ArrayBuffer, not Node Buffer
-    const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-    this.deepgram.send(arrayBuffer);
+  /**
+   * Receive a self-contained audio chunk (base64-encoded container file),
+   * transcribe it, surface the transcript, and trigger coaching.
+   */
+  async receiveAudio(base64Chunk: string): Promise<void> {
+    if (!base64Chunk) return;
+
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(base64Chunk, 'base64');
+    } catch {
+      return;
+    }
+    // Skip empty / near-silent segments that are too small to contain speech.
+    if (buf.byteLength < 1024) return;
+
+    let text = '';
+    try {
+      text = await transcribeChunk(buf);
+    } catch (err) {
+      console.error(`[Session ${this.id}] Transcription error:`, (err as Error).message);
+      return;
+    }
+    if (!text) return;
+
+    this.wordCount += text.split(/\s+/).filter(Boolean).length;
+    // Always surface the transcript to the client, even while a coaching
+    // request is already in flight, so the UI never loses words.
+    this.send({ type: 'transcript', text, isFinal: true });
+
+    this.latestTranscript = text;
+    void this.maybeCoach();
   }
 
-  private async triggerCoaching(transcript: string): Promise<void> {
-    if (this.isCoaching || !transcript.trim()) return;
+  /**
+   * Single-flight coaching: only one Claude+TTS round-trip runs at a time.
+   * If newer speech arrived while we were busy, we re-run for the latest line
+   * instead of silently dropping it.
+   */
+  private async maybeCoach(): Promise<void> {
+    if (this.isCoaching) return;
+    const transcript = this.latestTranscript;
+    if (!transcript.trim()) return;
+
     this.isCoaching = true;
-
+    this.coachedTranscript = transcript;
     try {
       const coaching = await generateSalesCoaching(
         transcript,
@@ -60,6 +88,10 @@ export class Session {
       console.error(`[Session ${this.id}] Coaching error:`, err);
     } finally {
       this.isCoaching = false;
+      // New speech came in while we were coaching — coach on it now.
+      if (this.latestTranscript !== this.coachedTranscript) {
+        void this.maybeCoach();
+      }
     }
   }
 
@@ -84,10 +116,6 @@ export class Session {
   }
 
   end(): void {
-    try {
-      this.deepgram.requestClose();
-    } catch {
-      // already closed
-    }
+    // No persistent upstream connection to close in the per-chunk model.
   }
 }

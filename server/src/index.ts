@@ -32,6 +32,12 @@ wss.on('connection', (ws: WebSocket) => {
     }
 
     if (msg.type === 'start_session') {
+      // Guard against a client sending start_session twice on one socket —
+      // end the previous session first so it doesn't leak.
+      if (sessionId) {
+        sessionManager.end(sessionId);
+        sessionId = null;
+      }
       const session = sessionManager.create(ws, msg.config);
       sessionId = session.id;
       ws.send(JSON.stringify({ type: 'session_started', sessionId }));

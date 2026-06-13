@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated,
+  SafeAreaView, ScrollView, Animated, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface Mode {
@@ -22,7 +23,7 @@ const MODES: Mode[] = [
     emoji: '💼',
     label: 'Sales & Cold Calls',
     subtitle: 'Never freeze on an objection again',
-    description: 'Objection rebuttals · Buying signal alerts · Talk ratio coaching',
+    description: 'Objection rebuttals · Buying signal alerts · Pace coaching',
     gradient: ['rgba(99,102,241,0.2)', 'rgba(139,92,246,0.1)', 'rgba(13,13,31,0)'],
     accent: '#6366f1',
     available: true,
@@ -76,6 +77,18 @@ interface Props {
 export function HomeScreen({ onSelectMode }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
+
+  const handlePress = (mode: Mode) => {
+    if (mode.available) {
+      onSelectMode(mode.id);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Alert.alert(
+      `${mode.emoji}  ${mode.label}`,
+      `${mode.label} is coming soon. We'll let you know the moment it's live.`
+    );
+  };
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
@@ -139,7 +152,7 @@ export function HomeScreen({ onSelectMode }: Props) {
               }}
             >
               <TouchableOpacity
-                onPress={() => mode.available && onSelectMode(mode.id)}
+                onPress={() => handlePress(mode)}
                 activeOpacity={mode.available ? 0.72 : 0.95}
                 style={s.cardOuter}
               >

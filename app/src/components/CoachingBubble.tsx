@@ -1,15 +1,38 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Text, StyleSheet, View, TouchableOpacity, Dimensions } from 'react-native';
+import { Animated, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
 
 interface Props {
   text: string | null;
+  speaking?: boolean;
   onDismiss?: () => void;
 }
 
-export function CoachingBubble({ text, onDismiss }: Props) {
+function SpeakingDots() {
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
+  useEffect(() => {
+    const loops = dots.map((d, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(d, { toValue: 1, duration: 320, delay: i * 140, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 0.3, duration: 320, useNativeDriver: true }),
+        ])
+      )
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, []);
+  return (
+    <View style={s.speakingRow}>
+      {dots.map((d, i) => (
+        <Animated.View key={i} style={[s.speakingDot, { opacity: d }]} />
+      ))}
+      <Text style={s.speakingText}>WHISPERING</Text>
+    </View>
+  );
+}
+
+export function CoachingBubble({ text, speaking, onDismiss }: Props) {
   const slideAnim = useRef(new Animated.Value(-100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
@@ -61,6 +84,7 @@ export function CoachingBubble({ text, onDismiss }: Props) {
         <View style={s.topRow}>
           <View style={s.aiTag}>
             <Text style={s.aiTagText}>🎧 WINGMAN</Text>
+            {speaking && <SpeakingDots />}
           </View>
           {onDismiss && (
             <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -126,13 +150,31 @@ const s = StyleSheet.create({
   aiTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 8,
   },
   aiTagText: {
     color: '#8b5cf6',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
+  },
+  speakingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  speakingDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#4ade80',
+  },
+  speakingText: {
+    color: '#4ade80',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginLeft: 4,
   },
   dismiss: {
     color: 'rgba(148,163,184,0.5)',

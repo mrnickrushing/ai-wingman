@@ -441,7 +441,8 @@ async function sendNotification() {
     });
     const data = await res.json();
     if (res.ok) {
-      showFeedback('success', \`✓ Sent to \${data.sent} device\${data.sent !== 1 ? 's' : ''}.\`);
+      const skipNote = data.skipped ? \` \${data.skipped} non-iOS device\${data.skipped !== 1 ? 's' : ''} skipped (FCM not configured).\` : '';
+      showFeedback('success', \`✓ Sent to \${data.sent} device\${data.sent !== 1 ? 's' : ''}.\${skipNote}\`);
       document.getElementById('notif-title').value = '';
       document.getElementById('notif-body').value = '';
       document.getElementById('tc').textContent = '0';
@@ -561,7 +562,12 @@ async function createSession(env) {
 }
 async function validateSession(env, id) {
   if (!id) return false;
-  if (!env.SESSIONS) return true; // dev mode — no KV bound
+  if (!env.SESSIONS) {
+    // Fail CLOSED when the session store is missing. Only allow the insecure,
+    // KV-less path when an operator explicitly opts in via env var — never
+    // treat an unconfigured deployment as authenticated.
+    return env.ALLOW_INSECURE_NO_KV === 'true';
+  }
   const val = await env.SESSIONS.get(id);
   return val !== null;
 }
@@ -637,6 +643,12 @@ export default {
       const { password } = await request.json().catch(() => ({}));
       if (!env.ADMIN_PASSWORD || password !== env.ADMIN_PASSWORD) {
         return json({ error: 'Incorrect password' }, 401);
+      }
+      // Without a session store, a cookie can never be validated (we fail
+      // closed), so logging in would loop straight back to /login. Surface a
+      // clear error instead of a confusing redirect.
+      if (!env.SESSIONS && env.ALLOW_INSECURE_NO_KV !== 'true') {
+        return json({ error: 'Session store (KV) not configured' }, 500);
       }
       const id = await createSession(env);
       return new Response(JSON.stringify({ ok: true }), {
@@ -720,19 +732,24 @@ export default {
       const { results: devices } = await env.DB.prepare(query).all().catch(() => ({ results: [] }));
 
       let sent = 0;
+      let skipped = 0;
       for (const device of devices) {
         if (device.platform === 'ios' && device.push_token) {
           const res = await sendApnsNotification(env, device.push_token, title, body);
           if (res.ok) sent++;
+          else skipped++;
+        } else if (device.push_token) {
+          // Android (FCM) is not implemented yet — count as skipped so the
+          // reported numbers don't pretend non-iOS devices were notified.
+          skipped++;
         }
-        // Android (FCM) support can be added here
       }
 
       await env.DB.prepare(
         'INSERT INTO notification_log (title, body, target, recipient_count, created_at) VALUES (?, ?, ?, ?, ?)'
       ).bind(title, body, target || 'all', sent, new Date().toISOString()).run().catch(() => {});
 
-      return json({ ok: true, sent });
+      return json({ ok: true, sent, skipped });
     }
 
     return json({ error: 'Not found' }, 404);

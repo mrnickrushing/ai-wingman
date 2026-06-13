@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
+import { recordSessionStats } from '../../utils/statsStorage';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -23,12 +24,14 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
 
   useEffect(() => {
-    recordSession(computeWingmanScore({
+    const score = computeWingmanScore({
       coachingTipsTaken: coachingHistory.length,
       elapsedSeconds,
       wordsSelf,
       rating: lastRating,
-    }));
+    });
+    recordSession(score);
+    recordSessionStats(score);
   }, []);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;

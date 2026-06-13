@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSessionStore } from '../store/sessionStore';
+import { loadStats, PersistedStats } from '../utils/statsStorage';
 
 interface Mode {
   id: string;
@@ -78,14 +78,18 @@ interface Props {
 export function HomeScreen({ onSelectMode }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
-  const sessions = useSessionStore((s) => s.sessions);
-  const bestScore = useSessionStore((s) => s.bestScore);
-  const streak = useSessionStore((s) => s.streak);
+  const [stats, setStats] = useState<PersistedStats>({
+    sessions: 0, bestScore: 0, streak: 0, lastSessionDate: null,
+  });
+
+  useEffect(() => {
+    loadStats().then(setStats);
+  }, []);
 
   const liveStats = [
-    { val: sessions.toString(), lbl: 'sessions' },
-    { val: bestScore > 0 ? bestScore.toString() : '--', lbl: 'best score' },
-    { val: streak > 0 ? `${streak}d` : '--', lbl: 'streak' },
+    { val: stats.sessions.toString(), lbl: 'sessions' },
+    { val: stats.bestScore > 0 ? stats.bestScore.toString() : '--', lbl: 'best score' },
+    { val: stats.streak > 0 ? `${stats.streak}d` : '--', lbl: 'streak' },
   ];
 
   const handlePress = (mode: Mode) => {

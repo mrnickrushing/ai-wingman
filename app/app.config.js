@@ -4,18 +4,28 @@ const projectId = process.env.EAS_PROJECT_ID || '';
 
 module.exports = {
   ...baseConfig.expo,
-  updates: {
-    url: `https://u.expo.dev/${projectId}`,
-    enabled: true,
-    fallbackToCacheTimeout: 0,
-    checkAutomatically: 'ON_LOAD',
-  },
-  runtimeVersion: {
-    policy: 'appVersion',
-  },
+  ...(projectId
+    ? {
+        updates: {
+          url: `https://u.expo.dev/${projectId}`,
+          enabled: true,
+          fallbackToCacheTimeout: 0,
+          checkAutomatically: 'ON_LOAD',
+          runtimeVersion: {
+            policy: 'appVersion',
+          },
+        },
+      }
+    : {
+        updates: {
+          enabled: false,
+          checkAutomatically: 'NEVER',
+        },
+      }),
   extra: {
     eas: {
       projectId,
     },
+    serverUrl: process.env.EXPO_PUBLIC_SERVER_URL,
   },
 };

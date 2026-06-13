@@ -28,6 +28,16 @@ The app now uses a gated first-run flow:
 
 Google Cloud service-account JSON is not enough for mobile sign-in. The app needs OAuth client IDs for the Google auth flow.
 
+## OTA Updates & `EAS_PROJECT_ID`
+
+The app uses `expo-updates` for over-the-air updates. This requires an Expo project ID, supplied via the `EAS_PROJECT_ID` environment variable in the EAS build environment.
+
+- Set `EAS_PROJECT_ID` in the build profile's `env` block in `app/eas.json` (a `YOUR_EXPO_PROJECT_ID_HERE` placeholder is already there for the `production` profile).
+- When `EAS_PROJECT_ID` is set, `app/app.config.js` builds a valid `https://u.expo.dev/<projectId>` updates URL and enables OTA updates.
+- When `EAS_PROJECT_ID` is empty or missing, OTA updates are **disabled** and the app launches normally. This avoids the launch crash caused by a malformed updates URL (`https://u.expo.dev/` with no project ID) firing on startup.
+
+In short: the app runs fine without `EAS_PROJECT_ID` — you only need it to ship OTA updates.
+
 ---
 
 ## Modes

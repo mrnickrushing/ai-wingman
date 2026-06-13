@@ -5,7 +5,10 @@
   },
   "build": {
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EAS_PROJECT_ID": "YOUR_EXPO_PROJECT_ID_HERE"
+      }
     },
     "development": {
       "channel": "development",

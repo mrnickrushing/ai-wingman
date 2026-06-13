@@ -507,26 +507,12 @@ function AccountStage({
           />
         )}
 
-        {googleEnabled ? (
-          <GoogleButton
-            loading={loading === 'google'}
-            onToken={onGoogleToken}
-            config={googleConfig}
-          />
-        ) : (
-          <View style={[s.googleButton, s.googleButtonDisabled]}>
-            <View style={s.googleLogo}>
-              <Text style={s.googleLogoText}>G</Text>
-            </View>
-            <Text style={s.googleButtonText}>Continue with Google</Text>
-          </View>
-        )}
-
-        {!googleEnabled && (
-          <Text style={s.helperText}>
-            Google sign-in is not configured for this build yet.
-          </Text>
-        )}
+        <GoogleButton
+          loading={loading === 'google'}
+          onToken={onGoogleToken}
+          config={googleConfig}
+          enabled={googleEnabled}
+        />
 
         {error && <Text style={s.errorText}>{error}</Text>}
       </View>
@@ -621,6 +607,7 @@ function GoogleButton({
   loading,
   onToken,
   config,
+  enabled,
 }: {
   loading: boolean;
   onToken: (token: string) => void;
@@ -630,35 +617,44 @@ function GoogleButton({
     webClientId?: string;
     expoClientId?: string;
   };
+  enabled: boolean;
 }) {
   const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
 
   useEffect(() => {
+    if (!enabled) return;
     if (response?.type !== 'success') return;
     const token =
       response.authentication?.idToken
       ?? (response.params as Record<string, string | undefined> | undefined)?.id_token;
     if (token) onToken(token);
-  }, [onToken, response]);
+  }, [enabled, onToken, response]);
 
   const handlePress = async () => {
-    if (!request || loading) return;
+    if (!enabled || !request || loading) return;
     await promptGoogle();
   };
 
   return (
-    <Pressable
-      style={s.googleButton}
-      onPress={handlePress}
-      disabled={!request || loading}
-    >
-      <View style={s.googleLogo}>
-        <Text style={s.googleLogoText}>G</Text>
-      </View>
-      <Text style={s.googleButtonText}>
-        {loading ? 'Signing in…' : 'Continue with Google'}
-      </Text>
-    </Pressable>
+    <>
+      <Pressable
+        style={[s.googleButton, !enabled && s.googleButtonDisabled]}
+        onPress={handlePress}
+        disabled={!enabled || !request || loading}
+      >
+        <View style={s.googleLogo}>
+          <Text style={s.googleLogoText}>G</Text>
+        </View>
+        <Text style={s.googleButtonText}>
+          {loading ? 'Signing in…' : 'Continue with Google'}
+        </Text>
+      </Pressable>
+      {!enabled && (
+        <Text style={s.helperText}>
+          Google sign-in is not configured for this build yet.
+        </Text>
+      )}
+    </>
   );
 }
 

@@ -21,7 +21,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app
@@ -101,7 +101,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app

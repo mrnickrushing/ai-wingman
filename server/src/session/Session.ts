@@ -6,6 +6,7 @@ import {
   generateNetworkingCoaching,
   generatePitchingCoaching,
   summarizeConversation,
+  generateHardConversationCoaching,
 } from '../services/claude';
 import { textToSpeech } from '../services/elevenlabs';
 import { SessionConfig, ServerMessage, ConversationTurn } from '../types';
@@ -166,6 +167,15 @@ export class Session {
           c.pitchTitle ?? '',
           c.pitchDeck ?? '',
           c.audienceType ?? '',
+          history,
+          onChunk
+        );
+      case 'hard_conversations':
+        return generateHardConversationCoaching(
+          transcript,
+          c.scenario ?? 'confrontation',
+          c.situation ?? '',
+          c.conversationGoal ?? '',
           history,
           onChunk
         );

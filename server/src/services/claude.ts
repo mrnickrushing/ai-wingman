@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ConversationTurn } from '../types';
+import { ConversationTurn, HardConversationScenario } from '../types';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -291,4 +291,43 @@ export async function summarizeConversation(
     // On any failure, keep the prior summary; the Session will retain raw turns.
     return priorSummary;
   }
+}
+
+// Per-scenario coaching prompts for Hard Conversations mode. Each whispers
+// scenario-specific guidance to someone in a high-stakes conversation.
+export function getHardConversationPrompt(scenario: HardConversationScenario): string {
+  switch (scenario) {
+    case 'salary_negotiation':
+      return `You are an expert salary negotiation coach. Provide short, real-time suggestions (≤12 words). Focus on: anchoring high, counter-offer framing, coaching the user to hold silence, flagging if they concede too quickly. After the session, summarize key moments and negotiation effectiveness.`;
+    case 'firing':
+      return `You are an HR and leadership coach specializing in difficult conversations. Provide short, real-time suggestions (≤12 words). Focus on: legally safe phrasing, empathy and humanity, de-escalation if emotions rise. After the session, summarize how the conversation went and what was handled well.`;
+    case 'breakup':
+      return `You are a compassionate communication coach. Provide short, real-time suggestions (≤12 words). Focus on: clear and kind language, detecting circular arguing, suggesting exit ramps when the conversation loops. After the session, summarize the emotional arc and key moments.`;
+    case 'confrontation':
+      return `You are a conflict resolution coach. Provide short, real-time suggestions (≤12 words). Focus on: non-accusatory framing, "I" statement coaching, de-escalation. After the session, summarize what was resolved and what remains open.`;
+    case 'dispute':
+      return `You are an assertive communication coach for disputes. Provide short, real-time suggestions (≤12 words). Focus on: surfacing relevant leverage, rights-aware language, professional assertiveness. After the session, summarize the outcome and next steps.`;
+    case 'therapy':
+      return `You are a therapy preparation coach. Provide short, real-time suggestions (≤12 words). Focus on: emotional vocabulary, surfacing key topics, reflection cues. After the session, provide structured notes: key topics surfaced, emotional themes, and items to raise with the therapist.`;
+  }
+}
+
+export async function generateHardConversationCoaching(
+  latestTranscript: string,
+  scenario: HardConversationScenario,
+  situation: string,
+  conversationGoal: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  const systemPrompt = `${getHardConversationPrompt(scenario)}
+
+You are whispering live coaching into the user's earpiece — only they can hear you.
+
+${LIVE_RULES}
+
+SITUATION: ${situation.trim() || 'Not provided'}
+GOAL: ${conversationGoal.trim() || 'Not provided'}`;
+
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
 }

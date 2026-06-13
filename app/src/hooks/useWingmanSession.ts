@@ -161,12 +161,15 @@ export function useWingmanSession() {
 
   const startChunkRecording = useCallback(async () => {
     await requestRecordingPermissionsAsync();
-    await setAudioModeAsync({
-      allowsRecording: true,
-      playsInSilentMode: true,
-      interruptionMode: 'duckOthers',
-      shouldRouteThroughEarpiece: false,
-    });
+    try {
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        interruptionMode: 'doNotMix',
+      });
+    } catch {
+      // audio mode config failed — recording may still work
+    }
 
     const captureAndSend = async () => {
       if (!isActiveRef.current) return;

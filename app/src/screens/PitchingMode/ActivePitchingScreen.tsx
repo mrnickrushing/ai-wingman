@@ -9,6 +9,7 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
+import { LiveStats } from '../../components/LiveStats';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -23,7 +24,7 @@ export function ActivePitchingScreen({ onEnd }: Props) {
   const {
     isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
-    elapsedSeconds, pitchingSetup, setCurrentCoaching, setError,
+    elapsedSeconds, wordsSelf, pitchingSetup, setCurrentCoaching, setError,
     coachingHistory, getSessionConfig,
   } = useSessionStore();
 
@@ -76,6 +77,12 @@ export function ActivePitchingScreen({ onEnd }: Props) {
 
   const pitchLabel = pitchingSetup.title || 'Active Pitch';
 
+  const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
+  const wpm = Math.round(wordsSelf / minutes);
+  const paceColor = wpm > 160 ? '#f43f5e' : wpm > 130 ? '#f59e0b' : '#4ade80';
+  const paceWord = wpm > 160 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
+  const slideNum = Math.floor(elapsedSeconds / 90) + 1;
+
   const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#f43f5e';
   const statusLabel = isConnected
     ? (isRecording ? 'Listening' : 'Connected')
@@ -84,6 +91,7 @@ export function ActivePitchingScreen({ onEnd }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#18120a', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <View style={s.ambientOrb} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
         <View style={s.glowOverlay} pointerEvents="none" />
@@ -130,6 +138,14 @@ export function ActivePitchingScreen({ onEnd }: Props) {
           </View>
         </Animated.View>
 
+        <LiveStats
+          chips={[
+            { icon: '📊', value: `~${slideNum}`, label: 'SLIDE ~' },
+            { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+          ]}
+        />
+
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
             <Text style={s.sectionLabel}>TRANSCRIPT</Text>
@@ -173,6 +189,10 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(245,158,11,0.04)',
     zIndex: 50,
+  },
+  ambientOrb: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    top: -60, left: -60, backgroundColor: 'rgba(245,158,11,0.06)',
   },
 
   statusBar: {

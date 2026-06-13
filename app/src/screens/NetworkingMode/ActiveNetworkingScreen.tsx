@@ -9,6 +9,7 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
+import { LiveStats } from '../../components/LiveStats';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -93,6 +94,7 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <View style={s.ambientOrb} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
         <View style={s.glowOverlay} pointerEvents="none" />
@@ -135,6 +137,14 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
             </Text>
           </View>
         </Animated.View>
+
+        <LiveStats
+          chips={[
+            { icon: '👥', value: loggedContacts.length.toString(), label: 'CONTACTS' },
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+            { icon: '⏱', value: formatTime(elapsedSeconds), label: 'ELAPSED' },
+          ]}
+        />
 
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
@@ -238,6 +248,10 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(34,211,238,0.04)',
     zIndex: 50,
+  },
+  ambientOrb: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    bottom: 80, right: -60, backgroundColor: 'rgba(34,211,238,0.05)',
   },
 
   statusBar: {

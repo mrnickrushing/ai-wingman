@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { WingmanScore } from '../../components/WingmanScore';
+import { computeWingmanScore } from '../../utils/scoring';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -18,8 +20,17 @@ interface Props {
 }
 
 export function PostCallScreen({ onDone, onCallAgain }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating, recordSession } = useSessionStore();
   const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    recordSession(computeWingmanScore({
+      coachingTipsTaken: coachingHistory.length,
+      elapsedSeconds,
+      wordsSelf,
+      rating: 0,
+    }));
+  }, []);
 
   // North Star metric: "Did Wingman help you get the outcome you wanted?"
   // Capture it into the store so it survives this screen and can be sent
@@ -75,6 +86,14 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
               {[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Session ended'}
             </Text>
           </Animated.View>
+
+          {/* Wingman Score */}
+          <WingmanScore
+            coachingHistory={coachingHistory}
+            elapsedSeconds={elapsedSeconds}
+            wordsSelf={wordsSelf}
+            rating={rating}
+          />
 
           {/* Stats */}
           <View style={s.statsRow}>

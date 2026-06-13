@@ -9,6 +9,7 @@ import { useWingmanSession } from '../../hooks/useWingmanSession';
 import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
+import { LiveStats } from '../../components/LiveStats';
 import { HardConversationScenario } from '../../types';
 
 function formatTime(s: number): string {
@@ -107,6 +108,11 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
   const intensity = deriveIntensity(currentCoaching);
   const tone = INTENSITY_STYLE[intensity];
 
+  const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
+  const wpm = Math.round(wordsSelf / minutes);
+  const paceColor = wpm > 150 ? '#f43f5e' : wpm > 120 ? '#f59e0b' : '#4ade80';
+  const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
+
   const scenarioLabel = hardConvoSetup.scenario
     ? SCENARIO_LABELS[hardConvoSetup.scenario]
     : 'Hard Conversation';
@@ -119,6 +125,7 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#120a1c', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <View style={s.ambientOrb} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
         <View style={[s.glowOverlay, { backgroundColor: tone.glow }]} pointerEvents="none" />
@@ -176,6 +183,14 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
           ]} />
         </View>
 
+        <LiveStats
+          chips={[
+            { icon: '🌡', value: tone.label, label: 'INTENSITY', color: tone.color },
+            { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+          ]}
+        />
+
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
             <Text style={s.sectionLabel}>TRANSCRIPT</Text>
@@ -221,6 +236,11 @@ const s = StyleSheet.create({
   glowOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 50,
+  },
+  ambientOrb: {
+    position: 'absolute', width: 300, height: 300, borderRadius: 150,
+    top: '50%', left: '50%', marginTop: -150, marginLeft: -150,
+    backgroundColor: 'rgba(239,68,68,0.05)',
   },
 
   statusBar: {

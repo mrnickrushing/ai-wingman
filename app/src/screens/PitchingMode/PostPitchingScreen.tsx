@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { WingmanScore } from '../../components/WingmanScore';
+import { computeWingmanScore } from '../../utils/scoring';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -18,13 +20,19 @@ interface Props {
 }
 
 export function PostPitchingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, pitchingSetup } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, pitchingSetup, lastRating, recordSession } = useSessionStore();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const statAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
+    recordSession(computeWingmanScore({
+      coachingTipsTaken: coachingHistory.length,
+      elapsedSeconds,
+      wordsSelf,
+      rating: lastRating,
+    }));
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -70,6 +78,13 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
             <Text style={s.title}>Pitch Recap</Text>
             <Text style={s.prospectLabel}>{pitchingSetup.title || 'Session ended'}</Text>
           </Animated.View>
+
+          <WingmanScore
+            coachingHistory={coachingHistory}
+            elapsedSeconds={elapsedSeconds}
+            wordsSelf={wordsSelf}
+            rating={lastRating}
+          />
 
           <View style={s.statsRow}>
             {stats.map((stat, i) => (

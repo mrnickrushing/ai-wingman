@@ -1,6 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const WORD_INTERVAL = 80;
+const PROGRESS_DURATION = 6000;
 
 interface Props {
   text: string | null;
@@ -32,28 +36,65 @@ function SpeakingDots() {
   );
 }
 
+// A single word that fades in over 60ms when revealed.
+function Word({ value, revealed }: { value: string; revealed: boolean }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (revealed) {
+      Animated.timing(opacity, { toValue: 1, duration: 60, useNativeDriver: true }).start();
+    }
+  }, [revealed]);
+  return <Animated.Text style={[s.text, { opacity }]}>{value}{' '}</Animated.Text>;
+}
+
 export function CoachingBubble({ text, speaking, onDismiss }: Props) {
   const slideAnim = useRef(new Animated.Value(-100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  const [revealCount, setRevealCount] = useState(0);
+
+  const words = text ? text.split(/\s+/).filter(Boolean) : [];
 
   useEffect(() => {
     if (text) {
       progressAnim.setValue(1);
+      setRevealCount(0);
+
+      // Medium haptic pulse the moment the whisper arrives.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0, tension: 70, friction: 11, useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(scaleAnim, {
-          toValue: 1, tension: 70, friction: 11, useNativeDriver: true,
-        }),
+        // Spring up, then a subtle 1.0 → 1.03 → 1.0 "alive" pulse.
+        Animated.sequence([
+          Animated.spring(scaleAnim, {
+            toValue: 1, tension: 70, friction: 11, useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, { toValue: 1.03, duration: 100, useNativeDriver: true }),
+          Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+        ]),
       ]).start();
-      // Progress bar drains over 6s
-      Animated.timing(progressAnim, {
-        toValue: 0, duration: 6000, useNativeDriver: false,
-      }).start();
+
+      // Reveal words one at a time (~80ms each).
+      const count = text.split(/\s+/).filter(Boolean).length;
+      let i = 0;
+      const interval = setInterval(() => {
+        i += 1;
+        setRevealCount(i);
+        if (i >= count) {
+          clearInterval(interval);
+          // Progress bar only starts draining after the last word is revealed.
+          Animated.timing(progressAnim, {
+            toValue: 0, duration: PROGRESS_DURATION, useNativeDriver: false,
+          }).start();
+        }
+      }, WORD_INTERVAL);
+
+      return () => clearInterval(interval);
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: -100, duration: 260, useNativeDriver: true }),
@@ -93,7 +134,11 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
           )}
         </View>
 
-        <Text style={s.text}>{text}</Text>
+        <Text style={s.textWrap}>
+          {words.map((w, i) => (
+            <Word key={`${i}-${w}`} value={w} revealed={i < revealCount} />
+          ))}
+        </Text>
 
         {/* Auto-dismiss progress bar */}
         <View style={s.progressTrack}>
@@ -180,6 +225,9 @@ const s = StyleSheet.create({
     color: 'rgba(148,163,184,0.5)',
     fontSize: 13,
     fontWeight: '600',
+  },
+  textWrap: {
+    lineHeight: 24,
   },
   text: {
     color: '#f1f5f9',

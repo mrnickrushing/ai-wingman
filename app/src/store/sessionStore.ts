@@ -67,6 +67,14 @@ interface SessionStore {
   lastRating: number;
   loggedContacts: string[];
 
+  // Lifetime stats (non-persisted — reset when the app process restarts).
+  // Surfaced on the Home screen. recordSession() is called once per finished
+  // session from the Post screens.
+  sessions: number;
+  bestScore: number;
+  streak: number;
+  lastSessionDay: string | null;
+
   // Actions
   setSessionId: (id: string | null) => void;
   setConnected: (connected: boolean) => void;
@@ -82,6 +90,7 @@ interface SessionStore {
   incrementWords: (count: number) => void;
   setRating: (rating: number) => void;
   addLoggedContact: (name: string) => void;
+  recordSession: (score: number) => void;
   reset: () => void;
 
   // Computed
@@ -151,6 +160,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lastRating: 0,
   loggedContacts: [],
 
+  sessions: 0,
+  bestScore: 0,
+  streak: 0,
+  lastSessionDay: null,
+
   setSessionId: (id) => set({ sessionId: id }),
   setConnected: (connected) => set({ isConnected: connected }),
   setReconnecting: (reconnecting) => set({ isReconnecting: reconnecting }),
@@ -185,6 +199,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   addLoggedContact: (name) =>
     set((s) => ({ loggedContacts: [...s.loggedContacts, name] })),
+
+  recordSession: (score) =>
+    set((s) => {
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      let streak = s.streak;
+      if (s.lastSessionDay === today) {
+        // already counted a session today — streak unchanged
+        streak = Math.max(streak, 1);
+      } else if (s.lastSessionDay === yesterday) {
+        streak = s.streak + 1;
+      } else {
+        streak = 1;
+      }
+      return {
+        sessions: s.sessions + 1,
+        bestScore: Math.max(s.bestScore, score),
+        streak,
+        lastSessionDay: today,
+      };
+    }),
 
   reset: () =>
     set({

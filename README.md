@@ -171,11 +171,14 @@ Tracked via post-session rating. Everything else — latency, retention, revenue
 |---|---|
 | Repo initialized | ✅ Done |
 | README & project plan | ✅ Done |
-| Project scaffold (React Native) | Planned — Month 1 |
-| Deepgram integration | Planned — Month 1 |
-| Claude API integration | Planned — Month 1 |
-| ElevenLabs / TTS integration | Planned — Month 1 |
-| Sales Mode MVP | Planned — Month 2 |
+| React Native app scaffold | ✅ Done |
+| Node.js WebSocket server | ✅ Done |
+| Deepgram STT integration | ✅ Done |
+| Claude API coaching integration | ✅ Done |
+| ElevenLabs TTS integration | ✅ Done |
+| Railway deployment (server live) | ✅ Done — `wingman-server-production-5146.up.railway.app` |
+| Sales Mode MVP — pre-call setup, active call, coaching overlay | ✅ Done |
+| API keys wired to Railway env vars | ⏳ Needs DEEPGRAM_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY |
 | Dating Mode | Planned — Month 3–4 |
 | Networking + Pitching Modes | Planned — Month 5–6 |
 | Android support | Planned — Month 7+ |

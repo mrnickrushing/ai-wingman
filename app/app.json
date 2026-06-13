@@ -15,7 +15,8 @@
       "bundleIdentifier": "com.rushingtechnologies.aiwingman",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
-        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods."
+        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

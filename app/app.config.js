@@ -4,6 +4,9 @@ const projectId = process.env.EAS_PROJECT_ID || '';
 
 module.exports = {
   ...baseConfig.expo,
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   ...(projectId
     ? {
         updates: {
@@ -11,9 +14,6 @@ module.exports = {
           enabled: true,
           fallbackToCacheTimeout: 0,
           checkAutomatically: 'ON_LOAD',
-          runtimeVersion: {
-            policy: 'appVersion',
-          },
         },
       }
     : {

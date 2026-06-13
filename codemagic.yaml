@@ -38,9 +38,15 @@ workflows:
         script: |
           set -e
           keychain initialize
-          echo "$IOS_DISTRIBUTION_CERTIFICATE_B64" | base64 --decode > /tmp/ios_distribution.p12
+          echo "$IOS_DISTRIBUTION_PRIVATE_KEY_B64" | base64 --decode > /tmp/ios_distribution.key.pem
+          echo "$IOS_DISTRIBUTION_CERTIFICATE_PEM_B64" | base64 --decode > /tmp/ios_distribution.cert.pem
+          openssl pkcs12 -export \
+            -inkey /tmp/ios_distribution.key.pem \
+            -in /tmp/ios_distribution.cert.pem \
+            -out /tmp/ios_distribution.p12 \
+            -passout pass:codemagic
           security import /tmp/ios_distribution.p12 \
-            -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" \
+            -P codemagic \
             -T /usr/bin/codesign \
             -T /usr/bin/security
           security set-key-partition-list \

@@ -1,0 +1,13 @@
+{
+  "name": "ai-wingman",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "app"
+  ],
+  "scripts": {
+    "server": "npm run dev --workspace=server",
+    "app": "npm start --workspace=app"
+  }
+}

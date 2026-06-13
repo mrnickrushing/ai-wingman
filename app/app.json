@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "AI Wingman",
+    "slug": "ai-wingman",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A14"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.aiwingman.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
+        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods."
+      }
+    },
+    "android": {
+      "package": "com.aiwingman.app",
+      "permissions": [
+        "RECORD_AUDIO",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching."
+        }
+      ]
+    ],
+    "scheme": "aiwingman"
+  }
+}

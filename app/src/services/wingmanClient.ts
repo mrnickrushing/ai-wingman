@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { SessionConfig } from '../types';
 
 export type WingmanEvent =
@@ -13,7 +14,10 @@ export type WingmanEvent =
 
 type EventHandler = (event: WingmanEvent) => void;
 
-const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL ?? 'ws://localhost:3001/ws';
+const SERVER_URL =
+  (Constants.expoConfig?.extra?.serverUrl as string | undefined) ??
+  process.env.EXPO_PUBLIC_SERVER_URL ??
+  'wss://wingman-server-production-5146.up.railway.app/ws';
 
 export class WingmanClient {
   private ws: WebSocket | null = null;

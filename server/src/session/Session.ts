@@ -1,6 +1,11 @@
 import { WebSocket } from 'ws';
 import { transcribeChunk } from '../services/deepgram';
-import { generateSalesCoaching } from '../services/claude';
+import {
+  generateSalesCoaching,
+  generateDatingCoaching,
+  generateNetworkingCoaching,
+  generatePitchingCoaching,
+} from '../services/claude';
 import { textToSpeech } from '../services/elevenlabs';
 import { SessionConfig, ServerMessage, ConversationTurn } from '../types';
 
@@ -67,13 +72,7 @@ export class Session {
     this.isCoaching = true;
     this.coachedTranscript = transcript;
     try {
-      const coaching = await generateSalesCoaching(
-        transcript,
-        this.config.prospectContext ?? '',
-        this.config.callGoal ?? '',
-        this.config.objectionLibrary ?? '',
-        this.history
-      );
+      const coaching = await this.generateCoaching(transcript);
 
       if (coaching && coaching !== 'HOLD') {
         this.history.push(
@@ -92,6 +91,43 @@ export class Session {
       if (this.latestTranscript !== this.coachedTranscript) {
         void this.maybeCoach();
       }
+    }
+  }
+
+  private generateCoaching(transcript: string): Promise<string> {
+    const c = this.config;
+    switch (c.mode) {
+      case 'dating':
+        return generateDatingCoaching(
+          transcript,
+          c.datingName ?? '',
+          c.datingProfileUrl ?? '',
+          c.datingIntent ?? '',
+          this.history
+        );
+      case 'networking':
+        return generateNetworkingCoaching(
+          transcript,
+          c.eventName ?? '',
+          c.attendeeList ?? '',
+          this.history
+        );
+      case 'pitching':
+        return generatePitchingCoaching(
+          transcript,
+          c.pitchTitle ?? '',
+          c.pitchDeck ?? '',
+          c.audienceType ?? '',
+          this.history
+        );
+      default:
+        return generateSalesCoaching(
+          transcript,
+          c.prospectContext ?? '',
+          c.callGoal ?? '',
+          c.objectionLibrary ?? '',
+          this.history
+        );
     }
   }
 

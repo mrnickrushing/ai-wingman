@@ -49,7 +49,7 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.topGlow} />
 
       <SafeAreaView style={s.safe}>

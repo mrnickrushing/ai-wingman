@@ -118,7 +118,7 @@ export function ActiveDatingScreen({ onEnd }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#150818', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#150818', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.ambientOrb1} pointerEvents="none" />
       <View style={s.ambientOrb2} pointerEvents="none" />
 
@@ -225,7 +225,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
   glowOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(236,72,153,0.04)',
     zIndex: 50,
   },

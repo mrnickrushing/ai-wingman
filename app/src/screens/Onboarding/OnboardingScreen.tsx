@@ -5,7 +5,7 @@ import {
   NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { requestRecordingPermissionsAsync } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -77,7 +77,7 @@ export function OnboardingScreen({ onComplete }: Props) {
 
   const handleStart = async () => {
     try {
-      await Audio.requestPermissionsAsync();
+      await requestRecordingPermissionsAsync();
     } catch {
       // ignore — proceed regardless of permission outcome
     }
@@ -97,7 +97,7 @@ export function OnboardingScreen({ onComplete }: Props) {
         >
           {SLIDES.map((slide, i) => (
             <View key={i} style={s.slide}>
-              <LinearGradient colors={slide.gradient} style={StyleSheet.absoluteFillObject} />
+              <LinearGradient colors={slide.gradient} style={StyleSheet.absoluteFill} />
               <View style={[s.orb, { backgroundColor: slide.orbColor }]} />
 
               <View style={s.content}>

@@ -22,7 +22,7 @@ export function PrePitchingScreen({ onStart, onBack }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#1c1305', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#1c1305', '#050510']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -116,7 +116,7 @@ export function HomeScreen({ onSelectMode }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#0c0c22', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#0c0c22', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.orb1} />
       <View style={s.orb2} />
 

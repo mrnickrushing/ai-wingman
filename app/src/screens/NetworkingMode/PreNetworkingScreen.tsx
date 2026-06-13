@@ -24,7 +24,7 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#06181c', '#050510']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

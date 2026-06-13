@@ -1,6 +1,17 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import {
+  AudioModule,
+  createAudioPlayer,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  AudioQuality,
+  IOSOutputFormat,
+  type AudioPlayer,
+  type AudioRecorder,
+  type AudioStatus,
+  type RecordingOptions,
+} from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { wingmanClient } from '../services/wingmanClient';
 import { useSessionStore } from '../store/sessionStore';
@@ -11,8 +22,34 @@ const nextId = () => String(++idCounter);
 
 const COACHING_VISIBLE_MS = 6000;
 
+// We record a complete AAC/m4a container each cycle (reliable on both iOS and
+// Android); Deepgram auto-detects the codec server-side.
+const CHUNK_RECORDING_OPTIONS: RecordingOptions = {
+  extension: '.m4a',
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 64000,
+  isMeteringEnabled: false,
+  android: {
+    extension: '.m4a',
+    outputFormat: 'mpeg4',
+    audioEncoder: 'aac',
+    sampleRate: 16000,
+  },
+  ios: {
+    extension: '.m4a',
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MEDIUM,
+    sampleRate: 16000,
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 64000,
+  },
+};
+
 export function useWingmanSession() {
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingRef = useRef<AudioRecorder | null>(null);
   const chunkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef = useRef(false);
@@ -32,31 +69,28 @@ export function useWingmanSession() {
     while (audioQueueRef.current.length > 0) {
       const b64 = audioQueueRef.current.shift()!;
       const uri = `${FileSystem.cacheDirectory}wm-coach-${nextId()}.mp3`;
-      let sound: Audio.Sound | null = null;
+      let player: AudioPlayer | null = null;
       try {
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        const created = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true, volume: 1.0 }
-        );
-        sound = created.sound;
+        player = createAudioPlayer({ uri }, { updateInterval: 100 });
+        player.volume = 1.0;
         setWingmanSpeaking(true);
         await new Promise<void>((resolve) => {
-          sound!.setOnPlaybackStatusUpdate((status) => {
-            if (!status.isLoaded) {
-              if (status.error) resolve();
-              return;
+          const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+            if (status.didJustFinish || status.error) {
+              sub.remove();
+              resolve();
             }
-            if (status.didJustFinish) resolve();
           });
+          player!.play();
         });
       } catch {
         // ignore playback errors — text coaching is still shown on screen
       } finally {
-        if (sound) {
-          try { await sound.unloadAsync(); } catch { /* noop */ }
+        if (player) {
+          try { player.remove(); } catch { /* noop */ }
         }
         FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
       }
@@ -126,12 +160,12 @@ export function useWingmanSession() {
   }, [playCoachingAudio]);
 
   const startChunkRecording = useCallback(async () => {
-    await Audio.requestPermissionsAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    await requestRecordingPermissionsAsync();
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      interruptionMode: 'duckOthers',
+      shouldRouteThroughEarpiece: false,
     });
 
     const captureAndSend = async () => {
@@ -139,9 +173,11 @@ export function useWingmanSession() {
 
       // Stop the current segment and ship it as a complete container file.
       if (recordingRef.current) {
+        const recorder = recordingRef.current;
+        recordingRef.current = null;
         try {
-          await recordingRef.current.stopAndUnloadAsync();
-          const uri = recordingRef.current.getURI();
+          await recorder.stop();
+          const uri = recorder.uri;
           if (uri) {
             const b64 = await FileSystem.readAsStringAsync(uri, {
               encoding: FileSystem.EncodingType.Base64,
@@ -151,6 +187,8 @@ export function useWingmanSession() {
           }
         } catch {
           // ignore errors during capture cycle
+        } finally {
+          try { recorder.release(); } catch { /* noop */ }
         }
       }
 
@@ -160,7 +198,7 @@ export function useWingmanSession() {
       // each cycle (reliable on both iOS and Android); Deepgram auto-detects
       // the codec server-side.
       //
-      // NOISE SUPPRESSION / ECHO CANCELLATION: expo-av's RecordingOptions does
+      // NOISE SUPPRESSION / ECHO CANCELLATION: expo-audio's RecordingOptions does
       // NOT expose noise suppression, echo cancellation, or AGC — its API
       // surface (extension/outputFormat/encoder/sampleRate/channels/bitRate)
       // has no field for them, and it does not wire up the platform voice-comm
@@ -171,34 +209,13 @@ export function useWingmanSession() {
       // custom native recorder (e.g. AudioRecord with VOICE_COMMUNICATION +
       // NoiseSuppressor/AcousticEchoCanceler on Android, and an AVAudioSession
       // configured for voice chat on iOS).
-      const recording = new Audio.Recording();
+      const recording = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
       try {
-        await recording.prepareToRecordAsync({
-          isMeteringEnabled: false,
-          android: {
-            extension: '.m4a',
-            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-            audioEncoder: Audio.AndroidAudioEncoder.AAC,
-            sampleRate: 16000,
-            numberOfChannels: 1,
-            bitRate: 64000,
-          },
-          ios: {
-            extension: '.m4a',
-            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-            audioQuality: Audio.IOSAudioQuality.MEDIUM,
-            sampleRate: 16000,
-            numberOfChannels: 1,
-            bitRate: 64000,
-          },
-          web: {
-            mimeType: 'audio/webm',
-            bitsPerSecond: 64000,
-          },
-        });
-        await recording.startAsync();
+        await recording.prepareToRecordAsync();
+        recording.record();
         recordingRef.current = recording;
       } catch {
+        try { recording.release(); } catch { /* noop */ }
         recordingRef.current = null;
       }
     };
@@ -239,12 +256,14 @@ export function useWingmanSession() {
     }
 
     if (recordingRef.current) {
+      const recorder = recordingRef.current;
+      recordingRef.current = null;
       try {
-        await recordingRef.current.stopAndUnloadAsync();
+        await recorder.stop();
       } catch {
         // already stopped
       }
-      recordingRef.current = null;
+      try { recorder.release(); } catch { /* noop */ }
     }
 
     audioQueueRef.current = [];

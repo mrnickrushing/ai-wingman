@@ -124,7 +124,7 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#120a1c', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#120a1c', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.ambientOrb} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
@@ -234,7 +234,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
   glowOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 50,
   },
   ambientOrb: {

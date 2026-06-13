@@ -71,7 +71,7 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#1c1305', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#1c1305', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.topGlow} />
 
       <SafeAreaView style={s.safe}>

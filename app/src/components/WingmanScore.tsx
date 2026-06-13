@@ -123,7 +123,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  numberOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  numberOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   score: { fontSize: 72, fontWeight: '900', letterSpacing: -4 },
   scoreCaption: {
     color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 2.5, marginTop: 4,

@@ -245,7 +245,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   if (stage === 'loading') {
     return (
       <View style={s.loadingRoot}>
-        <LinearGradient colors={['#090914', '#04040a']} style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={['#090914', '#04040a']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color="#8b5cf6" />
       </View>
     );
@@ -253,7 +253,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#090914', '#04040a']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#090914', '#04040a']} style={StyleSheet.absoluteFill} />
       <View style={s.topGlow} />
       <View style={s.bottomGlow} />
 

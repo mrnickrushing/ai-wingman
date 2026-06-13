@@ -90,7 +90,7 @@ export function ActivePitchingScreen({ onEnd }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#18120a', '#050510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#18120a', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.ambientOrb} pointerEvents="none" />
 
       {showCoaching && currentCoaching && (
@@ -186,7 +186,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
   glowOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(245,158,11,0.04)',
     zIndex: 50,
   },

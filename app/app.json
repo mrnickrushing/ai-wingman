@@ -6,10 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0A14"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rushingtechnologies.aiwingman",
@@ -46,9 +42,16 @@
     },
     "plugins": [
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0A14"
         }
       ],
       "expo-secure-store",

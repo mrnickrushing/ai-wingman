@@ -14,6 +14,7 @@ workflows:
         XCODE_PROJECT: AIWingman.xcodeproj
         XCODE_WORKSPACE: AIWingman.xcworkspace
         XCODE_SCHEME: AIWingman
+        APPLE_TEAM_ID: PH4AKDQ4Q7
       node: 22
     cache:
       cache_paths:
@@ -46,7 +47,7 @@ workflows:
             -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
             -destination 'generic/platform=iOS' \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=PH4AKDQ4Q7 \
+            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
             archive \
             | xcpretty
       - name: Export IPA
@@ -70,7 +71,7 @@ workflows:
           - External Testers
       email:
         recipients:
-          - nickrushing849@icloud.com
+          - $NOTIFICATION_EMAIL
         notify:
           success: true
           failure: true
@@ -85,8 +86,10 @@ workflows:
         bundle_identifier: com.rushingtechnologies.aiwingman
       vars:
         BUNDLE_ID: com.rushingtechnologies.aiwingman
+        XCODE_PROJECT: AIWingman.xcodeproj
         XCODE_WORKSPACE: AIWingman.xcworkspace
         XCODE_SCHEME: AIWingman
+        APPLE_TEAM_ID: PH4AKDQ4Q7
       node: 22
     cache:
       cache_paths:
@@ -121,7 +124,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - nickrushing849@icloud.com
+          - $NOTIFICATION_EMAIL
         notify:
           success: true
           failure: true

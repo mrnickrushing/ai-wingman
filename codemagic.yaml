@@ -44,29 +44,17 @@ workflows:
             --create
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build iOS archive
+      - name: Build and export IPA
         script: |
           set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
-          cd app/ios
-          xcodebuild \
-            -workspace $XCODE_WORKSPACE \
-            -scheme $XCODE_SCHEME \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            -destination 'generic/platform=iOS' \
-            archive \
-            2>&1 \
-            | tee /tmp/xcodebuild_logs/archive.log \
-            | xcpretty
-      - name: Export IPA
-        script: |
-          set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
+          mkdir -p /tmp/xcodebuild_logs $CM_BUILD_DIR/build/ipa
           xcode-project build-ipa \
-            --archive-path $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            --export-path $CM_BUILD_DIR/build/ipa \
-            2>&1 | tee /tmp/xcodebuild_logs/export.log
+            --workspace app/ios/$XCODE_WORKSPACE \
+            --scheme $XCODE_SCHEME \
+            --config Release \
+            --archive-directory $CM_BUILD_DIR/build \
+            --ipa-directory $CM_BUILD_DIR/build/ipa \
+            2>&1 | tee /tmp/xcodebuild_logs/build.log
     artifacts:
       - build/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

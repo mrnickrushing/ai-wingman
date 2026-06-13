@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SessionConfig, TranscriptEntry, CoachingEntry } from '../types';
+import { ConversationMode, SessionConfig, TranscriptEntry, CoachingEntry } from '../types';
 
 interface SalesSetup {
   prospectName: string;
@@ -10,10 +10,33 @@ interface SalesSetup {
   objectionLibrary: string;
 }
 
+interface DatingSetup {
+  name: string;
+  profileUrl: string;
+  intent: string;
+}
+
+interface NetworkingSetup {
+  eventName: string;
+  attendees: string;
+}
+
+interface PitchingSetup {
+  title: string;
+  deck: string;
+  audience: string;
+}
+
 interface SessionStore {
-  // Pre-call configuration
+  // Pre-session configuration (per mode)
   salesSetup: SalesSetup;
   setSalesSetup: (setup: Partial<SalesSetup>) => void;
+  datingSetup: DatingSetup;
+  setDatingSetup: (setup: Partial<DatingSetup>) => void;
+  networkingSetup: NetworkingSetup;
+  setNetworkingSetup: (setup: Partial<NetworkingSetup>) => void;
+  pitchingSetup: PitchingSetup;
+  setPitchingSetup: (setup: Partial<PitchingSetup>) => void;
 
   // Active session state
   sessionId: string | null;
@@ -28,6 +51,7 @@ interface SessionStore {
   elapsedSeconds: number;
   wordsSelf: number;
   lastRating: number;
+  loggedContacts: string[];
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -43,10 +67,11 @@ interface SessionStore {
   incrementElapsed: () => void;
   incrementWords: (count: number) => void;
   setRating: (rating: number) => void;
+  addLoggedContact: (name: string) => void;
   reset: () => void;
 
   // Computed
-  getSessionConfig: () => SessionConfig;
+  getSessionConfig: (mode?: ConversationMode) => SessionConfig;
 }
 
 const defaultSalesSetup: SalesSetup = {
@@ -58,10 +83,36 @@ const defaultSalesSetup: SalesSetup = {
   objectionLibrary: '',
 };
 
+const defaultDatingSetup: DatingSetup = {
+  name: '',
+  profileUrl: '',
+  intent: '',
+};
+
+const defaultNetworkingSetup: NetworkingSetup = {
+  eventName: '',
+  attendees: '',
+};
+
+const defaultPitchingSetup: PitchingSetup = {
+  title: '',
+  deck: '',
+  audience: '',
+};
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   salesSetup: defaultSalesSetup,
   setSalesSetup: (setup) =>
     set((s) => ({ salesSetup: { ...s.salesSetup, ...setup } })),
+  datingSetup: defaultDatingSetup,
+  setDatingSetup: (setup) =>
+    set((s) => ({ datingSetup: { ...s.datingSetup, ...setup } })),
+  networkingSetup: defaultNetworkingSetup,
+  setNetworkingSetup: (setup) =>
+    set((s) => ({ networkingSetup: { ...s.networkingSetup, ...setup } })),
+  pitchingSetup: defaultPitchingSetup,
+  setPitchingSetup: (setup) =>
+    set((s) => ({ pitchingSetup: { ...s.pitchingSetup, ...setup } })),
 
   sessionId: null,
   isConnected: false,
@@ -75,6 +126,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   elapsedSeconds: 0,
   wordsSelf: 0,
   lastRating: 0,
+  loggedContacts: [],
 
   setSessionId: (id) => set({ sessionId: id }),
   setConnected: (connected) => set({ isConnected: connected }),
@@ -108,6 +160,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   setRating: (rating) => set({ lastRating: rating }),
 
+  addLoggedContact: (name) =>
+    set((s) => ({ loggedContacts: [...s.loggedContacts, name] })),
+
   reset: () =>
     set({
       sessionId: null,
@@ -122,10 +177,38 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       elapsedSeconds: 0,
       wordsSelf: 0,
       lastRating: 0,
+      loggedContacts: [],
     }),
 
-  getSessionConfig: (): SessionConfig => {
-    const { salesSetup } = get();
+  getSessionConfig: (mode: ConversationMode = 'sales'): SessionConfig => {
+    const { salesSetup, datingSetup, networkingSetup, pitchingSetup } = get();
+
+    if (mode === 'dating') {
+      return {
+        mode: 'dating',
+        datingName: datingSetup.name,
+        datingProfileUrl: datingSetup.profileUrl,
+        datingIntent: datingSetup.intent,
+      };
+    }
+
+    if (mode === 'networking') {
+      return {
+        mode: 'networking',
+        eventName: networkingSetup.eventName,
+        attendeeList: networkingSetup.attendees,
+      };
+    }
+
+    if (mode === 'pitching') {
+      return {
+        mode: 'pitching',
+        pitchTitle: pitchingSetup.title,
+        pitchDeck: pitchingSetup.deck,
+        audienceType: pitchingSetup.audience,
+      };
+    }
+
     const prospectContext = [
       salesSetup.prospectName && `Name: ${salesSetup.prospectName}`,
       salesSetup.company && `Company: ${salesSetup.company}`,

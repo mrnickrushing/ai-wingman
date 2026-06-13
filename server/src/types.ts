@@ -2,9 +2,21 @@ export type ConversationMode = 'sales' | 'dating' | 'networking' | 'pitching' | 
 
 export interface SessionConfig {
   mode: ConversationMode;
+  // Sales
   prospectContext?: string;
   callGoal?: string;
   objectionLibrary?: string;
+  // Dating
+  datingName?: string;
+  datingProfileUrl?: string;
+  datingIntent?: string;
+  // Networking
+  eventName?: string;
+  attendeeList?: string;
+  // Pitching
+  pitchTitle?: string;
+  pitchDeck?: string;
+  audienceType?: string;
 }
 
 // Messages from client → server

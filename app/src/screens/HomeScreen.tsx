@@ -36,7 +36,7 @@ const MODES: Mode[] = [
     description: 'Silence detection · Tone reading · Callback cues',
     gradient: ['rgba(236,72,153,0.15)', 'rgba(244,63,94,0.07)', 'rgba(13,13,31,0)'],
     accent: '#ec4899',
-    available: false,
+    available: true,
   },
   {
     id: 'networking',
@@ -46,7 +46,7 @@ const MODES: Mode[] = [
     description: 'Contact prep · Graceful exits · Follow-up generator',
     gradient: ['rgba(34,211,238,0.15)', 'rgba(8,145,178,0.07)', 'rgba(13,13,31,0)'],
     accent: '#22d3ee',
-    available: false,
+    available: true,
   },
   {
     id: 'pitching',
@@ -56,7 +56,7 @@ const MODES: Mode[] = [
     description: 'Slide tracking · Q&A support · Room energy alerts',
     gradient: ['rgba(245,158,11,0.15)', 'rgba(217,119,6,0.07)', 'rgba(13,13,31,0)'],
     accent: '#f59e0b',
-    available: false,
+    available: true,
   },
   {
     id: 'hardconvos',

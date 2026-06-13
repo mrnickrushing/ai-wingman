@@ -7,7 +7,9 @@
     "production": {
       "channel": "production",
       "env": {
-        "EAS_PROJECT_ID": "YOUR_EXPO_PROJECT_ID_HERE"
+        "EAS_PROJECT_ID": "YOUR_EXPO_PROJECT_ID_HERE",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com"
       }
     },
     "development": {

@@ -35,7 +35,7 @@ module.exports = {
         requestHeaders: {
           'expo-channel-name': updatesChannel,
         },
-        checkAutomatically: 'ON_LOAD',
+        checkAutomatically: 'NEVER',
         fallbackToCacheTimeout: 0,
       }
     : {

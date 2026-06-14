@@ -3,11 +3,12 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 
 function cleanText(raw: string): string {
   return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
 }
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { SessionScorecard } from '../../components/SessionScorecard';
@@ -40,6 +41,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
   const [rating, setRating] = useState(0);
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const score = computeWingmanScore({
@@ -266,13 +268,26 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                   <View key={i} style={s.followCard}>
                     <View style={s.timingPill}><Text style={s.timingText}>{f.timing}</Text></View>
                     <Text style={s.followText}>{f.text}</Text>
-                    <TouchableOpacity
-                      style={s.shareBtn}
-                      activeOpacity={0.75}
-                      onPress={() => Share.share({ message: cleanText(f.text) }).catch(() => {})}
-                    >
-                      <Text style={s.shareBtnText}>Share →</Text>
-                    </TouchableOpacity>
+                    <View style={s.followActions}>
+                      <TouchableOpacity
+                        style={s.copyBtn}
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          Clipboard.setStringAsync(cleanText(f.text)).catch(() => {});
+                          setCopiedIndex(i);
+                          setTimeout(() => setCopiedIndex((c) => (c === i ? null : c)), 2000);
+                        }}
+                      >
+                        <Text style={s.copyBtnText}>{copiedIndex === i ? 'Copied!' : '📋'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={s.shareBtn}
+                        activeOpacity={0.75}
+                        onPress={() => Share.share({ message: cleanText(f.text) }).catch(() => {})}
+                      >
+                        <Text style={s.shareBtnText}>Share →</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -423,8 +438,14 @@ const s = StyleSheet.create({
   },
   timingText: { color: '#6366f1', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   followText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  followActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  copyBtn: {
+    backgroundColor: 'rgba(99,102,241,0.1)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.25)',
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  copyBtnText: { color: '#6366f1', fontSize: 13, fontWeight: '700' },
   shareBtn: {
-    alignSelf: 'flex-end',
     backgroundColor: 'rgba(99,102,241,0.15)',
     borderWidth: 1, borderColor: 'rgba(99,102,241,0.35)',
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7,

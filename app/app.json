@@ -62,6 +62,7 @@
       "expo-secure-store",
       "expo-apple-authentication",
       "expo-web-browser",
+      "expo-sharing",
       [
         "expo-notifications",
         {

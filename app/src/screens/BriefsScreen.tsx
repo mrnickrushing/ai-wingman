@@ -45,6 +45,11 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
 
   const latestRecap = recentRecaps[0] ?? null;
   const latestFollowUp = latestRecap?.followUps?.[0] ?? null;
+  const followUpQueue = useMemo(() => (
+    recentRecaps
+      .flatMap((recap) => recap.followUps?.map((followUp) => ({ recap, followUp })) ?? [])
+      .slice(0, 5)
+  ), [recentRecaps]);
 
   const nextUp = useMemo(() => {
     if (!latestRecap) {
@@ -148,6 +153,23 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
                 >
                   <Text style={s.followUpBtnText}>Export text</Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
+
+          {followUpQueue.length > 0 ? (
+            <View style={s.queueCard}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Action queue</Text>
+                <Text style={s.sectionAction}>Recent follow-ups, ready to revisit</Text>
+              </View>
+              <View style={s.queueList}>
+                {followUpQueue.map(({ recap, followUp }, index) => (
+                  <View key={`${recap.id}-${index}`} style={s.queueItem}>
+                    <Text style={s.queueMode}>{recap.title}</Text>
+                    <Text style={s.queueText}>{followUp.text}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ) : null}
@@ -274,6 +296,25 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   followUpBtnText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
+  queueCard: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 14,
+    gap: 10,
+  },
+  queueList: { gap: 10 },
+  queueItem: {
+    gap: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    padding: 12,
+  },
+  queueMode: { color: '#818cf8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
+  queueText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
   savePlaybookCard: {
     borderRadius: 8,
     backgroundColor: 'rgba(245,158,11,0.08)',

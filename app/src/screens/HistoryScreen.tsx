@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   View, Text, TextInput, TouchableOpacity, StyleSheet, Share,
   SafeAreaView, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { listSessionsSnapshot, type SessionSnapshotSource, SavedSession } from '../services/sessionService';
 import { ConversationMode } from '../types';
 import { loadBookmarks, removeBookmark, saveBookmark, type SavedBookmark } from '../utils/bookmarks';
@@ -127,6 +130,14 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
 
   const latestSession = filteredSessions[0] ?? sessions[0] ?? null;
   const latestFollowUp = latestSession?.analysis?.followUps?.[0] ?? null;
+  const followUpQueue = useMemo(() => (
+    sessions
+      .flatMap((session) => session.analysis?.followUps?.map((followUp) => ({
+        session,
+        followUp,
+      })) ?? [])
+      .slice(0, 6)
+  ), [sessions]);
 
   const buildShareText = (session: SavedSession): string => {
     const parts = [
@@ -143,6 +154,73 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
 
   const shareSession = async (session: SavedSession) => {
     await Share.share({ message: buildShareText(session) }).catch(() => {});
+  };
+
+  const buildPdfHtml = (session: SavedSession): string => {
+    const title = session.title || MODE_META[session.mode]?.label || 'Session';
+    const followUps = session.analysis?.followUps ?? [];
+    const strengths = session.analysis?.strengths ?? [];
+    const improvements = session.analysis?.improvements ?? [];
+    return `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 32px; color: #0f172a; }
+            h1 { margin: 0 0 8px; font-size: 28px; }
+            .meta { color: #475569; margin-bottom: 18px; font-size: 13px; }
+            .section { margin-top: 22px; }
+            .label { text-transform: uppercase; letter-spacing: 1px; font-size: 11px; color: #6366f1; font-weight: 700; margin-bottom: 8px; }
+            .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+            .body { font-size: 14px; line-height: 1.6; color: #0f172a; }
+            .small { font-size: 12px; color: #64748b; }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <div class="meta">${formatDate(session.createdAt)} · ${formatDuration(session.durationSeconds)} · score ${session.score} · ${session.coachingCount} tips</div>
+          <div class="section">
+            <div class="label">Summary</div>
+            <div class="card body">${session.analysis?.summary ?? 'No summary available.'}</div>
+          </div>
+          ${strengths.length ? `
+            <div class="section">
+              <div class="label">Strengths</div>
+              ${strengths.map((item) => `<div class="card body">${item}</div>`).join('')}
+            </div>` : ''}
+          ${improvements.length ? `
+            <div class="section">
+              <div class="label">Improve next</div>
+              ${improvements.map((item) => `<div class="card body">${item}</div>`).join('')}
+            </div>` : ''}
+          ${followUps.length ? `
+            <div class="section">
+              <div class="label">Follow-up</div>
+              ${followUps.map((item) => `<div class="card body">${item.timing}: ${item.text}</div>`).join('')}
+            </div>` : ''}
+          <div class="section">
+            <div class="label">Transcript</div>
+            <div class="card body">${(session.transcriptText || 'No transcript captured.').replace(/\n/g, '<br/>')}</div>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const exportSessionPdf = async (session: SavedSession) => {
+    try {
+      const file = await Print.printToFileAsync({ html: buildPdfHtml(session) });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          UTI: '.pdf',
+          mimeType: 'application/pdf',
+        });
+      } else {
+        await Share.share({ url: file.uri, message: buildShareText(session) }).catch(() => {});
+      }
+    } catch (error) {
+      Alert.alert('Export failed', error instanceof Error ? error.message : 'Could not create the PDF export.');
+    }
   };
 
   const bookmarkExcerpt = async (session: SavedSession) => {
@@ -287,6 +365,23 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
               </View>
             </View>
 
+            {followUpQueue.length > 0 ? (
+              <View style={st.followQueuePanel}>
+                <View style={st.sectionTop}>
+                  <Text style={st.dashboardTitle}>Follow-up queue</Text>
+                  <Text style={st.sectionMeta}>Most recent action items</Text>
+                </View>
+                <View style={st.followQueueList}>
+                  {followUpQueue.map(({ session, followUp }, index) => (
+                    <View key={`${session.id}-${followUp.timing}-${index}`} style={st.followQueueCard}>
+                      <Text style={st.followQueueMode}>{MODE_META[session.mode]?.label ?? session.mode}</Text>
+                      <Text style={st.followQueueText}>{followUp.text}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             {modeTrends.length > 0 ? (
               <View style={st.trendPanel}>
                 <View style={st.sectionTop}>
@@ -429,6 +524,29 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                               <Text style={st.transcriptLabel}>Transcript excerpt</Text>
                               <Text style={st.transcriptText}>{renderHighlighted(buildTranscriptExcerpt(session))}</Text>
                             </View>
+                            <View style={st.transcriptActions}>
+                              <TouchableOpacity
+                                onPress={() => bookmarkExcerpt(session)}
+                                style={st.transcriptAction}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.transcriptActionText}>Bookmark excerpt</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => shareSession(session)}
+                                style={st.transcriptAction}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.transcriptActionText}>Export text</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => exportSessionPdf(session)}
+                                style={st.transcriptAction}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.transcriptActionText}>Export PDF</Text>
+                              </TouchableOpacity>
+                            </View>
                             {session.analysis.followUps.length > 0 ? (
                               <View style={st.analysisSection}>
                                 <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Next moves</Text>
@@ -553,6 +671,25 @@ const st = StyleSheet.create({
   dashboardTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   sectionTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionMeta: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  followQueuePanel: {
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 16,
+  },
+  followQueueList: { gap: 10 },
+  followQueueCard: {
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  followQueueMode: { color: '#818cf8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
+  followQueueText: { color: '#e2e8f0', fontSize: 13, lineHeight: 18 },
   trendPanel: {
     gap: 10,
     backgroundColor: 'rgba(255,255,255,0.035)',
@@ -706,6 +843,16 @@ const st = StyleSheet.create({
   },
   transcriptLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   transcriptText: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
+  transcriptActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  transcriptAction: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  transcriptActionText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
   searchHighlight: {
     color: '#f8fafc',
     backgroundColor: 'rgba(129,140,248,0.25)',

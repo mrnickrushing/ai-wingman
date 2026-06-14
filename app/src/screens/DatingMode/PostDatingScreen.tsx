@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated, ActivityIndicator,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator, Linking, Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -10,6 +10,11 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+
+// Strip wrapping quotes the AI sometimes adds around message text.
+function cleanText(raw: string): string {
+  return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
+}
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -195,6 +200,13 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
                         <Text style={s.timingText}>{f.timing}</Text>
                       </View>
                       <Text style={s.followText}>{f.text}</Text>
+                      <TouchableOpacity
+                        style={s.sendBtn}
+                        activeOpacity={0.75}
+                        onPress={() => Linking.openURL('sms:&body=' + encodeURIComponent(cleanText(f.text))).catch(() => {})}
+                      >
+                        <Text style={s.sendBtnText}>Send it →</Text>
+                      </TouchableOpacity>
                     </View>
                   ))}
                 </View>
@@ -308,6 +320,13 @@ const s = StyleSheet.create({
   },
   timingText: { color: '#ec4899', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   followText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  sendBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(236,72,153,0.15)',
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.35)',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7,
+  },
+  sendBtnText: { color: '#ec4899', fontSize: 13, fontWeight: '700' },
 
   actions: { flexDirection: 'row', gap: 12 },
   secondaryBtn: { flex: 1, borderRadius: 14, overflow: 'hidden' },

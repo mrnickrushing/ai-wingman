@@ -7,6 +7,7 @@ import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { ConsentScreen } from './src/screens/ConsentScreen';
 import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { BriefsScreen } from './src/screens/BriefsScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
@@ -30,7 +31,7 @@ import { ActiveHardConversationScreen } from './src/screens/HardConversationsMod
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 
 type Screen =
-  | 'home' | 'account' | 'history' | 'practice' | 'playbooks'
+  | 'home' | 'account' | 'history' | 'practice' | 'playbooks' | 'briefs'
   | 'messages'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
@@ -224,11 +225,19 @@ function WingmanApp() {
       {screen === 'home' && (
         <HomeScreen
           onSelectMode={openMode}
+          onOpenBriefs={() => setScreen('briefs')}
           onOpenAccount={() => setScreen('account')}
           onOpenHistory={() => setScreen('history')}
           onOpenPractice={() => setScreen('practice')}
           onOpenPlaybooks={() => setScreen('playbooks')}
           onOpenMessages={() => setScreen('messages')}
+        />
+      )}
+
+      {screen === 'briefs' && (
+        <BriefsScreen
+          onBack={() => setScreen('home')}
+          onStartMode={openMode}
         />
       )}
 

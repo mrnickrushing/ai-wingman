@@ -14,6 +14,9 @@
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
         "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods.",
         "NSFaceIDUsageDescription": "AI Wingman uses Face ID to protect your account.",
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -44,7 +47,9 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching."
+          "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching.",
+          "enableBackgroundRecording": true,
+          "enableBackgroundPlayback": true
         }
       ],
       [

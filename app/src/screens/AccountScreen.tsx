@@ -221,7 +221,7 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
                   </View>
                   <Row label="Backend" value={health.label} valueColor={health.color} />
                   <Divider />
-                  <Row label="Server state" value={serverHealth} />
+                  <Row label="Server state" value={serverHealth === 'unknown' ? 'idle' : serverHealth} />
                   <Divider />
                   <Row label="Session phase" value={sessionPhase} />
                   <Divider />

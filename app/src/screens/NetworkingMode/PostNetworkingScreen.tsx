@@ -3,7 +3,6 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 
 function cleanText(raw: string): string {
@@ -222,7 +221,7 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
                         style={s.copyBtn}
                         activeOpacity={0.75}
                         onPress={() => {
-                          Clipboard.setStringAsync(cleanText(`Hi ${firstName(contact)}, great connecting at ${eventLabel}! I really enjoyed our chat — would love to keep the conversation going. Open to a quick call this week?`)).catch(() => {});
+                          Share.share({ message: cleanText(`Hi ${firstName(contact)}, great connecting at ${eventLabel}! I really enjoyed our chat — would love to keep the conversation going. Open to a quick call this week?`) }).catch(() => {});
                           setCopiedContact(i);
                           setTimeout(() => setCopiedContact((c) => (c === i ? null : c)), 2000);
                         }}

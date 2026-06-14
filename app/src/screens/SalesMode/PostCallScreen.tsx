@@ -3,7 +3,6 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 
 function cleanText(raw: string): string {
@@ -273,7 +272,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                         style={s.copyBtn}
                         activeOpacity={0.75}
                         onPress={() => {
-                          Clipboard.setStringAsync(cleanText(f.text)).catch(() => {});
+                          Share.share({ message: cleanText(f.text) }).catch(() => {});
                           setCopiedIndex(i);
                           setTimeout(() => setCopiedIndex((c) => (c === i ? null : c)), 2000);
                         }}

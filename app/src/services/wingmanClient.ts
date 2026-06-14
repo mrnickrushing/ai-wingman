@@ -203,8 +203,8 @@ export class WingmanClient {
     };
   }
 
-  sendAudioChunk(base64Audio: string, mimeType?: string): void {
-    this.send({ type: 'audio_chunk', data: base64Audio, mimeType });
+  sendAudioChunk(base64Audio: string, mimeType?: string, sampleRate?: number, channels?: number): void {
+    this.send({ type: 'audio_chunk', data: base64Audio, mimeType, sampleRate, channels });
   }
 
   endSession(): void {

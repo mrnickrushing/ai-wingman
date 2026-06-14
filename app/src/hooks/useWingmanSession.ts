@@ -293,7 +293,7 @@ export function useWingmanSession() {
       try {
         const b64 = arrayBufferToBase64(buffer.data);
         store.setLastAudioChunkAt(Date.now());
-        wingmanClient.sendAudioChunk(b64, 'audio/pcm');
+        wingmanClient.sendAudioChunk(b64, 'audio/pcm', buffer.sampleRate, buffer.channels);
         captureFailureCountRef.current = 0;
       } catch (err) {
         captureFailureCountRef.current += 1;

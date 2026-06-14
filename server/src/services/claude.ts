@@ -60,7 +60,7 @@ async function streamCoaching(
   messages: Anthropic.MessageParam[],
   onChunk?: ChunkHandler
 ): Promise<string> {
-  if (!onChunk) {
+  const createPlainCompletion = async (): Promise<string> => {
     const response = await anthropic.messages.create({
       model: COACHING_MODEL,
       max_tokens: COACHING_MAX_TOKENS,
@@ -69,6 +69,10 @@ async function streamCoaching(
     });
     const block = response.content[0];
     return block.type === 'text' ? block.text.trim() : 'HOLD';
+  };
+
+  if (!onChunk) {
+    return createPlainCompletion();
   }
 
   const chunker = createChunker((chunk) => {
@@ -77,19 +81,31 @@ async function streamCoaching(
     onChunk(chunk);
   });
 
-  const stream = anthropic.messages.stream({
-    model: COACHING_MODEL,
-    max_tokens: COACHING_MAX_TOKENS,
-    system: systemPrompt,
-    messages,
-  });
+  try {
+    const stream = anthropic.messages.stream({
+      model: COACHING_MODEL,
+      max_tokens: COACHING_MAX_TOKENS,
+      system: systemPrompt,
+      messages,
+    });
 
-  stream.on('text', (textDelta) => chunker.push(textDelta));
+    stream.on('text', (textDelta) => chunker.push(textDelta));
 
-  const finalText = (await stream.finalText()).trim();
-  // Flush any trailing partial sentence that never hit a boundary.
-  chunker.flush();
-  return finalText || 'HOLD';
+    const finalText = (await stream.finalText()).trim();
+    // Flush any trailing partial sentence that never hit a boundary.
+    chunker.flush();
+    return finalText || 'HOLD';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Anthropic can occasionally close a stream before a text content block is
+    // emitted. Fall back to a normal completion so live coaching still works.
+    if (/without producing a content block|content block/i.test(message)) {
+      const fallback = await createPlainCompletion();
+      if (fallback && fallback !== 'HOLD') onChunk(fallback);
+      return fallback || 'HOLD';
+    }
+    throw error;
+  }
 }
 
 const SALES_SYSTEM_PROMPT = `You are an AI sales coach whispering live coaching to a salesperson during a call. They hear you through their earpiece — only they can hear you.

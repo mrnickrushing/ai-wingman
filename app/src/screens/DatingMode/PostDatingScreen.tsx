@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated, ActivityIndicator, Linking,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator, Linking, Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
@@ -297,7 +296,7 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
                           style={s.copyBtn}
                           activeOpacity={0.75}
                           onPress={() => {
-                            Clipboard.setStringAsync(cleanText(f.text)).catch(() => {});
+                            Share.share({ message: cleanText(f.text) }).catch(() => {});
                             setCopiedIndex(i);
                             setTimeout(() => setCopiedIndex((c) => (c === i ? null : c)), 2000);
                           }}

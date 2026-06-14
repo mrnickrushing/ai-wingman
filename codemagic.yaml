@@ -38,12 +38,14 @@ workflows:
       - name: Patch Podfile — disable Sentry session replay
         script: |
           # RNSentryReplayUnmask.mm / RNSentryReplay.mm do not compile against the
-          # Xcode 26 / iOS 26 SDK. Setting this Ruby variable before pod install
-          # tells the @sentry/react-native podspec to skip the replay subspec.
+          # Xcode 26 / iOS 26 SDK. Prepend the Ruby variable that tells the
+          # @sentry/react-native podspec to skip the replay subspec.
           PODFILE=app/ios/Podfile
           if ! grep -q 'RNSentryExcludeSessionReplay' "$PODFILE"; then
-            sed -i'' '1s/^/$RNSentryExcludeSessionReplay = true\n/' "$PODFILE"
+            { printf '$RNSentryExcludeSessionReplay = true\n'; cat "$PODFILE"; } > /tmp/Podfile_patched
+            mv /tmp/Podfile_patched "$PODFILE"
           fi
+          echo "Podfile first line: $(head -1 $PODFILE)"
       - name: Set bundle version
         script: |
           cd app/ios

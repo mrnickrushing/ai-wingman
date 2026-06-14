@@ -32,6 +32,7 @@ interface Props {
   onOpenHistory: () => void;
   onOpenPractice: () => void;
   onOpenPlaybooks: () => void;
+  onOpenMessages: () => void;
 }
 
 export function HomeScreen({
@@ -40,6 +41,7 @@ export function HomeScreen({
   onOpenHistory,
   onOpenPractice,
   onOpenPlaybooks,
+  onOpenMessages,
 }: Props) {
   const [stats, setStats] = useState<PersistedStats>({
     sessions: 0, bestScore: 0, streak: 0, lastSessionDate: null,
@@ -127,6 +129,22 @@ export function HomeScreen({
               </TouchableOpacity>
             ) : null}
           </View>
+
+          <TouchableOpacity onPress={onOpenMessages} activeOpacity={0.84} style={s.messageCoachCard}>
+            <View style={s.messageCoachTop}>
+              <Text style={s.messageCoachLabel}>Text Coach</Text>
+              <Text style={s.messageCoachAction}>Open</Text>
+            </View>
+            <Text style={s.messageCoachTitle}>Draft replies for real conversations.</Text>
+            <Text style={s.messageCoachBody}>
+              Paste a thread, choose the tone, and get a reply that feels natural instead of robotic.
+            </Text>
+            <View style={s.messageCoachPills}>
+              <View style={s.messageCoachPill}><Text style={s.messageCoachPillText}>Dating</Text></View>
+              <View style={s.messageCoachPill}><Text style={s.messageCoachPillText}>Follow-up</Text></View>
+              <View style={s.messageCoachPill}><Text style={s.messageCoachPillText}>Boundary</Text></View>
+            </View>
+          </TouchableOpacity>
 
           <View style={s.metricsRow}>
             <Metric label="Sessions" value={stats.sessions.toString()} />
@@ -290,6 +308,29 @@ const s = StyleSheet.create({
   resumeAction: { color: '#818cf8', fontSize: 12, fontWeight: '900' },
   resumeTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   resumeBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
+  messageCoachCard: {
+    borderRadius: 8,
+    padding: 16,
+    backgroundColor: 'rgba(236,72,153,0.11)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,114,182,0.22)',
+    gap: 10,
+  },
+  messageCoachTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  messageCoachLabel: { color: '#f9a8d4', fontSize: 11, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
+  messageCoachAction: { color: '#f8fafc', fontSize: 12, fontWeight: '900' },
+  messageCoachTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '900', lineHeight: 24 },
+  messageCoachBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 20 },
+  messageCoachPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  messageCoachPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  messageCoachPillText: { color: '#e2e8f0', fontSize: 11, fontWeight: '700' },
   metricsRow: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,

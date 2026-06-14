@@ -47,6 +47,10 @@ async function loadToken(): Promise<string | null> {
   return SecureStore.getItemAsync(JWT_KEY);
 }
 
+export async function getAuthToken(): Promise<string | null> {
+  return loadToken();
+}
+
 async function clearToken(): Promise<void> {
   await SecureStore.deleteItemAsync(JWT_KEY);
 }

@@ -429,6 +429,111 @@ Be specific and reference what actually happened in the transcript. Strengths an
   }
 }
 
+export type TextCoachSuggestion = {
+  bestReply: string;
+  alternateReplies: Array<{ label: string; text: string }>;
+  nextMove: string;
+  rationale: string;
+  whatToAvoid: string[];
+  confidence: number;
+};
+
+function parseTextCoachSuggestion(raw: string): TextCoachSuggestion | null {
+  try {
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+    const parsed = JSON.parse(cleaned) as Partial<TextCoachSuggestion>;
+    if (
+      typeof parsed.bestReply !== 'string'
+      || !Array.isArray(parsed.alternateReplies)
+      || typeof parsed.nextMove !== 'string'
+      || typeof parsed.rationale !== 'string'
+      || !Array.isArray(parsed.whatToAvoid)
+    ) {
+      return null;
+    }
+    return {
+      bestReply: parsed.bestReply.trim(),
+      alternateReplies: parsed.alternateReplies
+        .filter((item): item is { label: string; text: string } =>
+          Boolean(item) && typeof item.label === 'string' && typeof item.text === 'string')
+        .slice(0, 3)
+        .map((item) => ({ label: item.label.trim(), text: item.text.trim() })),
+      nextMove: parsed.nextMove.trim(),
+      rationale: parsed.rationale.trim(),
+      whatToAvoid: parsed.whatToAvoid
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 4),
+      confidence: Number.isFinite(parsed.confidence) ? Number(parsed.confidence) : 72,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateTextMessageCoaching(input: {
+  thread: string;
+  latestMessage: string;
+  goal: string;
+  relationship: string;
+  tone: string;
+  length: 'short' | 'balanced' | 'warm' | 'direct';
+}): Promise<TextCoachSuggestion | null> {
+  const prompt = `You are an expert text-message coach.
+
+Help the user reply naturally, clearly, and with the right tone.
+- Return only valid JSON.
+- Do not add markdown, code fences, or explanation.
+- Keep the reply human, not robotic.
+- If the thread lacks context, still provide the best possible reply.
+- Keep the best reply short enough to send in a real text thread.
+
+Return exactly this shape:
+{
+  "bestReply": "copy-ready reply",
+  "alternateReplies": [
+    { "label": "warmer", "text": "..." },
+    { "label": "more direct", "text": "..." }
+  ],
+  "nextMove": "what to do after sending it",
+  "rationale": "why this reply works",
+  "whatToAvoid": ["things not to say", "another pitfall"],
+  "confidence": 0
+}
+
+Context:
+- Relationship: ${input.relationship.trim() || 'Not provided'}
+- Goal: ${input.goal.trim() || 'Not provided'}
+- Tone: ${input.tone}
+- Length: ${input.length}
+
+Conversation thread:
+${input.thread.trim() || '(no thread provided)'}
+
+Latest incoming message:
+${input.latestMessage.trim() || '(no latest message provided)'}`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: 450,
+      system: prompt,
+      messages: [
+        {
+          role: 'user',
+          content: 'Draft the best reply and two alternatives.',
+        },
+      ],
+    });
+    const block = response.content[0];
+    if (block.type !== 'text') return null;
+    return parseTextCoachSuggestion(block.text);
+  } catch {
+    return null;
+  }
+}
+
 export async function generateHardConversationCoaching(
   latestTranscript: string,
   scenario: HardConversationScenario,

@@ -90,7 +90,7 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
           // Progress bar only starts draining after the last word is revealed.
           Animated.timing(progressAnim, {
             toValue: 0, duration: PROGRESS_DURATION, useNativeDriver: false,
-          }).start();
+          }).start(() => { onDismiss?.(); });
         }
       }, WORD_INTERVAL);
 

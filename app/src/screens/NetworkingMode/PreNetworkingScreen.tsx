@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
+import { SessionPreflightCard } from '../../components/SessionPreflightCard';
 
 interface Props {
   onStart: () => void;
@@ -54,6 +55,7 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
                 { label: 'Follow-up', detail: targetCount > 0 ? 'Ready to log contacts' : 'Add contacts for better follow-ups', ready: targetCount > 0 },
               ]}
             />
+            <SessionPreflightCard />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>What's the event?</Text>

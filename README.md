@@ -28,15 +28,39 @@ The app now uses a gated first-run flow:
 
 Google Cloud service-account JSON is not enough for mobile sign-in. The app needs OAuth client IDs for the Google auth flow.
 
+## Purchases
+
+The membership screen uses RevenueCat. It does not locally mark users premium unless the `pro` entitlement is active and the backend accepts the premium update.
+
+Required production variables:
+
+- `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` — RevenueCat iOS public SDK key
+- `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` — defaults to `pro`
+- `EXPO_PUBLIC_REVENUECAT_PACKAGE_ID` — defaults to `$rc_monthly`
+
+If the RevenueCat key is missing, the app shows a clear purchases-not-configured message instead of unlocking the app.
+
 ## OTA Updates & `EAS_PROJECT_ID`
 
-The app uses `expo-updates` for over-the-air updates. This requires an Expo project ID, supplied via the `EAS_PROJECT_ID` environment variable in the EAS build environment.
+The app uses `expo-updates` for over-the-air updates. This requires either an Expo project ID or an explicit updates URL.
 
-- Set `EAS_PROJECT_ID` in the build profile's `env` block in `app/eas.json` (a `YOUR_EXPO_PROJECT_ID_HERE` placeholder is already there for the `production` profile).
-- When `EAS_PROJECT_ID` is set, `app/app.config.js` builds a valid `https://u.expo.dev/<projectId>` updates URL and enables OTA updates.
-- When `EAS_PROJECT_ID` is empty or missing, OTA updates are **disabled** and the app launches normally. This avoids the launch crash caused by a malformed updates URL (`https://u.expo.dev/` with no project ID) firing on startup.
+- Set `EAS_PROJECT_ID` in the build environment, or set `EXPO_UPDATES_URL` directly.
+- When a real project ID is set, `app/app.config.js` builds `https://u.expo.dev/<projectId>` and enables OTA updates.
+- When the project ID is empty, missing, or still `YOUR_EXPO_PROJECT_ID_HERE`, OTA updates are disabled and the app launches normally. This avoids the startup crash caused by a malformed updates URL.
+- Codemagic includes an `expo-ota-production` workflow that runs `eas update --branch production --platform ios`.
 
 In short: the app runs fine without `EAS_PROJECT_ID` — you only need it to ship OTA updates.
+
+## Live Audio Ready Check
+
+Each mode setup screen includes a live audio check. It verifies:
+
+- Wingman server health
+- Microphone permission
+- Native recorder startup
+- A short voice sample with detectable input
+
+Run this before a live session when testing a fresh build or a new device.
 
 ---
 

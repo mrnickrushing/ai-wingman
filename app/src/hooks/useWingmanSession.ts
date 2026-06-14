@@ -62,13 +62,117 @@ const CHUNK_RECORDING_OPTIONS = (
           ...COMMON_RECORDING_OPTIONS,
           outputFormat: 'mpeg4',
           audioEncoder: 'aac',
-        }
-      : {
-          ...COMMON_RECORDING_OPTIONS,
+      }
+    : {
+        ...COMMON_RECORDING_OPTIONS,
         mimeType: 'audio/webm',
         bitsPerSecond: 64000,
       }
 ) as unknown as RecorderConstructorOptions;
+
+export type WingmanPreflightResult = {
+  ok: boolean;
+  server: { ok: boolean; message: string };
+  microphone: { ok: boolean; message: string };
+  recorder: { ok: boolean; message: string };
+  input: { ok: boolean; message: string; peakDb: number | null };
+};
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPreflightResult> {
+  const result: WingmanPreflightResult = {
+    ok: false,
+    server: { ok: false, message: 'Not checked yet.' },
+    microphone: { ok: false, message: 'Not checked yet.' },
+    recorder: { ok: false, message: 'Not checked yet.' },
+    input: { ok: false, message: 'Not checked yet.', peakDb: null },
+  };
+
+  const health = await checkWingmanServerHealth();
+  result.server = {
+    ok: health.ok,
+    message: health.ok ? 'Wingman server is online.' : health.message,
+  };
+  if (!health.ok) return result;
+
+  try {
+    const permissions = await requestRecordingPermissionsAsync();
+    const granted = 'granted' in permissions ? permissions.granted : false;
+    result.microphone = {
+      ok: granted,
+      message: granted ? 'Microphone permission is enabled.' : 'Microphone permission is required.',
+    };
+    if (!granted) return result;
+  } catch (err) {
+    result.microphone = {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Could not request microphone permission.',
+    };
+    return result;
+  }
+
+  let recorder: AudioRecorder | null = null;
+  let meteringPoll: ReturnType<typeof setInterval> | null = null;
+  let peakDb = SILENCE_THRESHOLD_DBFS - 1;
+  try {
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      interruptionMode: 'doNotMix',
+      ...(Platform.OS === 'ios' ? { allowsBluetoothA2DP: true } : {}),
+    } as Parameters<typeof setAudioModeAsync>[0]);
+
+    recorder = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    meteringPoll = setInterval(() => {
+      const status = recorder?.getStatus();
+      if (status && typeof status.metering === 'number' && status.metering > peakDb) {
+        peakDb = status.metering;
+      }
+    }, 100);
+
+    await wait(sampleMs);
+    if (meteringPoll) clearInterval(meteringPoll);
+    meteringPoll = null;
+    await recorder.stop();
+    const uri = recorder.uri;
+    const info = uri ? await FileSystem.getInfoAsync(uri).catch(() => null) : null;
+    const fileSize = info && info.exists && 'size' in info ? info.size ?? 0 : 0;
+
+    result.recorder = {
+      ok: Boolean(uri && fileSize > 512),
+      message: uri && fileSize > 512 ? 'Recorder produced an audio sample.' : 'Recorder did not produce usable audio.',
+    };
+    result.input = {
+      ok: peakDb >= SILENCE_THRESHOLD_DBFS || fileSize > 4096,
+      peakDb,
+      message: peakDb >= SILENCE_THRESHOLD_DBFS || fileSize > 4096
+        ? 'Voice input was detected.'
+        : 'No voice level was detected. Speak closer to the mic and try again.',
+    };
+    if (uri) FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+  } catch (err) {
+    result.recorder = {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Could not record a microphone sample.',
+    };
+    result.input = {
+      ok: false,
+      peakDb: Number.isFinite(peakDb) ? peakDb : null,
+      message: 'Input could not be measured.',
+    };
+  } finally {
+    if (meteringPoll) clearInterval(meteringPoll);
+    if (recorder) {
+      try { recorder.release(); } catch { /* noop */ }
+    }
+  }
+
+  result.ok = result.server.ok && result.microphone.ok && result.recorder.ok && result.input.ok;
+  return result;
+}
 
 export function useWingmanSession() {
   const recordingRef = useRef<AudioRecorder | null>(null);

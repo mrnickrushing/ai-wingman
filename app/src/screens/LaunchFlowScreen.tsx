@@ -28,6 +28,7 @@ import {
   signInWithApple,
   signInWithGoogle,
 } from '../services/auth';
+import { getPurchaseStatus, purchaseMembership, restoreMembership } from '../services/purchases';
 
 try { WebBrowser.maybeCompleteAuthSession(); } catch { /* no-op on platforms that don't support this */ }
 
@@ -48,8 +49,8 @@ const INTRO_CARDS = [
   },
   {
     eyebrow: 'UNLOCK',
-    title: 'One account. One paywall. Full access.',
-    body: 'Create your account, subscribe once, and pick back up on any device without losing your setup.',
+    title: 'Keep your coaching profile with you.',
+    body: 'Create your account, start membership, and pick back up on any device without losing your setup.',
     accent: '#ec4899',
     bullets: ['Apple sign in', 'Google sign in', 'Monthly membership'],
   },
@@ -75,6 +76,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   const [password, setPassword] = useState('');
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [purchaseStatus, setPurchaseStatus] = useState<string | null>(null);
   const contentAnim = useRef(new Animated.Value(0)).current;
 
   const googleConfig = useMemo(() => ({
@@ -226,6 +228,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     setLoadingAction('paywall');
     setError(null);
     try {
+      await purchaseMembership(snapshot?.account ?? null);
       const next = await markPremium();
       setSnapshot(next);
       onComplete();
@@ -235,6 +238,38 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
       setLoadingAction(null);
     }
   };
+
+  const handleRestoreMembership = async () => {
+    setLoadingAction('restore');
+    setError(null);
+    try {
+      await restoreMembership(snapshot?.account ?? null);
+      const next = await markPremium();
+      setSnapshot(next);
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not restore membership.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  useEffect(() => {
+    if (stage !== 'paywall') return;
+    let active = true;
+    getPurchaseStatus(snapshot?.account ?? null)
+      .then((status) => {
+        if (!active) return;
+        setPurchaseStatus(status.message);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPurchaseStatus(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [snapshot?.account, stage]);
 
   const introProgress = (introIndex + 1) / INTRO_CARDS.length;
   const accountLabel = accountMode === 'create' ? 'Create account' : 'Sign in';
@@ -296,8 +331,12 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
               <PaywallStage
                 price={DEFAULT_PRICE}
                 loading={loadingAction === 'paywall'}
+                restoring={loadingAction === 'restore'}
                 account={snapshot?.account ?? null}
                 onPurchase={handleStartMembership}
+                onRestore={handleRestoreMembership}
+                status={purchaseStatus}
+                error={error}
               />
             )}
 
@@ -332,7 +371,7 @@ function IntroStage({
       <View style={s.headerBlock}>
         <Text style={s.kicker}>WELCOME</Text>
         <Text style={s.title}>Wingman helps you stay sharp in real conversations.</Text>
-        <Text style={s.subtitle}>A few quick cards, then your account, then membership.</Text>
+        <Text style={s.subtitle}>A few quick cards, then your account and membership.</Text>
       </View>
 
       <ScrollView
@@ -523,13 +562,21 @@ function AccountStage({
 function PaywallStage({
   price,
   loading,
+  restoring,
   account,
   onPurchase,
+  onRestore,
+  status,
+  error,
 }: {
   price: string;
   loading: boolean;
+  restoring: boolean;
   account: LaunchSnapshot['account'];
   onPurchase: () => void;
+  onRestore: () => void;
+  status: string | null;
+  error: string | null;
 }) {
   const highlights = [
     'Unlimited live coaching sessions',
@@ -575,13 +622,18 @@ function PaywallStage({
 
         <Pressable style={s.primaryButton} onPress={onPurchase} disabled={loading}>
           <LinearGradient colors={['#ec4899', '#8b5cf6']} style={s.primaryButtonGrad}>
-            <Text style={s.primaryButtonText}>{loading ? 'Unlocking…' : 'Start membership'}</Text>
+            <Text style={s.primaryButtonText}>{loading ? 'Opening App Store...' : 'Start membership'}</Text>
           </LinearGradient>
         </Pressable>
 
+        <Pressable style={s.restoreButton} onPress={onRestore} disabled={loading || restoring}>
+          <Text style={s.restoreButtonText}>{restoring ? 'Restoring...' : 'Restore purchase'}</Text>
+        </Pressable>
+
         <Text style={s.helperText}>
-          Membership unlocks the full app experience.
+          {status ?? 'Membership unlocks the full app experience.'}
         </Text>
+        {error && <Text style={s.errorText}>{error}</Text>}
       </View>
     </View>
   );
@@ -862,6 +914,20 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  restoreButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  restoreButtonText: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '800',
   },
   segmentRow: {
     flexDirection: 'row',

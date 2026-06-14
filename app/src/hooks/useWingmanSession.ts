@@ -711,15 +711,18 @@ export function useWingmanSession() {
       // Elapsed time clock
       clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
 
-      let started = await startContinuousAudioStream().catch(() => false);
-      if (!started) {
-        started = await startChunkRecording().catch((err: unknown) => {
-          const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
-          useSessionStore.getState().setError(message);
-          useSessionStore.getState().setSessionPhase('error');
-          return false;
-        });
-      }
+      // Use chunk recording (complete AAC container per cycle) rather than the
+      // raw-PCM continuous stream. The stream path silently returns empty buffers
+      // on iOS 26 with AirPods connected and provides no metering data, so it is
+      // impossible to diagnose or gate silence. Chunk recording has explicit
+      // metering, file-size fallback gating, and ships complete containers that
+      // Deepgram auto-detects — it is the more reliable path on current devices.
+      const started = await startChunkRecording().catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+        useSessionStore.getState().setError(message);
+        useSessionStore.getState().setSessionPhase('error');
+        return false;
+      });
       useSessionStore.getState().setRecording(started);
       if (!started) {
         wingmanClient.disconnect();

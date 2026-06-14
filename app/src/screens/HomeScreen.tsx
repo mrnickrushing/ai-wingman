@@ -73,9 +73,10 @@ const MODES: Mode[] = [
 
 interface Props {
   onSelectMode: (modeId: string) => void;
+  onOpenAccount: () => void;
 }
 
-export function HomeScreen({ onSelectMode }: Props) {
+export function HomeScreen({ onSelectMode, onOpenAccount }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
   const [stats, setStats] = useState<PersistedStats>({
@@ -129,9 +130,14 @@ export function HomeScreen({ onSelectMode }: Props) {
             <Text style={s.logo}>🎧 AI Wingman</Text>
             <Text style={s.tagline}>The smartest person in every room.</Text>
           </View>
-          <View style={s.livePill}>
-            <View style={s.liveDot} />
-            <Text style={s.liveText}>LIVE</Text>
+          <View style={s.headerRight}>
+            <View style={s.livePill}>
+              <View style={s.liveDot} />
+              <Text style={s.liveText}>LIVE</Text>
+            </View>
+            <TouchableOpacity onPress={onOpenAccount} style={s.accountBtn} hitSlop={8}>
+              <Text style={s.accountBtnText}>⚙</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -243,12 +249,20 @@ const s = StyleSheet.create({
   },
   logo: { color: '#f1f5f9', fontSize: 23, fontWeight: '800', letterSpacing: -0.5 },
   tagline: { color: '#6366f1', fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginTop: 3 },
+  headerRight: { alignItems: 'flex-end', gap: 8 },
   livePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(74,222,128,0.1)',
     borderWidth: 1, borderColor: 'rgba(74,222,128,0.28)',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, marginTop: 2,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
+  accountBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  accountBtnText: { color: '#64748b', fontSize: 16 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
   liveText: { color: '#4ade80', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   statsRow: {

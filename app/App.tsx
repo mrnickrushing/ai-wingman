@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { AccountScreen } from './src/screens/AccountScreen';
 import { PreCallScreen } from './src/screens/SalesMode/PreCallScreen';
 import { ActiveCallScreen } from './src/screens/SalesMode/ActiveCallScreen';
 import { PostCallScreen } from './src/screens/SalesMode/PostCallScreen';
@@ -22,7 +23,7 @@ import { ActiveHardConversationScreen } from './src/screens/HardConversationsMod
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 
 type Screen =
-  | 'home'
+  | 'home' | 'account'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
   | 'networking-precall' | 'networking-active' | 'networking-postcall'
@@ -162,13 +163,26 @@ function WingmanApp() {
     <>
       <StatusBar style="light" />
       {screen === 'home' && (
-        <HomeScreen onSelectMode={(mode) => {
-          if (mode === 'sales') setScreen('sales-precall');
-          else if (mode === 'dating') setScreen('dating-precall');
-          else if (mode === 'networking') setScreen('networking-precall');
-          else if (mode === 'pitching') setScreen('pitching-precall');
-          else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
-        }} />
+        <HomeScreen
+          onSelectMode={(mode) => {
+            if (mode === 'sales') setScreen('sales-precall');
+            else if (mode === 'dating') setScreen('dating-precall');
+            else if (mode === 'networking') setScreen('networking-precall');
+            else if (mode === 'pitching') setScreen('pitching-precall');
+            else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
+          }}
+          onOpenAccount={() => setScreen('account')}
+        />
+      )}
+
+      {screen === 'account' && (
+        <AccountScreen
+          onBack={() => setScreen('home')}
+          onSignedOut={() => {
+            setScreen('home');
+            setUnlocked(false);
+          }}
+        />
       )}
 
       {/* Sales Mode */}

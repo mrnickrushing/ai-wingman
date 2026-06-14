@@ -11,8 +11,27 @@ app.use(cors());
 app.use(express.json());
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+// Manage the upgrade ourselves (noServer) so we can log handshake attempts and
+// reject non-/ws upgrades with an explicit HTTP response instead of silently
+// dropping the socket. Railway's edge negotiates HTTP/2 by default; the native
+// React Native WebSocket client connects over HTTP/1.1, so the handshake lands
+// here as a standard Upgrade request.
+const wss = new WebSocketServer({ noServer: true });
 const sessionManager = new SessionManager();
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  if (pathname !== '/ws') {
+    console.warn(`[WS] Rejecting upgrade for path "${pathname}"`);
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  console.log('[WS] Upgrade request accepted for /ws');
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', sessions: sessionManager.count });

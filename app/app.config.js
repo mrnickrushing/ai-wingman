@@ -18,6 +18,14 @@ module.exports = {
     fallbackToCacheTimeout: 0,
   },
   extra: {
-    serverUrl: process.env.EXPO_PUBLIC_SERVER_URL,
+    // Fall back to the value baked into app.json (and ultimately the hardcoded
+    // client default) instead of clobbering it with `undefined`. The production
+    // EAS build does not define EXPO_PUBLIC_SERVER_URL, so writing it
+    // unconditionally would overwrite the correct app.json value with undefined
+    // and leave the client URL resolution to chance.
+    ...baseConfig.expo.extra,
+    ...(process.env.EXPO_PUBLIC_SERVER_URL
+      ? { serverUrl: process.env.EXPO_PUBLIC_SERVER_URL }
+      : {}),
   },
 };

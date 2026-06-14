@@ -14,10 +14,32 @@ export type WingmanEvent =
 
 type EventHandler = (event: WingmanEvent) => void;
 
-const SERVER_URL =
-  (Constants.expoConfig?.extra?.serverUrl as string | undefined) ??
-  process.env.EXPO_PUBLIC_SERVER_URL ??
-  'wss://wingman-server-production-5146.up.railway.app/ws';
+const DEFAULT_SERVER_URL = 'wss://wingman-server-production-5146.up.railway.app/ws';
+
+// Resolve the server URL defensively. `app.config.js` can produce an `extra`
+// whose `serverUrl` is `undefined` (or, after JSON round-trips, the literal
+// string "undefined") when the build env var is unset, so we treat any value
+// that isn't a usable wss:// URL as absent and fall back to the known default.
+const resolveServerUrl = (): string => {
+  const candidates = [
+    Constants.expoConfig?.extra?.serverUrl as string | undefined,
+    process.env.EXPO_PUBLIC_SERVER_URL,
+  ];
+  for (const candidate of candidates) {
+    if (
+      typeof candidate === 'string' &&
+      candidate.length > 0 &&
+      candidate !== 'undefined' &&
+      candidate !== 'null' &&
+      /^wss?:\/\//.test(candidate)
+    ) {
+      return candidate;
+    }
+  }
+  return DEFAULT_SERVER_URL;
+};
+
+const SERVER_URL = resolveServerUrl();
 
 export class WingmanClient {
   private ws: WebSocket | null = null;

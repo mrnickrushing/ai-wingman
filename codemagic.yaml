@@ -18,6 +18,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Crash reporting (Sentry project: rushing-technologies/ai-wingman).
+        EXPO_PUBLIC_SENTRY_DSN: "https://fcea115a48c05ac7377b5f1ea7a1a83f@o4511441604313088.ingest.us.sentry.io/4511565514735616"
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
@@ -97,6 +99,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Crash reporting (Sentry project: rushing-technologies/ai-wingman).
+        EXPO_PUBLIC_SENTRY_DSN: "https://fcea115a48c05ac7377b5f1ea7a1a83f@o4511441604313088.ingest.us.sentry.io/4511565514735616"
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
@@ -152,6 +156,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Crash reporting (Sentry project: rushing-technologies/ai-wingman).
+        EXPO_PUBLIC_SENTRY_DSN: "https://fcea115a48c05ac7377b5f1ea7a1a83f@o4511441604313088.ingest.us.sentry.io/4511565514735616"
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
+import * as Sentry from '@sentry/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { ConsentScreen } from './src/screens/ConsentScreen';
@@ -29,6 +30,18 @@ import { PostPitchingScreen } from './src/screens/PitchingMode/PostPitchingScree
 import { PreHardConversationScreen } from './src/screens/HardConversationsMode/PreHardConversationScreen';
 import { ActiveHardConversationScreen } from './src/screens/HardConversationsMode/ActiveHardConversationScreen';
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
+
+// Crash + error reporting. Inert unless EXPO_PUBLIC_SENTRY_DSN is set at build
+// time (and the matching plugin is added in app.config.js), so builds without a
+// configured Sentry project behave exactly as before.
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    enabled: !__DEV__,
+    tracesSampleRate: 0.2,
+  });
+}
 
 type Screen =
   | 'home' | 'account' | 'history' | 'practice' | 'playbooks' | 'briefs'
@@ -73,6 +86,7 @@ class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error) {
     console.error('[wingman] ErrorBoundary caught render error', error);
+    if (SENTRY_DSN) Sentry.captureException(error);
   }
 
   render() {
@@ -130,13 +144,17 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-export default function App() {
+function App() {
   return (
     <ErrorBoundary>
       <WingmanApp />
     </ErrorBoundary>
   );
 }
+
+// Sentry.wrap adds native error/perf instrumentation when configured; without a
+// DSN we export the app untouched.
+export default SENTRY_DSN ? Sentry.wrap(App) : App;
 
 function WingmanApp() {
   const [screen, setScreen] = useState<Screen>('home');

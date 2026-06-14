@@ -11,8 +11,20 @@ const updatesUrl = process.env.EXPO_UPDATES_URL ?? (hasProjectId ? `https://u.ex
 const updatesEnabled = Boolean(updatesUrl);
 const updatesChannel = process.env.EXPO_UPDATE_CHANNEL ?? 'production';
 
+// Only add the Sentry config plugin when a DSN is configured, so builds without
+// Sentry don't pick up the native source-map/dSYM upload build phase.
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const basePlugins = baseConfig.expo.plugins ?? [];
+// org/project let the build upload source maps when SENTRY_AUTH_TOKEN is set in
+// CI; without the token the upload step skips gracefully (crash reporting still
+// works at runtime via the DSN).
+const plugins = sentryDsn
+  ? [...basePlugins, ['@sentry/react-native', { organization: 'rushing-technologies', project: 'ai-wingman' }]]
+  : basePlugins;
+
 module.exports = {
   ...baseConfig.expo,
+  plugins,
   runtimeVersion: {
     policy: 'appVersion',
   },

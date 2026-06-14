@@ -1,5 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export type AuthProvider = 'email' | 'apple' | 'google';
 
@@ -11,10 +14,6 @@ export type WingmanAccount = {
   premium: boolean;
   createdAt: string;
   updatedAt: string;
-  passwordSalt?: string;
-  passwordHash?: string;
-  appleUserId?: string;
-  googleSubject?: string;
 };
 
 export type LaunchSnapshot = {
@@ -22,62 +21,53 @@ export type LaunchSnapshot = {
   account: WingmanAccount | null;
 };
 
-const STORAGE_KEY = 'ai-wingman-launch-snapshot';
+// ── Storage keys ─────────────────────────────────────────────────────────────
 
-function nowIso(): string {
-  return new Date().toISOString();
+const SNAPSHOT_KEY = 'ai-wingman-launch-snapshot';
+const JWT_KEY = 'ai-wingman-jwt';
+
+// ── Server base URL ───────────────────────────────────────────────────────────
+
+const SERVER_BASE = (() => {
+  const wsUrl = (Constants.expoConfig?.extra?.serverUrl as string | undefined)
+    ?? 'wss://wingman-server-production-5146.up.railway.app/ws';
+  return wsUrl
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/\/ws$/, '');
+})();
+
+// ── JWT helpers ────────────────────────────────────────────────────────────────
+
+async function saveToken(token: string): Promise<void> {
+  await SecureStore.setItemAsync(JWT_KEY, token);
 }
 
-function newId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+async function loadToken(): Promise<string | null> {
+  return SecureStore.getItemAsync(JWT_KEY);
 }
 
-async function hashPassword(password: string, salt?: string): Promise<{ salt: string; hash: string }> {
-  const saltBytes = salt ?? Array.from(await Crypto.getRandomBytesAsync(16)).map((n) => n.toString(16).padStart(2, '0')).join('');
-  const hash = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    `${saltBytes}:${password}`,
-  );
-  return { salt: saltBytes, hash };
+async function clearToken(): Promise<void> {
+  await SecureStore.deleteItemAsync(JWT_KEY);
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-function normalizeDisplayName(value: string | undefined, fallbackEmail: string): string {
-  const trimmed = value?.trim();
-  if (trimmed) return trimmed;
-  const localPart = fallbackEmail.split('@')[0] ?? 'Wingman';
-  return localPart.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Wingman';
-}
-
-function base64UrlDecode(input: string): string {
-  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = `${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`;
-  if (typeof globalThis.atob === 'function') {
-    return globalThis.atob(padded);
-  }
-  throw new Error('Base64 decoder unavailable');
-}
-
-function decodeJwtPayload<T extends object = Record<string, unknown>>(token: string): T | null {
+function isTokenExpired(token: string): boolean {
   try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    return JSON.parse(base64UrlDecode(payload)) as T;
+    const raw = token.split('.')[1] ?? '';
+    const payload = JSON.parse(atob(raw.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+    return !payload.exp || payload.exp * 1000 < Date.now();
   } catch {
-    return null;
+    return true;
   }
 }
 
-async function readSnapshot(): Promise<LaunchSnapshot> {
-  const raw = await SecureStore.getItemAsync(STORAGE_KEY);
-  if (!raw) {
-    return { seenIntro: false, account: null };
-  }
+// ── Local snapshot cache ───────────────────────────────────────────────────────
+
+async function readLocalSnapshot(): Promise<LaunchSnapshot> {
+  const raw = await SecureStore.getItemAsync(SNAPSHOT_KEY);
+  if (!raw) return { seenIntro: false, account: null };
   try {
-    const parsed = JSON.parse(raw) as Partial<LaunchSnapshot> & { account?: Partial<WingmanAccount> | null };
+    const parsed = JSON.parse(raw) as Partial<LaunchSnapshot>;
     return {
       seenIntro: Boolean(parsed.seenIntro),
       account: parsed.account
@@ -87,12 +77,8 @@ async function readSnapshot(): Promise<LaunchSnapshot> {
             email: String(parsed.account.email ?? ''),
             displayName: String(parsed.account.displayName ?? ''),
             premium: Boolean(parsed.account.premium),
-            createdAt: String(parsed.account.createdAt ?? nowIso()),
-            updatedAt: String(parsed.account.updatedAt ?? nowIso()),
-            passwordSalt: parsed.account.passwordSalt,
-            passwordHash: parsed.account.passwordHash,
-            appleUserId: parsed.account.appleUserId,
-            googleSubject: parsed.account.googleSubject,
+            createdAt: String(parsed.account.createdAt ?? new Date().toISOString()),
+            updatedAt: String(parsed.account.updatedAt ?? new Date().toISOString()),
           }
         : null,
     };
@@ -101,18 +87,109 @@ async function readSnapshot(): Promise<LaunchSnapshot> {
   }
 }
 
-async function writeSnapshot(snapshot: LaunchSnapshot): Promise<void> {
-  await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(snapshot));
+async function writeLocalSnapshot(snapshot: LaunchSnapshot): Promise<void> {
+  await SecureStore.setItemAsync(SNAPSHOT_KEY, JSON.stringify(snapshot));
 }
 
+// ── Server API helpers ─────────────────────────────────────────────────────────
+
+type Ok<T> = { data: T; error?: never };
+type Err = { data?: never; error: string };
+
+async function serverPost<T>(
+  path: string,
+  body: object,
+  token?: string | null
+): Promise<Ok<T> | Err> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const res = await fetch(`${SERVER_BASE}${path}`, {
+      method: 'POST', headers, body: JSON.stringify(body),
+    });
+    const json = await res.json() as Record<string, unknown>;
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    return { data: json as T };
+  } catch (err) {
+    return { error: (err as Error).message ?? 'Network error' };
+  }
+}
+
+async function serverGet<T>(path: string, token: string): Promise<Ok<T> | Err> {
+  try {
+    const res = await fetch(`${SERVER_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json() as Record<string, unknown>;
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    return { data: json as T };
+  } catch (err) {
+    return { error: (err as Error).message ?? 'Network error' };
+  }
+}
+
+async function serverPatch<T>(path: string, token: string): Promise<Ok<T> | Err> {
+  try {
+    const res = await fetch(`${SERVER_BASE}${path}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    const json = await res.json() as Record<string, unknown>;
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    return { data: json as T };
+  } catch (err) {
+    return { error: (err as Error).message ?? 'Network error' };
+  }
+}
+
+// ── Server ↔ local type mapping ────────────────────────────────────────────────
+
+type ServerAccount = {
+  id: string; provider: AuthProvider; email: string; displayName: string;
+  premium: boolean; seenIntro: boolean; createdAt: string; updatedAt: string;
+};
+
+function snapshotFromServer(sa: ServerAccount): LaunchSnapshot {
+  return {
+    seenIntro: sa.seenIntro,
+    account: {
+      id: sa.id, provider: sa.provider, email: sa.email,
+      displayName: sa.displayName, premium: sa.premium,
+      createdAt: sa.createdAt, updatedAt: sa.updatedAt,
+    },
+  };
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────────
+
 export async function loadLaunchSnapshot(): Promise<LaunchSnapshot> {
-  return readSnapshot();
+  const token = await loadToken();
+  if (!token || isTokenExpired(token)) {
+    // No valid session — preserve seenIntro but show as signed out
+    const local = await readLocalSnapshot();
+    return { seenIntro: local.seenIntro, account: null };
+  }
+  // Refresh from server; fall back to local cache on network failure
+  const result = await serverGet<{ account: ServerAccount }>('/auth/me', token);
+  if (result.error) return readLocalSnapshot();
+  const snapshot = snapshotFromServer(result.data.account);
+  await writeLocalSnapshot(snapshot);
+  return snapshot;
 }
 
 export async function markIntroSeen(): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const next = { ...snapshot, seenIntro: true };
-  await writeSnapshot(next);
+  const token = await loadToken();
+  if (token && !isTokenExpired(token)) {
+    const result = await serverPatch<{ account: ServerAccount }>('/auth/seen-intro', token);
+    if (!result.error) {
+      const snapshot = snapshotFromServer(result.data.account);
+      await writeLocalSnapshot(snapshot);
+      return snapshot;
+    }
+  }
+  const local = await readLocalSnapshot();
+  const next = { ...local, seenIntro: true };
+  await writeLocalSnapshot(next);
   return next;
 }
 
@@ -121,46 +198,31 @@ export async function registerEmailAccount(input: {
   email: string;
   password: string;
 }): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const email = normalizeEmail(input.email);
-  const { salt, hash } = await hashPassword(input.password);
-  const account: WingmanAccount = {
-    id: newId('acct'),
-    provider: 'email',
-    email,
-    displayName: normalizeDisplayName(input.displayName, email),
-    premium: false,
-    passwordSalt: salt,
-    passwordHash: hash,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  };
-  const next = { ...snapshot, seenIntro: true, account };
-  await writeSnapshot(next);
-  return next;
+  const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/register', {
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+    displayName: input.displayName,
+  });
+  if (result.error) throw new Error(result.error);
+  await saveToken(result.data.token);
+  const snapshot = snapshotFromServer(result.data.account);
+  await writeLocalSnapshot(snapshot);
+  return snapshot;
 }
 
 export async function loginEmailAccount(input: {
   email: string;
   password: string;
 }): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const account = snapshot.account;
-  const email = normalizeEmail(input.email);
-  if (!account || account.provider !== 'email' || account.email !== email || !account.passwordHash || !account.passwordSalt) {
-    throw new Error('No matching account found. Create one first.');
-  }
-  const { hash } = await hashPassword(input.password, account.passwordSalt);
-  if (hash !== account.passwordHash) {
-    throw new Error('Email or password is incorrect.');
-  }
-  const next: LaunchSnapshot = {
-    ...snapshot,
-    seenIntro: true,
-    account: { ...account, updatedAt: nowIso() },
-  };
-  await writeSnapshot(next);
-  return next;
+  const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/login', {
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+  });
+  if (result.error) throw new Error(result.error);
+  await saveToken(result.data.token);
+  const snapshot = snapshotFromServer(result.data.account);
+  await writeLocalSnapshot(snapshot);
+  return snapshot;
 }
 
 export async function signInWithApple(input: {
@@ -168,28 +230,16 @@ export async function signInWithApple(input: {
   email?: string;
   displayName?: string;
 }): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const email = normalizeEmail(input.email ?? `apple-${input.userId}@apple.local`);
-  const account: WingmanAccount = snapshot.account?.provider === 'apple' && snapshot.account.appleUserId === input.userId
-    ? {
-        ...snapshot.account,
-        email,
-        displayName: normalizeDisplayName(input.displayName, email),
-        updatedAt: nowIso(),
-      }
-    : {
-        id: newId('acct'),
-        provider: 'apple',
-        email,
-        displayName: normalizeDisplayName(input.displayName, email),
-        premium: false,
-        appleUserId: input.userId,
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
-  const next: LaunchSnapshot = { ...snapshot, seenIntro: true, account };
-  await writeSnapshot(next);
-  return next;
+  const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/apple', {
+    userId: input.userId,
+    email: input.email,
+    displayName: input.displayName,
+  });
+  if (result.error) throw new Error(result.error);
+  await saveToken(result.data.token);
+  const snapshot = snapshotFromServer(result.data.account);
+  await writeLocalSnapshot(snapshot);
+  return snapshot;
 }
 
 export async function signInWithGoogle(input: {
@@ -197,63 +247,58 @@ export async function signInWithGoogle(input: {
   fallbackEmail?: string;
   fallbackName?: string;
 }): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const payload = decodeJwtPayload<Record<string, unknown>>(input.idToken);
-  const subject = typeof payload?.sub === 'string' ? payload.sub : input.idToken;
-  const email = normalizeEmail(
-    (typeof payload?.email === 'string' ? payload.email : undefined)
-      ?? input.fallbackEmail
-      ?? `google-${subject.slice(0, 16)}@google.local`,
-  );
-  const displayName = normalizeDisplayName(
-    typeof payload?.name === 'string' ? payload.name : input.fallbackName,
-    email,
-  );
-  const account: WingmanAccount = snapshot.account?.provider === 'google' && snapshot.account.googleSubject === subject
-    ? {
-        ...snapshot.account,
-        email,
-        displayName,
-        updatedAt: nowIso(),
-      }
-    : {
-        id: newId('acct'),
-        provider: 'google',
-        email,
-        displayName,
-        premium: false,
-        googleSubject: subject,
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
-  const next: LaunchSnapshot = { ...snapshot, seenIntro: true, account };
-  await writeSnapshot(next);
-  return next;
+  const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/google', {
+    idToken: input.idToken,
+    fallbackEmail: input.fallbackEmail,
+    fallbackName: input.fallbackName,
+  });
+  if (result.error) throw new Error(result.error);
+  await saveToken(result.data.token);
+  const snapshot = snapshotFromServer(result.data.account);
+  await writeLocalSnapshot(snapshot);
+  return snapshot;
 }
 
 export async function markPremium(): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  if (!snapshot.account) return snapshot;
+  const token = await loadToken();
+  if (token && !isTokenExpired(token)) {
+    const result = await serverPatch<{ account: ServerAccount }>('/auth/premium', token);
+    if (!result.error) {
+      const snapshot = snapshotFromServer(result.data.account);
+      await writeLocalSnapshot(snapshot);
+      return snapshot;
+    }
+  }
+  const local = await readLocalSnapshot();
+  if (!local.account) throw new Error('No active account.');
   const next: LaunchSnapshot = {
-    ...snapshot,
-    account: { ...snapshot.account, premium: true, updatedAt: nowIso() },
+    ...local,
+    account: { ...local.account, premium: true, updatedAt: new Date().toISOString() },
   };
-  await writeSnapshot(next);
+  await writeLocalSnapshot(next);
   return next;
 }
 
 export async function signOut(): Promise<LaunchSnapshot> {
-  const snapshot = await readSnapshot();
-  const next: LaunchSnapshot = {
-    seenIntro: snapshot.seenIntro,
-    account: null,
-  };
-  await writeSnapshot(next);
+  await clearToken();
+  const local = await readLocalSnapshot();
+  const next: LaunchSnapshot = { seenIntro: local.seenIntro, account: null };
+  await writeLocalSnapshot(next);
   return next;
 }
 
 export async function resetLaunchState(): Promise<void> {
-  await SecureStore.deleteItemAsync(STORAGE_KEY);
+  const token = await loadToken();
+  if (token && !isTokenExpired(token)) {
+    try {
+      await fetch(`${SERVER_BASE}/auth/account`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch { /* ignore — local data still cleared */ }
+  }
+  await clearToken();
+  await SecureStore.deleteItemAsync(SNAPSHOT_KEY);
 }
 
 export function hasGoogleConfig(): boolean {
@@ -278,3 +323,6 @@ export function getGoogleClientIds(): {
     expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
   };
 }
+
+// kept to avoid unused-import warning
+void Crypto.getRandomBytesAsync;

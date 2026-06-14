@@ -18,6 +18,8 @@ module.exports = {
     fallbackToCacheTimeout: 0,
   },
   extra: {
-    serverUrl: process.env.EXPO_PUBLIC_SERVER_URL,
+    serverUrl:
+      process.env.EXPO_PUBLIC_SERVER_URL
+      ?? 'wss://wingman-server-production-5146.up.railway.app/ws',
   },
 };

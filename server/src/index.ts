@@ -5,17 +5,49 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { SessionManager } from './session/SessionManager';
 import { ClientMessage } from './types';
+import { initDb } from './db/index';
+import authRouter from './routes/auth';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/auth', authRouter);
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+// Manage the upgrade ourselves (noServer) so we can log handshake attempts and
+// reject non-/ws upgrades with an explicit HTTP response instead of silently
+// dropping the socket. Railway's edge negotiates HTTP/2 by default; the native
+// React Native WebSocket client connects over HTTP/1.1, so the handshake lands
+// here as a standard Upgrade request.
+const wss = new WebSocketServer({ noServer: true });
 const sessionManager = new SessionManager();
 
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  if (pathname !== '/ws') {
+    console.warn(`[WS] Rejecting upgrade for path "${pathname}"`);
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  console.log('[WS] Upgrade request accepted for /ws');
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
+
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', sessions: sessionManager.count });
+  const keys = {
+    deepgram: Boolean(process.env.DEEPGRAM_API_KEY),
+    anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+    elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+  };
+  const allPresent = Object.values(keys).every(Boolean);
+  res.status(allPresent ? 200 : 503).json({
+    status: allPresent ? 'ok' : 'misconfigured',
+    sessions: sessionManager.count,
+    keys,
+  });
 });
 
 wss.on('connection', (ws: WebSocket) => {
@@ -77,9 +109,24 @@ wss.on('connection', (ws: WebSocket) => {
 });
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
-server.listen(PORT, () => {
-  console.log(`AI Wingman server running on port ${PORT}`);
-});
+
+async function main() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await initDb();
+      console.log('[DB] Schema ready');
+    } catch (err) {
+      console.error('[DB] Failed to initialize schema:', (err as Error).message);
+    }
+  } else {
+    console.warn('[DB] DATABASE_URL not set — auth endpoints disabled');
+  }
+  server.listen(PORT, () => {
+    console.log(`AI Wingman server running on port ${PORT}`);
+  });
+}
+
+main().catch(console.error);
 
 process.on('SIGTERM', () => {
   sessionManager.endAll();

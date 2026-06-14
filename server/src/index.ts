@@ -132,7 +132,7 @@ wss.on('connection', (ws: WebSocket, _req: http.IncomingMessage, accountId: stri
     }
 
     if (msg.type === 'audio_chunk') {
-      session.receiveAudio(msg.data, msg.mimeType);
+      session.receiveAudio(msg.data, msg.mimeType, msg.sampleRate, msg.channels);
     } else if (msg.type === 'end_session') {
       sessionManager.end(sessionId);
       sessionId = null;

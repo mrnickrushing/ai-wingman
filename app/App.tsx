@@ -240,145 +240,148 @@ function WingmanApp() {
   return (
     <>
       <StatusBar style="light" />
-      {screen === 'home' && (
-        <HomeScreen
-          onSelectMode={openMode}
-          onOpenBriefs={() => setScreen('briefs')}
-          onOpenAccount={() => setScreen('account')}
-          onOpenHistory={() => setScreen('history')}
-          onOpenPractice={() => setScreen('practice')}
-          onOpenMessages={() => setScreen('messages')}
-        />
-      )}
+      <View style={shellStyles.root}>
+        <View style={shellStyles.content}>
+          {screen === 'home' && (
+            <HomeScreen
+              onSelectMode={openMode}
+              onOpenBriefs={() => setScreen('briefs')}
+              onOpenAccount={() => setScreen('account')}
+              onOpenHistory={() => setScreen('history')}
+              onOpenPractice={() => setScreen('practice')}
+              onOpenMessages={() => setScreen('messages')}
+            />
+          )}
 
-      {screen === 'briefs' && (
-        <BriefsScreen
-          onBack={() => setScreen('home')}
-          onStartMode={openMode}
-        />
-      )}
+          {screen === 'briefs' && (
+            <BriefsScreen
+              onBack={() => setScreen('home')}
+              onStartMode={openMode}
+            />
+          )}
 
-      {screen === 'account' && (
-        <AccountScreen
-          onBack={() => setScreen('home')}
-          onSignedOut={() => {
-            setScreen('home');
-            setUnlocked(false);
-          }}
-        />
-      )}
+          {screen === 'account' && (
+            <AccountScreen
+              onBack={() => setScreen('home')}
+              onSignedOut={() => {
+                setScreen('home');
+                setUnlocked(false);
+              }}
+            />
+          )}
 
-      {screen === 'history' && (
-        <HistoryScreen
-          onBack={() => setScreen('home')}
-          onStartMode={openMode}
-        />
-      )}
+          {screen === 'history' && (
+            <HistoryScreen
+              onBack={() => setScreen('home')}
+              onStartMode={openMode}
+            />
+          )}
 
-      {screen === 'practice' && (
-        <PracticeScreen
-          onBack={() => setScreen('home')}
-          onStartMode={openMode}
-        />
-      )}
+          {screen === 'practice' && (
+            <PracticeScreen
+              onBack={() => setScreen('home')}
+              onStartMode={openMode}
+            />
+          )}
 
-      {screen === 'playbooks' && (
-        <PlaybooksScreen
-          onBack={() => setScreen('home')}
-          onStartMode={openMode}
-        />
-      )}
+          {screen === 'playbooks' && (
+            <PlaybooksScreen
+              onBack={() => setScreen('home')}
+              onStartMode={openMode}
+            />
+          )}
 
-      {screen === 'messages' && (
-        <TextCoachScreen onBack={() => setScreen('home')} />
-      )}
+          {screen === 'messages' && (
+            <TextCoachScreen onBack={() => setScreen('home')} />
+          )}
 
-      {/* Sales Mode */}
-      {screen === 'sales-precall' && (
-        <PreCallScreen
-          onStart={() => setScreen('sales-active')}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      {screen === 'sales-active' && (
-        <ActiveCallScreen onEnd={() => setScreen('sales-postcall')} />
-      )}
-      {screen === 'sales-postcall' && (
-        <PostCallScreen
-          onDone={() => setScreen('home')}
-          onCallAgain={() => setScreen('sales-active')}
-        />
-      )}
+          {/* Sales Mode */}
+          {screen === 'sales-precall' && (
+            <PreCallScreen
+              onStart={() => setScreen('sales-active')}
+              onBack={() => setScreen('home')}
+            />
+          )}
+          {screen === 'sales-active' && (
+            <ActiveCallScreen onEnd={() => setScreen('sales-postcall')} />
+          )}
+          {screen === 'sales-postcall' && (
+            <PostCallScreen
+              onDone={() => setScreen('home')}
+              onCallAgain={() => setScreen('sales-active')}
+            />
+          )}
 
-      {/* Dating Mode */}
-      {screen === 'dating-precall' && (
-        <PreDatingScreen
-          onStart={() => setScreen('dating-active')}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      {screen === 'dating-active' && (
-        <ActiveDatingScreen onEnd={() => setScreen('dating-postcall')} />
-      )}
-      {screen === 'dating-postcall' && (
-        <PostDatingScreen
-          onHome={() => setScreen('home')}
-          onNewSession={() => setScreen('dating-active')}
-        />
-      )}
+          {/* Dating Mode */}
+          {screen === 'dating-precall' && (
+            <PreDatingScreen
+              onStart={() => setScreen('dating-active')}
+              onBack={() => setScreen('home')}
+            />
+          )}
+          {screen === 'dating-active' && (
+            <ActiveDatingScreen onEnd={() => setScreen('dating-postcall')} />
+          )}
+          {screen === 'dating-postcall' && (
+            <PostDatingScreen
+              onHome={() => setScreen('home')}
+              onNewSession={() => setScreen('dating-active')}
+            />
+          )}
 
-      {/* Networking Mode */}
-      {screen === 'networking-precall' && (
-        <PreNetworkingScreen
-          onStart={() => setScreen('networking-active')}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      {screen === 'networking-active' && (
-        <ActiveNetworkingScreen onEnd={() => setScreen('networking-postcall')} />
-      )}
-      {screen === 'networking-postcall' && (
-        <PostNetworkingScreen
-          onHome={() => setScreen('home')}
-          onNewSession={() => setScreen('networking-active')}
-        />
-      )}
+          {/* Networking Mode */}
+          {screen === 'networking-precall' && (
+            <PreNetworkingScreen
+              onStart={() => setScreen('networking-active')}
+              onBack={() => setScreen('home')}
+            />
+          )}
+          {screen === 'networking-active' && (
+            <ActiveNetworkingScreen onEnd={() => setScreen('networking-postcall')} />
+          )}
+          {screen === 'networking-postcall' && (
+            <PostNetworkingScreen
+              onHome={() => setScreen('home')}
+              onNewSession={() => setScreen('networking-active')}
+            />
+          )}
 
-      {/* Pitching Mode */}
-      {screen === 'pitching-precall' && (
-        <PrePitchingScreen
-          onStart={() => setScreen('pitching-active')}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      {screen === 'pitching-active' && (
-        <ActivePitchingScreen onEnd={() => setScreen('pitching-postcall')} />
-      )}
-      {screen === 'pitching-postcall' && (
-        <PostPitchingScreen
-          onHome={() => setScreen('home')}
-          onNewSession={() => setScreen('pitching-active')}
-        />
-      )}
+          {/* Pitching Mode */}
+          {screen === 'pitching-precall' && (
+            <PrePitchingScreen
+              onStart={() => setScreen('pitching-active')}
+              onBack={() => setScreen('home')}
+            />
+          )}
+          {screen === 'pitching-active' && (
+            <ActivePitchingScreen onEnd={() => setScreen('pitching-postcall')} />
+          )}
+          {screen === 'pitching-postcall' && (
+            <PostPitchingScreen
+              onHome={() => setScreen('home')}
+              onNewSession={() => setScreen('pitching-active')}
+            />
+          )}
 
-      {/* Hard Conversations Mode */}
-      {screen === 'hardconvo-precall' && (
-        <PreHardConversationScreen
-          onStart={() => setScreen('hardconvo-active')}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      {screen === 'hardconvo-active' && (
-        <ActiveHardConversationScreen onEnd={() => setScreen('hardconvo-postcall')} />
-      )}
-      {screen === 'hardconvo-postcall' && (
-        <PostHardConversationScreen
-          onHome={() => setScreen('home')}
-          onNewSession={() => setScreen('hardconvo-active')}
-        />
-      )}
+          {/* Hard Conversations Mode */}
+          {screen === 'hardconvo-precall' && (
+            <PreHardConversationScreen
+              onStart={() => setScreen('hardconvo-active')}
+              onBack={() => setScreen('home')}
+            />
+          )}
+          {screen === 'hardconvo-active' && (
+            <ActiveHardConversationScreen onEnd={() => setScreen('hardconvo-postcall')} />
+          )}
+          {screen === 'hardconvo-postcall' && (
+            <PostHardConversationScreen
+              onHome={() => setScreen('home')}
+              onNewSession={() => setScreen('hardconvo-active')}
+            />
+          )}
+        </View>
 
-      {shouldShowDock(screen) ? (
+        {shouldShowDock(screen) ? (
         <BottomNav
           current={screen}
           onGoHome={() => setScreen('home')}
@@ -387,14 +390,16 @@ function WingmanApp() {
           onOpenHistory={() => setScreen('history')}
           onOpenPlaybooks={() => setScreen('playbooks')}
           onOpenMessages={() => setScreen('messages')}
+          bottomInset={16}
         />
       ) : null}
+      </View>
     </>
   );
 }
 
-function shouldShowDock(screen: Screen) {
-  return !screen.endsWith('-active');
+function shouldShowDock(_screen: Screen) {
+  return true;
 }
 
 function BottomNav({
@@ -405,6 +410,7 @@ function BottomNav({
   onOpenHistory,
   onOpenPlaybooks,
   onOpenMessages,
+  bottomInset,
 }: {
   current: Screen;
   onGoHome: () => void;
@@ -413,6 +419,7 @@ function BottomNav({
   onOpenHistory: () => void;
   onOpenPlaybooks: () => void;
   onOpenMessages: () => void;
+  bottomInset: number;
 }) {
   const items = [
     { key: 'home', label: 'Home', icon: '⌂', onPress: onGoHome },
@@ -424,7 +431,7 @@ function BottomNav({
   ] as const;
 
   return (
-    <View pointerEvents="box-none" style={navStyles.shell}>
+    <View style={[navStyles.shell, { paddingBottom: Math.max(10, bottomInset) }]}>
       <View style={navStyles.bar}>
         {items.map((item) => {
           const active = current === item.key;
@@ -444,12 +451,8 @@ function BottomNav({
 
 const navStyles = StyleSheet.create({
   shell: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 10,
-    zIndex: 50,
-    elevation: 24,
+    paddingHorizontal: 12,
+    paddingTop: 10,
   },
   bar: {
     flexDirection: 'row',
@@ -498,4 +501,14 @@ const navStyles = StyleSheet.create({
   iconActive: { color: '#eef2ff' },
   label: { color: '#94a3b8', fontSize: 10, fontWeight: '800' },
   labelActive: { color: '#eef2ff' },
+});
+
+const shellStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#050510',
+  },
+  content: {
+    flex: 1,
+  },
 });

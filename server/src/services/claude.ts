@@ -48,6 +48,13 @@ function createChunker(onChunk: ChunkHandler) {
   };
 }
 
+function firstTextBlock(content: Array<{ type?: string; text?: string }> | undefined): string | null {
+  const block = content?.find((item): item is { type: 'text'; text: string } =>
+    Boolean(item) && item.type === 'text' && typeof item.text === 'string'
+  );
+  return block?.text.trim() ?? null;
+}
+
 /**
  * Stream a coaching completion. Emits sentence-boundary chunks through
  * `onChunk` as tokens arrive and resolves with the full concatenated text once
@@ -67,8 +74,7 @@ async function streamCoaching(
       system: systemPrompt,
       messages,
     });
-    const block = response.content[0];
-    return block.type === 'text' ? block.text.trim() : 'HOLD';
+    return firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined) ?? 'HOLD';
   };
 
   if (!onChunk) {
@@ -438,10 +444,10 @@ Be specific and reference what actually happened in the transcript. Strengths an
       ],
     });
 
-    const block = response.content[0];
-    if (block.type !== 'text') return null;
+    const rawText = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined);
+    if (!rawText) return null;
 
-    const raw = block.text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+    const raw = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '');
     return JSON.parse(raw) as SessionAnalysis;
   } catch {
     return null;
@@ -545,9 +551,9 @@ ${input.latestMessage.trim() || '(no latest message provided)'}`;
         },
       ],
     });
-    const block = response.content[0];
-    if (block.type !== 'text') return null;
-    return parseTextCoachSuggestion(block.text);
+    const text = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined);
+    if (!text) return null;
+    return parseTextCoachSuggestion(text);
   } catch {
     return null;
   }

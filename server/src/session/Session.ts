@@ -31,9 +31,9 @@ const PCM_SAMPLE_RATE = 16000;
 const PCM_CHANNELS = 1;
 const PCM_BITS_PER_SAMPLE = 16;
 
-function wrapPcmInWav(pcm: Buffer): Buffer {
-  const byteRate = PCM_SAMPLE_RATE * PCM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
-  const blockAlign = PCM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
+function wrapPcmInWav(pcm: Buffer, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Buffer {
+  const byteRate = sampleRate * channels * (PCM_BITS_PER_SAMPLE / 8);
+  const blockAlign = channels * (PCM_BITS_PER_SAMPLE / 8);
   const header = Buffer.alloc(44);
 
   header.write('RIFF', 0);
@@ -64,6 +64,8 @@ export class Session {
   private lastCoachAttemptAt = 0;
   private lastTipAt = Date.now();
   private liveTranscriber: DeepgramLiveTranscriber | null = null;
+  private liveTranscriberRate = PCM_SAMPLE_RATE;
+  private liveTranscriberChannels = PCM_CHANNELS;
   private transcriptionMode: 'live' | 'chunked' = 'live';
 
   // --- Rolling context state (persists for the session lifetime) ---
@@ -87,8 +89,26 @@ export class Session {
     private config: SessionConfig
   ) {
     this.id = id;
+  }
+
+  private ensureLiveTranscriber(sampleRate: number, channels: number): DeepgramLiveTranscriber {
+    if (
+      this.liveTranscriber
+      && this.liveTranscriberRate === sampleRate
+      && this.liveTranscriberChannels === channels
+    ) {
+      return this.liveTranscriber;
+    }
+
+    if (this.liveTranscriber) {
+      void this.liveTranscriber.close();
+    }
+
+    this.liveTranscriberRate = sampleRate;
+    this.liveTranscriberChannels = channels;
     this.liveTranscriber = new DeepgramLiveTranscriber(
       this.config.keywords ?? [],
+      { sampleRate, channels },
       ({ text, isFinal }) => {
         if (!text.trim()) return;
         this.wordCount += isFinal ? text.split(/\s+/).filter(Boolean).length : 0;
@@ -104,15 +124,17 @@ export class Session {
         console.warn(`[Session ${this.id}] Live transcription fallback: ${message}`);
         this.transcriptionMode = 'chunked';
         void this.liveTranscriber?.close();
+        this.liveTranscriber = null;
       }
     );
+    return this.liveTranscriber;
   }
 
   /**
    * Receive a self-contained audio chunk (base64-encoded container file),
    * transcribe it, surface the transcript, and trigger coaching.
    */
-  async receiveAudio(base64Chunk: string, mimeType?: string): Promise<void> {
+  async receiveAudio(base64Chunk: string, mimeType?: string, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Promise<void> {
     if (!base64Chunk) return;
 
     let buf: Buffer;
@@ -126,12 +148,15 @@ export class Session {
 
     const isPcmStream = mimeType === 'audio/pcm';
     if (isPcmStream) {
-      if (this.transcriptionMode === 'live' && this.liveTranscriber?.isHealthy) {
-        const sent = this.liveTranscriber.send(buf);
+      const live = this.ensureLiveTranscriber(sampleRate, channels);
+      if (this.transcriptionMode === 'live' && live.isHealthy) {
+        const sent = live.send(buf);
         if (sent) return;
         this.transcriptionMode = 'chunked';
+        void live.close();
+        this.liveTranscriber = null;
       }
-      const wav = wrapPcmInWav(buf);
+      const wav = wrapPcmInWav(buf, sampleRate, channels);
       let text = '';
       try {
         text = await transcribeChunk(wav, this.config.keywords ?? []);

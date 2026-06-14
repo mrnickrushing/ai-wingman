@@ -12,6 +12,7 @@ export class DeepgramLiveTranscriber {
 
   constructor(
     keywords: string[] = [],
+    audio: { sampleRate: number; channels: number } = { sampleRate: 16000, channels: 1 },
     private onTranscript: LiveTranscriptHandler,
     private onError: (message: string) => void
   ) {
@@ -19,8 +20,8 @@ export class DeepgramLiveTranscriber {
       model: 'nova-3',
       language: 'en-US',
       encoding: 'linear16',
-      sample_rate: 16000,
-      channels: 1,
+      sample_rate: audio.sampleRate,
+      channels: audio.channels,
       smart_format: true,
       punctuate: true,
       filler_words: false,

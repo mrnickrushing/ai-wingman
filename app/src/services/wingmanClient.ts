@@ -132,6 +132,7 @@ export class WingmanClient {
   private reconnectAttempts = 0;
   private maxReconnects = 3;
   private config: SessionConfig | null = null;
+  private token: string | null = null;
   private intentionalClose = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -146,8 +147,9 @@ export class WingmanClient {
     this.handlers.forEach((h) => h(event));
   }
 
-  connect(config: SessionConfig): void {
+  connect(config: SessionConfig, token?: string | null): void {
     this.config = config;
+    this.token = token ?? null;
     this.intentionalClose = false;
     this.reconnectAttempts = 0;
     this.open();
@@ -159,7 +161,12 @@ export class WingmanClient {
       try { this.ws.close(); } catch { /* noop */ }
     }
 
-    this.ws = new WebSocket(SERVER_URL);
+    // The server reads the JWT from the query string (RN WebSocket can't set
+    // headers). Reconnects reuse the same stored token.
+    const url = this.token
+      ? `${SERVER_URL}?token=${encodeURIComponent(this.token)}`
+      : SERVER_URL;
+    this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;

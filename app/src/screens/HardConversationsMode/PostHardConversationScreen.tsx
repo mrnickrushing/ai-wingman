@@ -17,6 +17,7 @@ import {
   createSessionRecap,
   saveSessionRecap,
 } from '../../utils/sessionArchive';
+import { scheduleFollowUps } from '../../utils/followUpScheduler';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -79,24 +80,28 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
-      void saveSessionRecap(
-        createSessionRecap({
-          mode: 'hard_conversations',
-          title: 'Conversation recap',
-          subtitle: hardConvoSetup.scenario ? hardConvoSetup.situation || 'Hard conversation' : 'Hard conversation',
-          score,
-          durationSeconds: elapsedSeconds,
-          coachingTips: coachingHistory.length,
-          wordsSelf,
-          rating: lastRating,
-          summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
-          highlights: buildHighlights(coachingHistory),
-          strengths: s?.analysis?.strengths,
-          improvements: s?.analysis?.improvements,
-          keyMoment: s?.analysis?.keyMoment,
-          followUps: s?.analysis?.followUps,
-        })
-      );
+      const recap = createSessionRecap({
+        mode: 'hard_conversations',
+        title: 'Conversation recap',
+        subtitle: hardConvoSetup.scenario ? hardConvoSetup.situation || 'Hard conversation' : 'Hard conversation',
+        score,
+        durationSeconds: elapsedSeconds,
+        coachingTips: coachingHistory.length,
+        wordsSelf,
+        rating: lastRating,
+        summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
+        highlights: buildHighlights(coachingHistory),
+        strengths: s?.analysis?.strengths,
+        improvements: s?.analysis?.improvements,
+        keyMoment: s?.analysis?.keyMoment,
+        followUps: s?.analysis?.followUps,
+      });
+      void saveSessionRecap(recap).then(() => {
+        void scheduleFollowUps(recap.followUps, {
+          title: recap.title,
+          identifierPrefix: `wingman-follow-${recap.id}`,
+        });
+      });
     });
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),

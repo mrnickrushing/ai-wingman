@@ -42,6 +42,10 @@ interface HardConvoSetup {
 }
 
 interface SessionStore {
+  appState: 'active' | 'inactive' | 'background' | 'unknown' | 'extension';
+  backgroundAudioState: 'idle' | 'watching' | 'verified' | 'paused';
+  backgroundEnteredAt: number | null;
+
   // Pre-session configuration (per mode)
   salesSetup: SalesSetup;
   setSalesSetup: (setup: Partial<SalesSetup>) => void;
@@ -89,6 +93,9 @@ interface SessionStore {
   setSessionId: (id: string | null) => void;
   setSessionPhase: (phase: SessionPhase) => void;
   setServerHealth: (status: ServerHealthStatus) => void;
+  setAppState: (state: 'active' | 'inactive' | 'background' | 'unknown' | 'extension') => void;
+  setBackgroundAudioState: (state: 'idle' | 'watching' | 'verified' | 'paused') => void;
+  setBackgroundEnteredAt: (timestamp: number | null) => void;
   setMicPermissionGranted: (granted: boolean | null) => void;
   setConnected: (connected: boolean) => void;
   setReconnecting: (reconnecting: boolean) => void;
@@ -164,6 +171,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setHardConvoSetup: (setup) =>
     set((s) => ({ hardConvoSetup: { ...s.hardConvoSetup, ...setup } })),
 
+  appState: 'unknown',
+  backgroundAudioState: 'idle',
+  backgroundEnteredAt: null,
+
   sessionId: null,
   sessionPhase: 'idle',
   serverHealth: 'unknown',
@@ -194,6 +205,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setSessionId: (id) => set({ sessionId: id }),
   setSessionPhase: (phase) => set({ sessionPhase: phase }),
   setServerHealth: (serverHealth) => set({ serverHealth }),
+  setAppState: (appState) => set({ appState }),
+  setBackgroundAudioState: (backgroundAudioState) => set({ backgroundAudioState }),
+  setBackgroundEnteredAt: (backgroundEnteredAt) => set({ backgroundEnteredAt }),
   setMicPermissionGranted: (micPermissionGranted) => set({ micPermissionGranted }),
   setConnected: (connected) => set({ isConnected: connected }),
   setReconnecting: (reconnecting) => set({ isReconnecting: reconnecting }),
@@ -260,6 +274,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessionId: null,
       sessionPhase: 'idle',
       serverHealth: 'unknown',
+      appState: 'unknown',
+      backgroundAudioState: 'idle',
+      backgroundEnteredAt: null,
       micPermissionGranted: null,
       isConnected: false,
       isReconnecting: false,

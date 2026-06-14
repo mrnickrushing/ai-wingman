@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import {
   AudioModule,
   createAudioPlayer,
@@ -266,6 +266,39 @@ export function useWingmanSession() {
   // of each other.
   const audioQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef(false);
+
+  useEffect(() => {
+    const syncAppState = (state: AppStateStatus) => {
+      const store = useSessionStore.getState();
+      store.setAppState(
+        state === 'active' || state === 'background' || state === 'inactive' || state === 'extension'
+          ? state
+          : 'unknown'
+      );
+
+      if (state !== 'active' && store.isRecording && isActiveRef.current) {
+        if (store.backgroundAudioState !== 'watching') {
+          store.setBackgroundEnteredAt(Date.now());
+          store.setBackgroundAudioState('watching');
+        }
+        return;
+      }
+
+      if (state === 'active' && store.backgroundAudioState === 'watching') {
+        const enteredAt = store.backgroundEnteredAt ?? Date.now();
+        const observedAt = Math.max(store.lastAudioChunkAt ?? 0, store.lastTranscriptAt ?? 0);
+        store.setBackgroundEnteredAt(null);
+        store.setBackgroundAudioState(observedAt >= enteredAt ? 'verified' : 'paused');
+        if (observedAt < enteredAt && store.isRecording) {
+          store.setError('Background audio did not produce a fresh chunk after app switch or lock. Check iOS background audio permission and try again.');
+        }
+      }
+    };
+
+    syncAppState(AppState.currentState as AppStateStatus);
+    const subscription = AppState.addEventListener('change', syncAppState);
+    return () => subscription.remove();
+  }, []);
 
   const playCoachingAudio = useCallback(async (base64Mp3: string) => {
     audioQueueRef.current.push(base64Mp3);
@@ -548,6 +581,9 @@ export function useWingmanSession() {
     const store = useSessionStore.getState();
     try {
       store.reset();
+      store.setAppState(AppState.currentState as AppStateStatus);
+      store.setBackgroundAudioState('idle');
+      store.setBackgroundEnteredAt(null);
       captureFailureCountRef.current = 0;
       hasReceivedTranscriptRef.current = false;
       isActiveRef.current = true;
@@ -642,6 +678,8 @@ export function useWingmanSession() {
       try { recorder.release(); } catch { /* noop */ }
     }
     useSessionStore.getState().setMicLevelDb(null);
+    useSessionStore.getState().setBackgroundEnteredAt(null);
+    useSessionStore.getState().setBackgroundAudioState('idle');
 
     audioQueueRef.current = [];
 

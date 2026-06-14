@@ -87,13 +87,19 @@ export async function scheduleFollowUpReminder(input: {
   title: string;
   body: string;
   hours?: number;
+  identifier?: string;
 }): Promise<boolean> {
   try {
     if (Platform.OS === 'web') return false;
     const granted = await requestPermission();
     if (!granted) return false;
 
+    if (input.identifier) {
+      await Notifications.cancelScheduledNotificationAsync(input.identifier).catch(() => {});
+    }
+
     await Notifications.scheduleNotificationAsync({
+      identifier: input.identifier,
       content: {
         title: input.title,
         body: input.body,

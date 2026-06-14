@@ -54,6 +54,29 @@ function freshnessLabel(timestamp: number | null): { label: string; color: strin
   return { label: 'Stale', color: '#64748b' };
 }
 
+function appStateLabel(state: string): { label: string; color: string } {
+  switch (state) {
+    case 'active': return { label: 'Foreground', color: '#4ade80' };
+    case 'background': return { label: 'Background', color: '#f59e0b' };
+    case 'inactive': return { label: 'Inactive', color: '#fbbf24' };
+    case 'extension': return { label: 'Extension', color: '#22d3ee' };
+    case 'unknown':
+    default:
+      return { label: 'Unknown', color: '#64748b' };
+  }
+}
+
+function backgroundStateLabel(state: string): { label: string; color: string } {
+  switch (state) {
+    case 'verified': return { label: 'Verified', color: '#4ade80' };
+    case 'watching': return { label: 'Watching', color: '#f59e0b' };
+    case 'paused': return { label: 'Paused', color: '#f43f5e' };
+    case 'idle':
+    default:
+      return { label: 'Idle', color: '#64748b' };
+  }
+}
+
 type Props = {
   onRetry?: () => void;
   onReconnect?: () => void;
@@ -77,12 +100,16 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
     micLevelDb,
     lastErrorAt,
     error,
+    appState,
+    backgroundAudioState,
   } = useSessionStore();
 
   const server = serverLabel(serverHealth);
   const mic = micLabel(micPermissionGranted, isRecording);
   const transcriptState = freshnessLabel(lastTranscriptAt);
   const audioState = freshnessLabel(lastAudioChunkAt);
+  const app = appStateLabel(appState);
+  const background = backgroundStateLabel(backgroundAudioState);
   const phase = statusLabel(sessionPhase);
   const connectionLabel = isConnected
     ? 'Connected'
@@ -114,6 +141,8 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
   const chips = [
     { label: 'Server', value: server.label, color: server.color },
     { label: 'Mic', value: mic.label, color: mic.color },
+    { label: 'App', value: app.label, color: app.color },
+    { label: 'Background', value: background.label, color: background.color },
     { label: 'Transcript', value: transcriptState.label, color: transcriptState.color },
     { label: 'Audio', value: audioState.label, color: audioState.color },
   ];
@@ -165,6 +194,15 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
       )}
 
       {!error && lastErrorAt && compact ? <Text style={s.noteText}>Last error {agoLabel(lastErrorAt)}</Text> : null}
+      {backgroundAudioState !== 'idle' ? (
+        <Text style={s.noteText}>
+          {backgroundAudioState === 'verified'
+            ? 'Background audio survived the last app switch or lock.'
+            : backgroundAudioState === 'paused'
+              ? 'Background audio did not produce a fresh chunk after the app switched.'
+              : 'Background audio is being watched during this session.'}
+        </Text>
+      ) : null}
 
       {(onRetry || onReconnect || onRestartMic) ? (
         <View style={s.actionRow}>
@@ -230,9 +268,10 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   retryText: { color: '#c4b5fd', fontSize: 12, fontWeight: '700' },
-  chipRow: { flexDirection: 'row', gap: 8 },
+  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
     flex: 1,
+    flexBasis: 90,
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',

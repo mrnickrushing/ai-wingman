@@ -446,7 +446,7 @@ function BottomNav({
   ] as const;
 
   return (
-    <View style={[navStyles.shell, { paddingBottom: Math.max(10, bottomInset) }]}>
+    <View style={[navStyles.shell, { bottom: Math.max(6, bottomInset) }]}>
       <View style={navStyles.bar}>
         {items.map((item) => {
           const active = current === item.key;
@@ -466,24 +466,27 @@ function BottomNav({
 
 const navStyles = StyleSheet.create({
   shell: {
-    paddingHorizontal: 12,
+    position: 'absolute',
+    left: 12,
+    right: 12,
     paddingTop: 10,
+    zIndex: 30,
   },
   bar: {
     flexDirection: 'row',
     gap: 4,
     backgroundColor: 'rgba(8, 8, 18, 0.98)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
-    borderRadius: 22,
+    borderColor: 'rgba(129,140,248,0.22)',
+    borderRadius: 24,
     paddingHorizontal: 10,
     paddingTop: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 18,
     paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.36,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 22,
   },
   item: {
     flex: 1,
@@ -491,10 +494,10 @@ const navStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 18,
   },
   itemActive: {
-    backgroundColor: 'rgba(99,102,241,0.18)',
+    backgroundColor: 'rgba(99,102,241,0.22)',
     borderWidth: 1,
     borderColor: 'rgba(129,140,248,0.32)',
   },
@@ -522,6 +525,7 @@ const shellStyles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#050510',
+    position: 'relative',
   },
   content: {
     flex: 1,

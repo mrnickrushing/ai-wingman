@@ -5,6 +5,7 @@ import {
   generateDatingCoaching,
   generateNetworkingCoaching,
   generatePitchingCoaching,
+  generateRoleplayTurn,
   summarizeConversation,
   generateHardConversationCoaching,
 } from '../services/claude';
@@ -222,7 +223,7 @@ export class Session {
     if (msSinceAttempt < MIN_COACH_INTERVAL_MS) {
       return;
     }
-    if (newWords < MIN_NEW_WORDS_FOR_COACH && msSinceTip < MAX_COACH_SILENCE_MS) {
+    if (this.config.interactionMode !== 'roleplay' && newWords < MIN_NEW_WORDS_FOR_COACH && msSinceTip < MAX_COACH_SILENCE_MS) {
       return;
     }
 
@@ -230,6 +231,20 @@ export class Session {
     this.lastCoachAttemptAt = now;
     this.coachedTranscript = transcript;
     try {
+      if (this.config.interactionMode === 'roleplay') {
+        const turn = await this.generateRoleplayResponse(transcript);
+        if (!turn) {
+          throw new Error('Could not generate a roleplay response right now.');
+        }
+        this.transcriptSinceCoach = [];
+        this.lastTipAt = Date.now();
+        this.recordAssistant(turn.assistantReply);
+        this.send({ type: 'coaching', text: turn.assistantReply });
+        this.enqueueTts(turn.assistantReply);
+        void this.maybeRollUpContext();
+        return;
+      }
+
       const onChunk = (chunk: string) => {
         // Pipe each streamed chunk to TTS immediately (fire-and-forget); the
         // queue preserves order and serializes playback.
@@ -262,6 +277,29 @@ export class Session {
         void this.maybeCoach();
       }
     }
+  }
+
+  private async generateRoleplayResponse(transcript: string) {
+    return generateRoleplayTurn({
+      mode: this.config.mode,
+      scenario: this.config.roleplayScenario ?? this.config.mode,
+      goal: this.config.roleplayGoal ?? '',
+      context: this.config.roleplayContext ?? '',
+      memory: this.config.roleplayMemory ?? {
+        interests: [],
+        personalDetails: [],
+        callbackTopics: [],
+      },
+      transcript: this.history
+        .slice(-RECENT_TRANSCRIPT_TURNS)
+        .map((turn) => {
+          const label = turn.role === 'user' ? 'Speaker' : 'Claude';
+          return `${label}: ${turn.content.replace(/^Transcript:\s*/i, '').replace(/^"|"$/g, '')}`;
+        })
+        .join('\n'),
+      userMessage: transcript,
+      turnCount: this.history.length,
+    });
   }
 
   private generateCoaching(
@@ -324,11 +362,26 @@ export class Session {
     this.history.push({ role: 'user', content: `Transcript: "${transcript}"` });
   }
 
+  private recordAssistant(text: string): void {
+    this.history.push({ role: 'assistant', content: text });
+  }
+
   private recordCoaching(coaching: string): void {
     this.history.push({ role: 'assistant', content: coaching });
   }
 
   private buildRecentTranscriptWindow(): string {
+    if (this.config.interactionMode === 'roleplay') {
+      return this.history
+        .slice(-RECENT_TRANSCRIPT_TURNS)
+        .map((turn) => {
+          const label = turn.role === 'user' ? 'Speaker' : 'Claude';
+          return `${label}: ${turn.content.replace(/^Transcript:\s*/i, '').replace(/^"|"$/g, '')}`;
+        })
+        .join('\n')
+        .trim();
+    }
+
     return this.history
       .filter((turn) => turn.role === 'user')
       .slice(-RECENT_TRANSCRIPT_TURNS)

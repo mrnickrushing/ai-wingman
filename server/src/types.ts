@@ -5,6 +5,8 @@ export type ConversationMode =
   | 'pitching'
   | 'hard_conversations';
 
+export type SessionInteractionMode = 'coach' | 'roleplay';
+
 export type HardConversationScenario =
   | 'salary_negotiation'
   | 'firing'
@@ -15,6 +17,7 @@ export type HardConversationScenario =
 
 export interface SessionConfig {
   mode: ConversationMode;
+  interactionMode?: SessionInteractionMode;
   // Optional mode-specific terms to bias STT toward (e.g. "anchor",
   // "counter-offer", "objection"). Passed through to Deepgram as keyword
   // boosts so domain jargon is transcribed more accurately.
@@ -38,6 +41,16 @@ export interface SessionConfig {
   scenario?: HardConversationScenario;
   situation?: string;
   conversationGoal?: string;
+
+  // Voice roleplay
+  roleplayScenario?: string;
+  roleplayGoal?: string;
+  roleplayContext?: string;
+  roleplayMemory?: {
+    interests: string[];
+    personalDetails: string[];
+    callbackTopics: string[];
+  };
 }
 
 // Messages from client → server

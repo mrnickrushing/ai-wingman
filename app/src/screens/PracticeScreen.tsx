@@ -65,6 +65,25 @@ export function PracticeScreen({ onBack, onStartMode, onStartRoleplay }: Props) 
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          <View style={s.roleplayHero}>
+            <LinearGradient colors={['rgba(139,92,246,0.24)', 'rgba(99,102,241,0.10)']} style={StyleSheet.absoluteFill} />
+            <View style={s.roleplayHeroInner}>
+              <Text style={s.roleplayLabel}>PRACTICE WITH CLAUDE</Text>
+              <Text style={s.roleplayHeroTitle}>Full voice roleplay, no typing.</Text>
+              <Text style={s.roleplayHeroBody}>
+                Claude speaks through your AirPods while you answer naturally. Use it for sales, dating, networking, or hard conversations.
+              </Text>
+              <View style={s.roleplayHeroActions}>
+                <TouchableOpacity onPress={() => onStartRoleplay('sales')} style={s.roleplayHeroPrimary} activeOpacity={0.82}>
+                  <Text style={s.roleplayHeroPrimaryText}>Voice roleplay</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onStartMode('sales')} style={s.roleplayHeroSecondary} activeOpacity={0.82}>
+                  <Text style={s.roleplayHeroSecondaryText}>Quick practice</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
           <View style={s.hero}>
             <Text style={s.heroTitle}>Rehearse before the real moment.</Text>
             <Text style={s.heroBody}>
@@ -136,6 +155,39 @@ const s = StyleSheet.create({
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
   content: { paddingHorizontal: 18, paddingBottom: 116, gap: 12 },
+  roleplayHero: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.28)',
+  },
+  roleplayHeroInner: {
+    padding: 18,
+    gap: 10,
+  },
+  roleplayHeroTitle: { color: '#f8fafc', fontSize: 25, fontWeight: '900', lineHeight: 31 },
+  roleplayHeroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  roleplayHeroActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 4 },
+  roleplayHeroPrimary: {
+    minWidth: 128,
+    flexGrow: 1,
+    backgroundColor: '#8b5cf6',
+    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 13,
+  },
+  roleplayHeroPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  roleplayHeroSecondary: {
+    minWidth: 128,
+    flexGrow: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 13,
+  },
+  roleplayHeroSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '900' },
   hero: {
     backgroundColor: 'rgba(99,102,241,0.11)',
     borderWidth: 1,

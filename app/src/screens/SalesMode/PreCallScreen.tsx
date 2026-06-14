@@ -65,106 +65,103 @@ export function PreCallScreen({ onStart, onBack }: Props) {
 
       <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-
-          {/* Header */}
-          <View style={s.header}>
-            <TouchableOpacity onPress={onBack} style={s.backBtn}>
-              <Text style={s.backText}>← Back</Text>
-            </TouchableOpacity>
-            <View>
-              <Text style={s.title}>Sales Mode</Text>
-              <Text style={s.subtitle}>Set up your coaching</Text>
+          <ScrollView contentContainerStyle={s.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Header */}
+            <View style={s.header}>
+              <TouchableOpacity onPress={onBack} style={s.backBtn}>
+                <Text style={s.backText}>← Back</Text>
+              </TouchableOpacity>
+              <View>
+                <Text style={s.title}>Sales Mode</Text>
+                <Text style={s.subtitle}>Set up your coaching</Text>
+              </View>
             </View>
-          </View>
 
-          {/* Step indicator */}
-          <View style={s.stepRow}>
-            {STEPS.map((label, i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => i < step && animateToStep(i)}
-                style={s.stepItem}
-                activeOpacity={0.7}
-              >
-                <View style={[s.stepDot, i === step && s.stepDotActive, i < step && s.stepDotDone]}>
-                  {i < step ? (
-                    <Text style={s.stepCheck}>✓</Text>
-                  ) : (
-                    <Text style={[s.stepNum, i === step && s.stepNumActive]}>{i + 1}</Text>
-                  )}
-                </View>
-                <Text style={[s.stepLabel, i === step && s.stepLabelActive]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
-            <View style={s.stepLine} />
-          </View>
-
-          <SessionPrepChecklist
-            title="Ready check"
-            subtitle="Make sure the essentials are in before you start."
-            items={[
-              { label: 'Prospect', detail: salesSetup.prospectName || 'Add a name', ready: Boolean(salesSetup.prospectName) },
-              { label: 'Goal', detail: salesSetup.callGoal || 'Add a call goal', ready: Boolean(salesSetup.callGoal) },
-              { label: 'Objections', detail: salesSetup.objectionLibrary ? 'Custom or default' : 'Default library will load', ready: Boolean(salesSetup.objectionLibrary) },
-            ]}
-          />
-          <SessionPreflightCard />
-          <ConversationPrepBrief
-            mode="sales"
-            title={[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' at ')}
-            goal={salesSetup.callGoal}
-            context={salesSetup.objectionLibrary}
-          />
-
-          {/* Step content */}
-          <Animated.View style={[s.stepContent, {
-            opacity: fadeAnim,
-            transform: [{ translateX: slideAnim }],
-          }]}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={s.scrollContent}
-            >
-              {step === 0 && <StepProspect />}
-              {step === 1 && <StepGoal />}
-              {step === 2 && <StepObjections />}
-            </ScrollView>
-          </Animated.View>
-
-          {/* Footer nav */}
-          <View style={s.footer}>
-            {step < 2 ? (
-              <TouchableOpacity
-                style={[s.nextBtn, !canProceed && s.nextBtnDisabled]}
-                onPress={() => canProceed && animateToStep(step + 1)}
-                activeOpacity={canProceed ? 0.8 : 1}
-              >
-                <LinearGradient
-                  colors={canProceed ? ['#6366f1', '#8b5cf6'] : ['#1e1e2e', '#1e1e2e']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={s.nextBtnGrad}
+            {/* Step indicator */}
+            <View style={s.stepRow}>
+              {STEPS.map((label, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => i < step && animateToStep(i)}
+                  style={s.stepItem}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[s.nextBtnText, !canProceed && s.nextBtnTextDim]}>
-                    Continue →
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={handleStart} style={s.startWrap} activeOpacity={0.82}>
-                <LinearGradient
-                  colors={['#6366f1', '#8b5cf6', '#ec4899']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={s.startGrad}
+                  <View style={[s.stepDot, i === step && s.stepDotActive, i < step && s.stepDotDone]}>
+                    {i < step ? (
+                      <Text style={s.stepCheck}>✓</Text>
+                    ) : (
+                      <Text style={[s.stepNum, i === step && s.stepNumActive]}>{i + 1}</Text>
+                    )}
+                  </View>
+                  <Text style={[s.stepLabel, i === step && s.stepLabelActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+              <View style={s.stepLine} />
+            </View>
+
+            <SessionPrepChecklist
+              title="Ready check"
+              subtitle="Make sure the essentials are in before you start."
+              items={[
+                { label: 'Prospect', detail: salesSetup.prospectName || 'Add a name', ready: Boolean(salesSetup.prospectName) },
+                { label: 'Goal', detail: salesSetup.callGoal || 'Add a call goal', ready: Boolean(salesSetup.callGoal) },
+                { label: 'Objections', detail: salesSetup.objectionLibrary ? 'Custom or default' : 'Default library will load', ready: Boolean(salesSetup.objectionLibrary) },
+              ]}
+            />
+            <SessionPreflightCard />
+            <ConversationPrepBrief
+              mode="sales"
+              title={[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' at ')}
+              goal={salesSetup.callGoal}
+              context={salesSetup.objectionLibrary}
+            />
+
+            {/* Step content */}
+            <Animated.View style={[s.stepContent, {
+              opacity: fadeAnim,
+              transform: [{ translateX: slideAnim }],
+            }]}>
+              <View style={s.scrollContent}>
+                {step === 0 && <StepProspect />}
+                {step === 1 && <StepGoal />}
+                {step === 2 && <StepObjections />}
+              </View>
+            </Animated.View>
+
+            {/* Footer nav */}
+            <View style={s.footer}>
+              {step < 2 ? (
+                <TouchableOpacity
+                  style={[s.nextBtn, !canProceed && s.nextBtnDisabled]}
+                  onPress={() => canProceed && animateToStep(step + 1)}
+                  activeOpacity={canProceed ? 0.8 : 1}
                 >
-                  <Text style={s.startText}>🎧 Start Call</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-            <Text style={s.footerHint}>
-              {step === 2 ? 'Put phone in pocket · Wear AirPods · Go.' : `Step ${step + 1} of ${STEPS.length}`}
-            </Text>
-          </View>
+                  <LinearGradient
+                    colors={canProceed ? ['#6366f1', '#8b5cf6'] : ['#1e1e2e', '#1e1e2e']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={s.nextBtnGrad}
+                  >
+                    <Text style={[s.nextBtnText, !canProceed && s.nextBtnTextDim]}>
+                      Continue →
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={handleStart} style={s.startWrap} activeOpacity={0.82}>
+                  <LinearGradient
+                    colors={['#6366f1', '#8b5cf6', '#ec4899']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={s.startGrad}
+                  >
+                    <Text style={s.startText}>🎧 Start Call</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              <Text style={s.footerHint}>
+                {step === 2 ? 'Put phone in pocket · Wear AirPods · Go.' : `Step ${step + 1} of ${STEPS.length}`}
+              </Text>
+            </View>
+          </ScrollView>
 
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -331,6 +328,7 @@ function Field({ label, placeholder, value, onChangeText, multiline, numberOfLin
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
+  page: { paddingBottom: 20 },
   header: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
   backBtn: { marginBottom: 10 },
   backText: { color: '#6366f1', fontSize: 14, fontWeight: '600' },
@@ -360,7 +358,7 @@ const s = StyleSheet.create({
   stepLabel: { color: '#475569', fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
   stepLabelActive: { color: '#f1f5f9' },
 
-  stepContent: { flex: 1 },
+  stepContent: { marginTop: 2 },
   scrollContent: { paddingHorizontal: 22, paddingBottom: 20 },
   stepBody: { gap: 14 },
   stepTitle: { color: '#f1f5f9', fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },

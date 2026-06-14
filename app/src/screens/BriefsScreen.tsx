@@ -11,6 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ConversationMode, SessionRecap } from '../types';
 import { loadSessionRecaps } from '../utils/sessionArchive';
 import { PrepBriefCard } from '../components/PrepBriefCard';
+import { SessionPreflightCard } from '../components/SessionPreflightCard';
+import { appendCustomPlaybook, type SavedPlaybook } from '../utils/playbookStorage';
 
 type Mode = {
   id: ConversationMode;
@@ -68,6 +70,8 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          <SessionPreflightCard />
+
           <View style={s.hero}>
             <Text style={s.heroTitle}>Your prep brief lives here.</Text>
             <Text style={s.heroBody}>
@@ -79,6 +83,32 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
             latestRecap={latestRecap}
             onResumeMode={latestRecap ? (mode) => onStartMode(mode) : undefined}
           />
+
+          {latestRecap ? (
+            <TouchableOpacity
+              style={s.savePlaybookCard}
+              activeOpacity={0.82}
+              onPress={async () => {
+                const playbook: SavedPlaybook = {
+                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  title: latestRecap.title,
+                  mode: latestRecap.mode,
+                  description: latestRecap.summary,
+                  goal: latestRecap.followUps?.[0]?.text ?? latestRecap.improvements?.[0] ?? latestRecap.subtitle,
+                  notes: latestRecap.highlights.join('\n'),
+                  pinned: true,
+                  createdAt: new Date().toISOString(),
+                };
+                await appendCustomPlaybook(playbook);
+              }}
+            >
+              <Text style={s.savePlaybookLabel}>Save as playbook</Text>
+              <Text style={s.savePlaybookTitle}>Turn this brief into a reusable setup.</Text>
+              <Text style={s.savePlaybookBody}>
+                Pin the last good version of this conversation and reuse it next time.
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           <View style={s.nextCard}>
             <Text style={s.nextLabel}>Next move</Text>
@@ -188,6 +218,23 @@ const s = StyleSheet.create({
   },
   nextLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
   nextText: { color: '#f8fafc', fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  savePlaybookCard: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.18)',
+    padding: 14,
+    gap: 6,
+  },
+  savePlaybookLabel: {
+    color: '#f59e0b',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  savePlaybookTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
+  savePlaybookBody: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
   sectionHeader: { gap: 2, marginTop: 4 },
   sectionTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   sectionAction: { color: '#64748b', fontSize: 12 },

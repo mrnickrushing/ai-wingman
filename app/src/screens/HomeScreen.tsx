@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { loadStats, PersistedStats } from '../utils/statsStorage';
 import { loadSessionRecaps } from '../utils/sessionArchive';
 import { ConversationMode, SessionRecap } from '../types';
+import { PrepPacketCard } from '../components/PrepPacketCard';
 import { fetchStats } from '../services/sessionService';
 
 type Mode = {
@@ -93,6 +94,7 @@ export function HomeScreen({
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          <PrepPacketCard latestRecap={recentRecaps[0] ?? null} onResumeMode={(mode) => onSelectMode(mode)} />
           <View style={s.commandPanel}>
             <View style={s.statusRow}>
               <View style={s.liveBadge}>

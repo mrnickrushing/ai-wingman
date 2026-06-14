@@ -12,6 +12,7 @@ import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
 import { LiveSessionStatus } from '../../components/LiveSessionStatus';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -137,6 +138,14 @@ export function ActivePitchingScreen({ onEnd }: Props) {
           onRetry={handleRetry}
           onReconnect={handleReconnect}
           onRestartMic={handleRestartMic}
+        />
+        <ConversationPrepBrief
+          compact
+          label="BATTLE CARDS"
+          mode="pitching"
+          title={pitchLabel}
+          audience={pitchingSetup.audience}
+          context={pitchingSetup.deck}
         />
         {/* Prominent timer */}
         <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>

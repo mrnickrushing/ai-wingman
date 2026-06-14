@@ -13,6 +13,7 @@ import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
 import { LiveSessionStatus } from '../../components/LiveSessionStatus';
 import { TalkRatioBar } from '../../components/TalkRatioBar';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
 const NEGATIVE_VIBE = ['slow', 'awkward', 'silence'];
@@ -176,6 +177,14 @@ export function ActiveDatingScreen({ onEnd }: Props) {
           onRetry={handleRetry}
           onReconnect={handleReconnect}
           onRestartMic={handleRestartMic}
+        />
+        <ConversationPrepBrief
+          compact
+          label="BATTLE CARDS"
+          mode="dating"
+          title={datingSetup.name}
+          goal={datingSetup.intent}
+          context={datingSetup.profileUrl}
         />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>

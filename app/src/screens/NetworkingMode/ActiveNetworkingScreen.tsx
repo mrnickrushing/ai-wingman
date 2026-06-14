@@ -13,6 +13,7 @@ import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
 import { LiveSessionStatus } from '../../components/LiveSessionStatus';
 import { TalkRatioBar } from '../../components/TalkRatioBar';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -144,6 +145,13 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
           onRetry={handleRetry}
           onReconnect={handleReconnect}
           onRestartMic={handleRestartMic}
+        />
+        <ConversationPrepBrief
+          compact
+          label="BATTLE CARDS"
+          mode="networking"
+          title={eventLabel}
+          context={networkingSetup.attendees}
         />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>

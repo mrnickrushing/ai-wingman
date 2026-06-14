@@ -8,6 +8,8 @@ type Props = {
   goal?: string;
   context?: string;
   audience?: string;
+  compact?: boolean;
+  label?: string;
 };
 
 function compact(value?: string): string {
@@ -95,21 +97,23 @@ function buildBrief(mode: ConversationMode, title: string, goal?: string, contex
   };
 }
 
-export function ConversationPrepBrief({ mode, title, goal, context, audience }: Props) {
+export function ConversationPrepBrief({ mode, title, goal, context, audience, compact = false, label = 'PREP AI' }: Props) {
   const brief = useMemo(
     () => buildBrief(mode, title, goal, context, audience),
     [audience, context, goal, mode, title]
   );
+  const askItems = compact ? brief.questions.slice(0, 2) : brief.questions;
+  const watchItems = compact ? brief.risks.slice(0, 2) : brief.risks;
 
   return (
-    <View style={s.card}>
+    <View style={[s.card, compact && s.compactCard]}>
       <View style={s.header}>
-        <Text style={s.kicker}>PREP AI</Text>
+        <Text style={s.kicker}>{label}</Text>
         <Text style={s.title}>{brief.focus}</Text>
       </View>
       <View style={s.grid}>
-        <PrepSection label="Ask" items={brief.questions} />
-        <PrepSection label="Watch" items={brief.risks} />
+        <PrepSection label="Ask" items={askItems} />
+        <PrepSection label="Watch" items={watchItems} />
       </View>
       <View style={s.fallback}>
         <Text style={s.fallbackLabel}>Fallback line</Text>
@@ -142,6 +146,11 @@ const s = StyleSheet.create({
     padding: 14,
     gap: 12,
     marginTop: 10,
+  },
+  compactCard: {
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
   },
   header: { gap: 5 },
   kicker: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },

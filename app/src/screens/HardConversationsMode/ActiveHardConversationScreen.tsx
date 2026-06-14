@@ -12,6 +12,7 @@ import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
 import { LiveSessionStatus } from '../../components/LiveSessionStatus';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 import { HardConversationScenario } from '../../types';
 
 function formatTime(s: number): string {
@@ -174,6 +175,14 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
           onRetry={handleRetry}
           onReconnect={handleReconnect}
           onRestartMic={handleRestartMic}
+        />
+        <ConversationPrepBrief
+          compact
+          label="BATTLE CARDS"
+          mode="hard_conversations"
+          title={scenarioLabel}
+          goal={hardConvoSetup.goal}
+          context={hardConvoSetup.situation}
         />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>

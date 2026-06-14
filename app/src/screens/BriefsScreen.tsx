@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { PrepBriefCard } from '../components/PrepBriefCard';
 import { SessionPreflightCard } from '../components/SessionPreflightCard';
 import { appendCustomPlaybook, type SavedPlaybook } from '../utils/playbookStorage';
 import { scheduleFollowUpReminder } from '../hooks/useNotifications';
+import { scheduleFollowUps } from '../utils/followUpScheduler';
 
 type Mode = {
   id: ConversationMode;
@@ -50,6 +52,19 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
       .flatMap((recap) => recap.followUps?.map((followUp) => ({ recap, followUp })) ?? [])
       .slice(0, 5)
   ), [recentRecaps]);
+
+  const scheduleRecapFollowUps = async (recap: SessionRecap) => {
+    const scheduled = await scheduleFollowUps(recap.followUps, {
+      title: recap.title,
+      identifierPrefix: `wingman-follow-${recap.id}`,
+    });
+    Alert.alert(
+      scheduled > 0 ? 'Follow-ups scheduled' : 'No follow-ups',
+      scheduled > 0
+        ? `${scheduled} reminder${scheduled === 1 ? '' : 's'} set from this brief.`
+        : 'This brief does not have follow-up items to schedule.'
+    );
+  };
 
   const nextUp = useMemo(() => {
     if (!latestRecap) {
@@ -152,6 +167,13 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
                   activeOpacity={0.82}
                 >
                   <Text style={s.followUpBtnText}>Export text</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => latestRecap && scheduleRecapFollowUps(latestRecap)}
+                  style={s.followUpBtn}
+                  activeOpacity={0.82}
+                >
+                  <Text style={s.followUpBtnText}>Schedule all</Text>
                 </TouchableOpacity>
               </View>
             </View>

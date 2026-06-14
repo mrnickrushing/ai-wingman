@@ -17,6 +17,7 @@ import {
   createSessionRecap,
   saveSessionRecap,
 } from '../../utils/sessionArchive';
+import { scheduleFollowUps } from '../../utils/followUpScheduler';
 
 // Strip wrapping quotes the AI sometimes adds around message text.
 function cleanText(raw: string): string {
@@ -71,24 +72,28 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
-      void saveSessionRecap(
-        createSessionRecap({
-          mode: 'dating',
-          title: 'Dating recap',
-          subtitle: datingSetup.name || 'Dating session',
-          score,
-          durationSeconds: elapsedSeconds,
-          coachingTips: coachingHistory.length,
-          wordsSelf,
-          rating: lastRating,
-          summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
-          highlights: buildHighlights(coachingHistory),
-          strengths: s?.analysis?.strengths,
-          improvements: s?.analysis?.improvements,
-          keyMoment: s?.analysis?.keyMoment,
-          followUps: s?.analysis?.followUps,
-        })
-      );
+      const recap = createSessionRecap({
+        mode: 'dating',
+        title: 'Dating recap',
+        subtitle: datingSetup.name || 'Dating session',
+        score,
+        durationSeconds: elapsedSeconds,
+        coachingTips: coachingHistory.length,
+        wordsSelf,
+        rating: lastRating,
+        summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
+        highlights: buildHighlights(coachingHistory),
+        strengths: s?.analysis?.strengths,
+        improvements: s?.analysis?.improvements,
+        keyMoment: s?.analysis?.keyMoment,
+        followUps: s?.analysis?.followUps,
+      });
+      void saveSessionRecap(recap).then(() => {
+        void scheduleFollowUps(recap.followUps, {
+          title: recap.title,
+          identifierPrefix: `wingman-follow-${recap.id}`,
+        });
+      });
     });
   }, []);
 

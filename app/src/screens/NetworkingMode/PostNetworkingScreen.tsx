@@ -21,6 +21,7 @@ import {
   createSessionRecap,
   saveSessionRecap,
 } from '../../utils/sessionArchive';
+import { scheduleFollowUps } from '../../utils/followUpScheduler';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -74,24 +75,28 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
-      void saveSessionRecap(
-        createSessionRecap({
-          mode: 'networking',
-          title: 'Networking recap',
-          subtitle: eventLabel,
-          score,
-          durationSeconds: elapsedSeconds,
-          coachingTips: coachingHistory.length,
-          wordsSelf,
-          rating: lastRating,
-          summary: s?.analysis?.summary ?? buildSessionSummary([], coachingHistory),
-          highlights: buildHighlights(coachingHistory),
-          strengths: s?.analysis?.strengths,
-          improvements: s?.analysis?.improvements,
-          keyMoment: s?.analysis?.keyMoment,
-          followUps: s?.analysis?.followUps,
-        })
-      );
+      const recap = createSessionRecap({
+        mode: 'networking',
+        title: 'Networking recap',
+        subtitle: eventLabel,
+        score,
+        durationSeconds: elapsedSeconds,
+        coachingTips: coachingHistory.length,
+        wordsSelf,
+        rating: lastRating,
+        summary: s?.analysis?.summary ?? buildSessionSummary([], coachingHistory),
+        highlights: buildHighlights(coachingHistory),
+        strengths: s?.analysis?.strengths,
+        improvements: s?.analysis?.improvements,
+        keyMoment: s?.analysis?.keyMoment,
+        followUps: s?.analysis?.followUps,
+      });
+      void saveSessionRecap(recap).then(() => {
+        void scheduleFollowUps(recap.followUps, {
+          title: recap.title,
+          identifierPrefix: `wingman-follow-${recap.id}`,
+        });
+      });
     });
   }, []);
 

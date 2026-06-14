@@ -60,6 +60,9 @@ export function SessionPreflightCard() {
           <Text style={s.subtitle}>
             Tap once, say a short sentence, and confirm the server can receive usable mic audio.
           </Text>
+          <Text style={s.note}>
+            During a live run, the app tracks whether audio survives lock-screen and app-switch behavior instead of hiding it.
+          </Text>
         </View>
         <View style={[s.badge, result?.ok ? s.badgeReady : s.badgePending]}>
           <Text style={[s.badgeText, result?.ok ? s.badgeTextReady : s.badgeTextPending]}>
@@ -74,7 +77,7 @@ export function SessionPreflightCard() {
       </Pressable>
 
       <Text style={s.backgroundNote}>
-        Background audio is enabled in this build. If the phone locks, coaching audio should keep going when iOS allows it.
+        Background audio is enabled in this build. Lock the phone or switch apps during a live session to validate it on device.
       </Text>
 
       {steps.length > 0 && (
@@ -109,6 +112,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { color: '#f8fafc', fontSize: 15, fontWeight: '800' },
   subtitle: { color: '#94a3b8', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  note: { color: '#64748b', fontSize: 11, lineHeight: 16, marginTop: 6 },
   badge: {
     borderRadius: 999,
     paddingHorizontal: 10,

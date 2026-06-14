@@ -11,6 +11,8 @@ import { listSessionsSnapshot, type SessionSnapshotSource, SavedSession } from '
 import { ConversationMode } from '../types';
 import { loadBookmarks, removeBookmark, saveBookmark, type SavedBookmark } from '../utils/bookmarks';
 import { scheduleFollowUpReminder } from '../hooks/useNotifications';
+import { scheduleFollowUps } from '../utils/followUpScheduler';
+import { SessionTranscriptExplorer } from '../components/SessionTranscriptExplorer';
 
 const MODE_META: Record<string, { icon: string; label: string; accent: string }> = {
   sales: { icon: 'S', label: 'Sales', accent: '#6366f1' },
@@ -139,6 +141,18 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
       .slice(0, 6)
   ), [sessions]);
 
+  const scheduleRecapFollowUps = async (session: SavedSession) => {
+    const scheduled = await scheduleFollowUps(session.analysis?.followUps, {
+      title: session.title || MODE_META[session.mode]?.label || 'Session',
+      identifierPrefix: `wingman-follow-${session.id}`,
+    });
+    if (scheduled === 0) {
+      Alert.alert('No follow-ups', 'This session does not have follow-up items to schedule.');
+    } else {
+      Alert.alert('Follow-ups scheduled', `${scheduled} reminder${scheduled === 1 ? '' : 's'} set from this recap.`);
+    }
+  };
+
   const buildShareText = (session: SavedSession): string => {
     const parts = [
       `${session.title || MODE_META[session.mode]?.label || 'Session'} · ${session.score}`,
@@ -223,12 +237,12 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
     }
   };
 
-  const bookmarkExcerpt = async (session: SavedSession) => {
-    const excerpt = buildTranscriptExcerpt(session);
+  const bookmarkExcerpt = async (session: SavedSession, excerpt?: string) => {
+    const excerptText = excerpt ?? session.transcriptText?.slice(0, 260) ?? '';
     const next = await saveBookmark({
       sessionId: session.id,
       title: session.title || MODE_META[session.mode]?.label || 'Session',
-      excerpt,
+      excerpt: excerptText || 'No transcript text captured for this session.',
     });
     setBookmarks(next);
   };
@@ -236,33 +250,6 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
   const deleteBookmark = async (id: string) => {
     const next = await removeBookmark(id);
     setBookmarks(next);
-  };
-
-  const transcriptQuery = search.trim().toLowerCase();
-  const buildTranscriptExcerpt = (session: SavedSession) => {
-    const raw = session.transcriptText.trim();
-    if (!raw) return 'No transcript text captured for this session.';
-    const segments = raw.match(/[^.!?]+[.!?]*/g) ?? [raw];
-    if (!transcriptQuery) {
-      return segments.slice(0, 2).join(' ').slice(0, 240);
-    }
-    const hit = segments.find((segment) => segment.toLowerCase().includes(transcriptQuery));
-    return (hit ?? segments.slice(0, 2).join(' ')).slice(0, 260);
-  };
-
-  const renderHighlighted = (text: string) => {
-    if (!transcriptQuery) return text;
-    const lower = text.toLowerCase();
-    const idx = lower.indexOf(transcriptQuery);
-    if (idx < 0) return text;
-    const end = idx + transcriptQuery.length;
-    return (
-      <>
-        {text.slice(0, idx)}
-        <Text style={st.searchHighlight}>{text.slice(idx, end)}</Text>
-        {text.slice(end)}
-      </>
-    );
   };
 
   return (
@@ -379,6 +366,13 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                     </View>
                   ))}
                 </View>
+                <TouchableOpacity
+                  onPress={() => latestSession && scheduleRecapFollowUps(latestSession)}
+                  style={st.queueScheduleBtn}
+                  activeOpacity={0.82}
+                >
+                  <Text style={st.queueScheduleBtnText}>Schedule all follow-ups</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -467,6 +461,13 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                   >
                     <Text style={st.followUpBtnText}>Share follow-up</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => latestSession && scheduleRecapFollowUps(latestSession)}
+                    style={st.followUpBtn}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={st.followUpBtnText}>Schedule all</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : null}
@@ -520,33 +521,12 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                             {session.analysis.keyMoment ? (
                               <Text style={st.analysisKeyMoment}>Key moment: {session.analysis.keyMoment}</Text>
                             ) : null}
-                            <View style={st.transcriptCard}>
-                              <Text style={st.transcriptLabel}>Transcript excerpt</Text>
-                              <Text style={st.transcriptText}>{renderHighlighted(buildTranscriptExcerpt(session))}</Text>
-                            </View>
-                            <View style={st.transcriptActions}>
-                              <TouchableOpacity
-                                onPress={() => bookmarkExcerpt(session)}
-                                style={st.transcriptAction}
-                                activeOpacity={0.8}
-                              >
-                                <Text style={st.transcriptActionText}>Bookmark excerpt</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => shareSession(session)}
-                                style={st.transcriptAction}
-                                activeOpacity={0.8}
-                              >
-                                <Text style={st.transcriptActionText}>Export text</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => exportSessionPdf(session)}
-                                style={st.transcriptAction}
-                                activeOpacity={0.8}
-                              >
-                                <Text style={st.transcriptActionText}>Export PDF</Text>
-                              </TouchableOpacity>
-                            </View>
+                            <SessionTranscriptExplorer
+                              title={session.title || meta.label}
+                              transcriptText={session.transcriptText}
+                              onBookmark={(excerpt) => bookmarkExcerpt(session, excerpt)}
+                              onShare={(excerpt) => Share.share({ message: excerpt }).catch(() => {})}
+                            />
                             {session.analysis.followUps.length > 0 ? (
                               <View style={st.analysisSection}>
                                 <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Next moves</Text>
@@ -690,6 +670,17 @@ const st = StyleSheet.create({
   },
   followQueueMode: { color: '#818cf8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
   followQueueText: { color: '#e2e8f0', fontSize: 13, lineHeight: 18 },
+  queueScheduleBtn: {
+    marginTop: 2,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.22)',
+    backgroundColor: 'rgba(129,140,248,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  queueScheduleBtnText: { color: '#c7d2fe', fontSize: 11, fontWeight: '900' },
   trendPanel: {
     gap: 10,
     backgroundColor: 'rgba(255,255,255,0.035)',

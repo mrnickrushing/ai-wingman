@@ -529,22 +529,27 @@ export function useWingmanSession() {
           meteringPollRef.current = null;
         }
         const peakDb = peakMeteringRef.current;
+        // If metering never fired (returns NaN/null on some iOS 26 devices),
+        // meteringWorked stays false and we fall back to file-size gating.
+        const meteringWorked = Number.isFinite(peakDb) && peakDb > SILENCE_THRESHOLD_DBFS - 1;
         try {
           await recorder.stop();
-          // Gate on amplitude: skip chunks that were below the speech threshold.
-          if (peakDb >= SILENCE_THRESHOLD_DBFS) {
-            const uri = recorder.uri;
-            if (uri) {
-              const b64 = await FileSystem.readAsStringAsync(uri, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
+          const uri = recorder.uri;
+          if (uri) {
+            const b64 = await FileSystem.readAsStringAsync(uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            // Send if: metering confirms speech, OR metering is broken and the
+            // file has real content (> 4 KB means ~0.9 s of actual audio data).
+            const fileSizeOk = b64.length > 5400; // ~4 KB in base64
+            if (peakDb >= SILENCE_THRESHOLD_DBFS || (!meteringWorked && fileSizeOk)) {
               useSessionStore.getState().setLastAudioChunkAt(Date.now());
               wingmanClient.sendAudioChunk(b64, recordingProfileRef.current?.mimeType ?? 'audio/mp4');
               captureFailureCountRef.current = 0;
-              await FileSystem.deleteAsync(uri, { idempotent: true });
-            } else {
-              captureFailureCountRef.current += 1;
             }
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+          } else {
+            captureFailureCountRef.current += 1;
           }
         } catch {
           // ignore errors during capture cycle

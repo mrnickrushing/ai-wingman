@@ -112,6 +112,16 @@ wss.on('connection', (ws: WebSocket) => {
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
+// Safety net: an unhandled rejection or exception in a route or async task must
+// never terminate the process and take the whole server down for every user
+// (Node's default is to crash on unhandled rejections). Log and keep serving.
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[server] Uncaught exception:', err);
+});
+
 async function main() {
   if (process.env.DATABASE_URL) {
     try {

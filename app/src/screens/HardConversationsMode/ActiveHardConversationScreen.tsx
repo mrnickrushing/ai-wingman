@@ -10,22 +10,52 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { HardConversationScenario } from '../../types';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+const SCENARIO_LABELS: Record<HardConversationScenario, string> = {
+  salary_negotiation: 'Salary Negotiation',
+  firing: 'Firing / Layoff',
+  breakup: 'Relationship Breakup',
+  confrontation: 'Confronting a Friend',
+  dispute: 'Landlord / Vendor Dispute',
+  therapy: 'Therapy Prep',
+};
+
+type Intensity = 'calm' | 'tense' | 'critical';
+
+const INTENSITY_STYLE: Record<Intensity, { color: string; glow: string; label: string }> = {
+  calm: { color: '#4ade80', glow: 'rgba(74,222,128,0.04)', label: 'Calm' },
+  tense: { color: '#f59e0b', glow: 'rgba(245,158,11,0.06)', label: 'Tense' },
+  critical: { color: '#f43f5e', glow: 'rgba(244,63,94,0.08)', label: 'Critical' },
+};
+
+const CRITICAL_WORDS = ['stop', 'danger', 'careful', 'walk away', 'do not', "don't"];
+const TENSE_WORDS = ['hold', 'pause', 'slow', 'breathe', 'silence', 'de-escalate', 'calm', 'concede'];
+
+// Purely UI-side: derive emotional intensity from keywords in the latest tip.
+function deriveIntensity(text: string | null): Intensity {
+  if (!text) return 'calm';
+  const t = text.toLowerCase();
+  if (CRITICAL_WORDS.some((w) => t.includes(w))) return 'critical';
+  if (TENSE_WORDS.some((w) => t.includes(w))) return 'tense';
+  return 'calm';
 }
 
 interface Props {
   onEnd: () => void;
 }
 
-export function ActiveCallScreen({ onEnd }: Props) {
+export function ActiveHardConversationScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
   const {
     isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
-    elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching, setError,
-    coachingHistory,
+    elapsedSeconds, wordsSelf, hardConvoSetup, setCurrentCoaching, setError,
+    coachingHistory, getSessionConfig,
   } = useSessionStore();
 
   const ringAnim = useRef(new Animated.Value(1)).current;
@@ -33,14 +63,12 @@ export function ActiveCallScreen({ onEnd }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
 
-  useEffect(() => { start(); return () => { stop(); }; }, []);
+  useEffect(() => { start(getSessionConfig('hard_conversations')); return () => { stop(); }; }, []);
 
-  // Header entrance
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
-  // Mic pulse ring
   useEffect(() => {
     if (isRecording) {
       Animated.loop(
@@ -61,7 +89,6 @@ export function ActiveCallScreen({ onEnd }: Props) {
     }
   }, [isRecording]);
 
-  // Show coaching bubble when new coaching arrives
   useEffect(() => {
     if (currentCoaching) setShowCoaching(true);
   }, [currentCoaching]);
@@ -72,49 +99,47 @@ export function ActiveCallScreen({ onEnd }: Props) {
   };
 
   const handleEnd = () => {
-    Alert.alert('End Session?', 'This will stop the call and show your summary.', [
+    Alert.alert('End Session?', 'This will stop coaching and show your recap.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'End Call', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
+      { text: 'End', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
     ]);
   };
 
-  // Speaking pace: words-per-minute relative to a 120 wpm target
+  const intensity = deriveIntensity(currentCoaching);
+  const tone = INTENSITY_STYLE[intensity];
+
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
   const wpm = Math.round(wordsSelf / minutes);
-  const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
-  const talkColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
+  const paceColor = wpm > 150 ? '#f43f5e' : wpm > 120 ? '#f59e0b' : '#4ade80';
   const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
 
-  const prospectLabel = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Active Call';
+  const scenarioLabel = hardConvoSetup.scenario
+    ? SCENARIO_LABELS[hardConvoSetup.scenario]
+    : 'Hard Conversation';
 
-  const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#ec4899';
+  const statusColor = isConnected ? '#4ade80' : isReconnecting ? '#f59e0b' : '#f43f5e';
   const statusLabel = isConnected
     ? (isRecording ? 'Listening' : 'Connected')
     : isReconnecting ? 'Reconnecting…' : 'Disconnected';
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#080818', '#050510']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#120a1c', '#050510']} style={StyleSheet.absoluteFill} />
       <View style={s.ambientOrb} pointerEvents="none" />
 
-      {/* Ambient glow when coaching arrives */}
       {showCoaching && currentCoaching && (
-        <View style={s.glowOverlay} pointerEvents="none" />
+        <View style={[s.glowOverlay, { backgroundColor: tone.glow }]} pointerEvents="none" />
       )}
 
-      {/* Coaching bubble — overlays header */}
       {showCoaching && currentCoaching && (
         <CoachingBubble text={currentCoaching} speaking={isWingmanSpeaking} onDismiss={dismissCoaching} />
       )}
 
       <SafeAreaView style={s.safe}>
-        {/* Status bar */}
         <Animated.View style={[s.statusBar, { opacity: headerAnim }]}>
           <View style={s.statusLeft}>
             <View style={[s.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[s.statusText, { color: statusColor }]}>
-              {statusLabel}
-            </Text>
+            <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
           <View style={s.timerBox}>
             <Text style={s.timerText}>{formatTime(elapsedSeconds)}</Text>
@@ -125,7 +150,6 @@ export function ActiveCallScreen({ onEnd }: Props) {
           </View>
         </Animated.View>
 
-        {/* Error banner */}
         {error && (
           <TouchableOpacity style={s.errorBanner} onPress={() => setError(null)} activeOpacity={0.8}>
             <Text style={s.errorText}>⚠️ {error}</Text>
@@ -133,40 +157,40 @@ export function ActiveCallScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        {/* Prospect header */}
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>
-              {salesSetup.prospectName?.[0]?.toUpperCase() ?? '?'}
-            </Text>
+          <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>
+            <Text style={s.prospectInitial}>🔥</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{prospectLabel}</Text>
-            {salesSetup.callGoal ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {salesSetup.callGoal}</Text>
+            <Text style={s.prospectName} numberOfLines={1}>{scenarioLabel}</Text>
+            {hardConvoSetup.goal ? (
+              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {hardConvoSetup.goal}</Text>
             ) : null}
           </View>
-          <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: talkColor }]}>{wpm}</Text>
-            <Text style={s.talkRatioLbl}>wpm</Text>
+          <View style={s.intensityChip}>
+            <View style={[s.intensityDot, { backgroundColor: tone.color }]} />
+            <Text style={[s.intensityLbl, { color: tone.color }]}>{tone.label}</Text>
           </View>
         </Animated.View>
 
-        {/* Talk ratio bar */}
-        <View style={s.ratioTrack}>
-          <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
+        <View style={s.intensityTrack}>
+          <View style={[
+            s.intensityFill,
+            {
+              width: intensity === 'calm' ? '33%' : intensity === 'tense' ? '66%' : '100%',
+              backgroundColor: tone.color,
+            },
+          ]} />
         </View>
 
-        {/* Live stats */}
         <LiveStats
           chips={[
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS USED' },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
-            { icon: '🎯', value: (salesSetup.callGoal || '—').slice(0, 20), label: 'GOAL' },
+            { icon: '🌡', value: tone.label, label: 'INTENSITY', color: tone.color },
+            { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
+            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
           ]}
         />
 
-        {/* Transcript */}
         <View style={s.transcriptArea}>
           <View style={s.transcriptHeader}>
             <Text style={s.sectionLabel}>TRANSCRIPT</Text>
@@ -177,7 +201,6 @@ export function ActiveCallScreen({ onEnd }: Props) {
           <TranscriptView entries={transcript} />
         </View>
 
-        {/* Bottom controls */}
         <View style={s.bottomBar}>
           <LinearGradient
             colors={['rgba(5,5,16,0)', 'rgba(5,5,16,0.95)', '#050510']}
@@ -185,7 +208,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
             pointerEvents="none"
           />
           <View style={s.waveContainer}>
-            <AudioWaveform isActive={isRecording} color="#6366f1" height={36} barCount={20} />
+            <AudioWaveform isActive={isRecording} color="#8b5cf6" height={36} barCount={20} />
           </View>
           <View style={s.controls}>
             <View style={s.micWrap}>
@@ -198,7 +221,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
               </View>
             </View>
             <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
-              <Text style={s.endBtnText}>End Call</Text>
+              <Text style={s.endBtnText}>End</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -212,12 +235,12 @@ const s = StyleSheet.create({
   safe: { flex: 1 },
   glowOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(99,102,241,0.04)',
     zIndex: 50,
   },
   ambientOrb: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    top: -70, right: -70, backgroundColor: 'rgba(99,102,241,0.07)',
+    position: 'absolute', width: 300, height: 300, borderRadius: 150,
+    top: '50%', left: '50%', marginTop: -150, marginLeft: -150,
+    backgroundColor: 'rgba(239,68,68,0.05)',
   },
 
   statusBar: {
@@ -243,12 +266,12 @@ const s = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginHorizontal: 16, marginTop: 4, marginBottom: 4,
-    backgroundColor: 'rgba(236,72,153,0.12)',
-    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
   },
   errorText: { color: '#fca5c5', fontSize: 12, fontWeight: '600', flex: 1 },
-  errorDismiss: { color: '#ec4899', fontSize: 11, fontWeight: '700', marginLeft: 12 },
+  errorDismiss: { color: '#f43f5e', fontSize: 11, fontWeight: '700', marginLeft: 12 },
 
   prospectBar: {
     flexDirection: 'row', alignItems: 'center',
@@ -257,22 +280,24 @@ const s = StyleSheet.create({
   },
   prospectAvatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(99,102,241,0.2)',
-    borderWidth: 1, borderColor: 'rgba(99,102,241,0.35)',
+    backgroundColor: 'rgba(139,92,246,0.2)',
+    borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  prospectInitial: { color: '#6366f1', fontSize: 18, fontWeight: '800' },
+  prospectInitial: { fontSize: 20 },
   prospectName: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
   prospectGoal: { color: '#475569', fontSize: 11, marginTop: 2, lineHeight: 16 },
-  talkRatioChip: { alignItems: 'center', flexShrink: 0 },
-  talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
-  talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
+  intensityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0,
+  },
+  intensityDot: { width: 8, height: 8, borderRadius: 4 },
+  intensityLbl: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
 
-  ratioTrack: {
+  intensityTrack: {
     height: 3, marginHorizontal: 20, marginBottom: 12,
     backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden',
   },
-  ratioFill: { height: '100%', borderRadius: 2 },
+  intensityFill: { height: '100%', borderRadius: 2 },
 
   transcriptArea: { flex: 1 },
   transcriptHeader: {
@@ -282,12 +307,8 @@ const s = StyleSheet.create({
   sectionLabel: { color: '#1e293b', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
   wordCount: { color: '#334155', fontSize: 10, fontWeight: '600' },
 
-  bottomBar: {
-    paddingBottom: 8, position: 'relative',
-  },
-  bottomFade: {
-    position: 'absolute', top: -40, left: 0, right: 0, height: 50,
-  },
+  bottomBar: { paddingBottom: 8, position: 'relative' },
+  bottomFade: { position: 'absolute', top: -40, left: 0, right: 0, height: 50 },
   waveContainer: {
     alignItems: 'center', paddingHorizontal: 20,
     paddingTop: 8, paddingBottom: 4,
@@ -300,23 +321,23 @@ const s = StyleSheet.create({
   micWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   micRing: {
     position: 'absolute', width: 70, height: 70,
-    borderRadius: 35, borderWidth: 2, borderColor: '#6366f1',
+    borderRadius: 35, borderWidth: 2, borderColor: '#8b5cf6',
   },
   micBtn: {
     width: 60, height: 60, borderRadius: 30,
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
   micBtnActive: {
-    backgroundColor: 'rgba(99,102,241,0.22)',
-    borderColor: 'rgba(99,102,241,0.6)',
+    backgroundColor: 'rgba(139,92,246,0.22)',
+    borderColor: 'rgba(139,92,246,0.6)',
   },
   micIcon: { fontSize: 24 },
   endBtn: {
-    backgroundColor: 'rgba(236,72,153,0.12)',
-    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
     borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
   },
-  endBtnText: { color: '#ec4899', fontSize: 14, fontWeight: '700' },
+  endBtnText: { color: '#f43f5e', fontSize: 14, fontWeight: '700' },
 });

@@ -1,7 +1,96 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ConversationTurn } from '../types';
+import { ConversationTurn, HardConversationScenario } from '../types';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const COACHING_MODEL = 'claude-sonnet-4-6';
+const COACHING_MAX_TOKENS = 80;
+
+/**
+ * Called as the coaching response streams in, once per sentence-boundary chunk
+ * (a complete thought). Lets the caller pipeline each chunk into TTS without
+ * waiting for the full response. See {@link createChunker} for the chunking rules.
+ */
+export type ChunkHandler = (chunk: string) => void;
+
+/**
+ * Incremental sentence-boundary buffer. Tokens are appended via `push`; whenever
+ * the buffer ends on `.`/`!`/`?` OR grows past ~40 chars, the accumulated text
+ * is flushed as one chunk. `flush` emits any trailing remainder at end-of-stream.
+ *
+ * We chunk so each piece handed to TTS is a complete-ish thought — this is what
+ * lets the first audio byte leave the server long before Claude finishes
+ * generating the whole (short) coaching line.
+ */
+function createChunker(onChunk: ChunkHandler) {
+  let buffer = '';
+
+  const tryFlush = () => {
+    const trimmed = buffer.trim();
+    if (!trimmed) return;
+    const endsSentence = /[.!?]$/.test(trimmed);
+    if (endsSentence || trimmed.length >= 40) {
+      onChunk(trimmed);
+      buffer = '';
+    }
+  };
+
+  return {
+    push(textDelta: string) {
+      buffer += textDelta;
+      tryFlush();
+    },
+    flush() {
+      const trimmed = buffer.trim();
+      if (trimmed) onChunk(trimmed);
+      buffer = '';
+    },
+  };
+}
+
+/**
+ * Stream a coaching completion. Emits sentence-boundary chunks through
+ * `onChunk` as tokens arrive and resolves with the full concatenated text once
+ * the stream ends. If `onChunk` is omitted this is a plain (non-pipelined)
+ * completion — behaviour is identical to the old `messages.create` path, so all
+ * existing callers keep working unchanged.
+ */
+async function streamCoaching(
+  systemPrompt: string,
+  messages: Anthropic.MessageParam[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  if (!onChunk) {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: COACHING_MAX_TOKENS,
+      system: systemPrompt,
+      messages,
+    });
+    const block = response.content[0];
+    return block.type === 'text' ? block.text.trim() : 'HOLD';
+  }
+
+  const chunker = createChunker((chunk) => {
+    // Never speak the HOLD sentinel — it's a "stay silent" signal, not coaching.
+    if (chunk.trim() === 'HOLD') return;
+    onChunk(chunk);
+  });
+
+  const stream = anthropic.messages.stream({
+    model: COACHING_MODEL,
+    max_tokens: COACHING_MAX_TOKENS,
+    system: systemPrompt,
+    messages,
+  });
+
+  stream.on('text', (textDelta) => chunker.push(textDelta));
+
+  const finalText = (await stream.finalText()).trim();
+  // Flush any trailing partial sentence that never hit a boundary.
+  chunker.flush();
+  return finalText || 'HOLD';
+}
 
 const SALES_SYSTEM_PROMPT = `You are an AI sales coach whispering live coaching to a salesperson during a call. They hear you through their earpiece — only they can hear you.
 
@@ -33,36 +122,212 @@ const FALLBACK_OBJECTION_LIBRARY = `- "Too expensive" → Ask: "What ROI would m
 - "We already have a solution" → Ask: "What's the one thing your current solution doesn't do well?"
 - "Need to check with my boss" → Ask: "If it were just your decision, would you move forward?"`;
 
+/**
+ * Build the message list sent to Claude. `history` is already the rolling,
+ * summarized context assembled by the Session (see Session.ts), so we send it
+ * as-is rather than re-slicing here.
+ */
+function buildMessages(
+  history: ConversationTurn[],
+  latestTranscript: string
+): Anthropic.MessageParam[] {
+  return [
+    ...history.map((t) => ({ role: t.role, content: t.content })),
+    {
+      role: 'user',
+      content: `New transcript: "${latestTranscript}"`,
+    },
+  ];
+}
+
 export async function generateSalesCoaching(
   latestTranscript: string,
   prospectContext: string,
   callGoal: string,
   objectionLibrary: string,
-  history: ConversationTurn[]
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
 ): Promise<string> {
   const systemPrompt = SALES_SYSTEM_PROMPT
     .replace('{{PROSPECT_CONTEXT}}', prospectContext.trim() || 'Not provided')
     .replace('{{CALL_GOAL}}', callGoal.trim() || 'Book a follow-up call or close the deal')
     .replace('{{OBJECTION_LIBRARY}}', objectionLibrary.trim() || FALLBACK_OBJECTION_LIBRARY);
 
-  const messages: Anthropic.MessageParam[] = [
-    ...history.slice(-8).map((t) => ({
-      role: t.role,
-      content: t.content,
-    })),
-    {
-      role: 'user',
-      content: `New transcript: "${latestTranscript}"`,
-    },
-  ];
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
+}
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 80,
-    system: systemPrompt,
-    messages,
-  });
+// Shared live-coaching rules for the dating/networking/pitching modes. These
+// modes cap suggestions at 12 words (vs. 15 for sales) per product spec.
+const LIVE_RULES = `RULES:
+- Only respond when there is something genuinely useful to say. Silence is better than noise.
+- Maximum 12 words per coaching suggestion. Shorter is better.
+- No preamble, no labels — just the actionable suggestion.
+- Never repeat yourself. If you've already given a piece of advice, don't repeat it.
+- If nothing actionable, respond with exactly: HOLD`;
 
-  const block = response.content[0];
-  return block.type === 'text' ? block.text.trim() : 'HOLD';
+async function generateCoaching(
+  systemPrompt: string,
+  latestTranscript: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
+}
+
+export async function generateDatingCoaching(
+  latestTranscript: string,
+  name: string,
+  profileUrl: string,
+  intent: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  const systemPrompt = `You are an expert dating coach whispering live coaching to someone on a date. They hear you through their earpiece — only they can hear you.
+
+${LIVE_RULES}
+
+FOCUS:
+- Detect awkward silences → suggest a conversation re-opener
+- Read the emotional tone → flag positive or negative signals
+- Spot callback opportunities (things they mentioned earlier)
+- Suggest escalation cues when the energy is high
+- Alert when the user is over-talking (talk ratio)
+
+DATE: ${name.trim() || 'Not provided'}
+PROFILE: ${profileUrl.trim() || 'Not provided'}
+INTENT: ${intent.trim() || 'Not provided'}`;
+
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+}
+
+export async function generateNetworkingCoaching(
+  latestTranscript: string,
+  eventName: string,
+  attendeeList: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  const systemPrompt = `You are an expert networking coach whispering live coaching to someone working a room. They hear you through their earpiece — only they can hear you.
+
+${LIVE_RULES}
+
+FOCUS:
+- Surface relevant talking points based on who they're talking to
+- Suggest graceful exits when a conversation is dying
+- Remind them to capture contact info before leaving
+
+EVENT: ${eventName.trim() || 'Not provided'}
+TARGET CONTACTS:
+${attendeeList.trim() || 'Not provided'}`;
+
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+}
+
+export async function generatePitchingCoaching(
+  latestTranscript: string,
+  title: string,
+  deck: string,
+  audience: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  const systemPrompt = `You are an expert pitch coach whispering live coaching to a presenter mid-pitch. They hear you through their earpiece — only they can hear you.
+
+${LIVE_RULES}
+
+FOCUS:
+- Track structure and timing → alert if running long on a section
+- Surface answers when Q&A goes off-script
+- Detect audience disengagement signals in speech
+- Remind the presenter of key metrics if they seem to forget
+- Suggest pauses and emphasis moments
+
+PITCH: ${title.trim() || 'Not provided'}
+AUDIENCE: ${audience.trim() || 'Not provided'}
+DECK / KEY POINTS:
+${deck.trim() || 'Not provided'}`;
+
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+}
+
+/**
+ * Condense a slice of older conversation turns into a few sentences, used by
+ * the Session's rolling context window (see Session.ts). Runs as its own small,
+ * non-streaming Claude call so it never blocks the live coaching path. Returns
+ * an empty string on failure so the caller can fall back gracefully (keep the
+ * raw turns) rather than dropping context.
+ */
+export async function summarizeConversation(
+  turns: ConversationTurn[],
+  priorSummary = ''
+): Promise<string> {
+  if (turns.length === 0) return priorSummary;
+
+  const transcript = turns
+    .map((t) => `${t.role === 'user' ? 'Speaker' : 'Coach'}: ${t.content}`)
+    .join('\n');
+
+  const priorBlock = priorSummary
+    ? `Existing summary so far:\n${priorSummary}\n\nNewer turns to fold in:\n`
+    : 'Conversation so far:\n';
+
+  try {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: 200,
+      system:
+        'You compress conversation history for context. Output only the summary, no preamble.',
+      messages: [
+        {
+          role: 'user',
+          content: `${priorBlock}${transcript}\n\nSummarize the key points of this conversation so far in 3-5 sentences for context.`,
+        },
+      ],
+    });
+    const block = response.content[0];
+    const summary = block.type === 'text' ? block.text.trim() : '';
+    return summary || priorSummary;
+  } catch {
+    // On any failure, keep the prior summary; the Session will retain raw turns.
+    return priorSummary;
+  }
+}
+
+// Per-scenario coaching prompts for Hard Conversations mode. Each whispers
+// scenario-specific guidance to someone in a high-stakes conversation.
+export function getHardConversationPrompt(scenario: HardConversationScenario): string {
+  switch (scenario) {
+    case 'salary_negotiation':
+      return `You are an expert salary negotiation coach. Provide short, real-time suggestions (≤12 words). Focus on: anchoring high, counter-offer framing, coaching the user to hold silence, flagging if they concede too quickly. After the session, summarize key moments and negotiation effectiveness.`;
+    case 'firing':
+      return `You are an HR and leadership coach specializing in difficult conversations. Provide short, real-time suggestions (≤12 words). Focus on: legally safe phrasing, empathy and humanity, de-escalation if emotions rise. After the session, summarize how the conversation went and what was handled well.`;
+    case 'breakup':
+      return `You are a compassionate communication coach. Provide short, real-time suggestions (≤12 words). Focus on: clear and kind language, detecting circular arguing, suggesting exit ramps when the conversation loops. After the session, summarize the emotional arc and key moments.`;
+    case 'confrontation':
+      return `You are a conflict resolution coach. Provide short, real-time suggestions (≤12 words). Focus on: non-accusatory framing, "I" statement coaching, de-escalation. After the session, summarize what was resolved and what remains open.`;
+    case 'dispute':
+      return `You are an assertive communication coach for disputes. Provide short, real-time suggestions (≤12 words). Focus on: surfacing relevant leverage, rights-aware language, professional assertiveness. After the session, summarize the outcome and next steps.`;
+    case 'therapy':
+      return `You are a therapy preparation coach. Provide short, real-time suggestions (≤12 words). Focus on: emotional vocabulary, surfacing key topics, reflection cues. After the session, provide structured notes: key topics surfaced, emotional themes, and items to raise with the therapist.`;
+  }
+}
+
+export async function generateHardConversationCoaching(
+  latestTranscript: string,
+  scenario: HardConversationScenario,
+  situation: string,
+  conversationGoal: string,
+  history: ConversationTurn[],
+  onChunk?: ChunkHandler
+): Promise<string> {
+  const systemPrompt = `${getHardConversationPrompt(scenario)}
+
+You are whispering live coaching into the user's earpiece — only they can hear you.
+
+${LIVE_RULES}
+
+SITUATION: ${situation.trim() || 'Not provided'}
+GOAL: ${conversationGoal.trim() || 'Not provided'}`;
+
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
 }

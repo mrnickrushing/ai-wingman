@@ -6,16 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0A14"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rushingtechnologies.aiwingman",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",
-        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods."
+        "NSBluetoothAlwaysUsageDescription": "AI Wingman uses Bluetooth to whisper coaching through your AirPods.",
+        "NSFaceIDUsageDescription": "AI Wingman uses Face ID to protect your account.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -24,16 +23,44 @@
         "RECORD_AUDIO",
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "aiwingman"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "plugins": [
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "AI Wingman listens to your conversation to provide real-time coaching."
         }
-      ]
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0A14"
+        }
+      ],
+      "expo-secure-store",
+      "expo-apple-authentication",
+      "expo-web-browser"
     ],
-    "scheme": "aiwingman"
+    "scheme": "aiwingman",
+    "extra": {
+      "serverUrl": "wss://wingman-server-production-5146.up.railway.app/ws"
+    }
   }
 }

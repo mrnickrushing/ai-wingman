@@ -21,7 +21,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app
@@ -38,39 +38,23 @@ workflows:
         script: |
           set -e
           keychain initialize
-          app-store-connect fetch-signing-files \
-            --bundle-id $BUNDLE_ID \
+          app-store-connect fetch-signing-files $BUNDLE_ID \
             --platform IOS \
             --type IOS_APP_STORE \
-            --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
-            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
-            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER \
             --create
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build iOS archive
+      - name: Build and export IPA
         script: |
           set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
-          cd app/ios
-          xcodebuild \
-            -workspace $XCODE_WORKSPACE \
-            -scheme $XCODE_SCHEME \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            -destination 'generic/platform=iOS' \
-            archive \
-            2>&1 \
-            | tee /tmp/xcodebuild_logs/archive.log \
-            | xcpretty
-      - name: Export IPA
-        script: |
-          set -o pipefail
-          mkdir -p /tmp/xcodebuild_logs
+          mkdir -p /tmp/xcodebuild_logs $CM_BUILD_DIR/build/ipa
           xcode-project build-ipa \
-            --archive-path $CM_BUILD_DIR/build/AIWingman.xcarchive \
-            --export-path $CM_BUILD_DIR/build/ipa \
-            2>&1 | tee /tmp/xcodebuild_logs/export.log
+            --workspace app/ios/$XCODE_WORKSPACE \
+            --scheme $XCODE_SCHEME \
+            --config Release \
+            --archive-directory $CM_BUILD_DIR/build \
+            --ipa-directory $CM_BUILD_DIR/build/ipa \
+            2>&1 | tee /tmp/xcodebuild_logs/build.log
     artifacts:
       - build/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -110,7 +94,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd app
-          npm ci
+          npm install
       - name: Expo prebuild
         script: |
           cd app

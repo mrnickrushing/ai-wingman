@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert,
+  SafeAreaView, Animated, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -172,57 +172,64 @@ export function ActiveDatingScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        <LiveSessionStatus />
-        <SessionTelemetry
-          onRetry={handleRetry}
-          onReconnect={handleReconnect}
-          onRestartMic={handleRestartMic}
-        />
-        <ConversationPrepBrief
-          compact
-          label="BATTLE CARDS"
-          mode="dating"
-          title={datingSetup.name}
-          goal={datingSetup.intent}
-          context={datingSetup.profileUrl}
-        />
-        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>
-              {datingSetup.name?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{dateLabel}</Text>
-            {datingSetup.intent ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Intent: {datingSetup.intent}</Text>
-            ) : null}
-          </View>
-          <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: ratioColor }]}>{talkRatio}%</Text>
-            <Text style={s.talkRatioLbl}>you talking</Text>
-          </View>
-        </Animated.View>
+        <ScrollView
+          style={s.bodyScroll}
+          contentContainerStyle={s.bodyContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <LiveSessionStatus />
+          <SessionTelemetry
+            onRetry={handleRetry}
+            onReconnect={handleReconnect}
+            onRestartMic={handleRestartMic}
+          />
+          <ConversationPrepBrief
+            compact
+            label="BATTLE CARDS"
+            mode="dating"
+            title={datingSetup.name}
+            goal={datingSetup.intent}
+            context={datingSetup.profileUrl}
+          />
+          <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+            <View style={s.prospectAvatar}>
+              <Text style={s.prospectInitial}>
+                {datingSetup.name?.[0]?.toUpperCase() ?? '?'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.prospectName} numberOfLines={1}>{dateLabel}</Text>
+              {datingSetup.intent ? (
+                <Text style={s.prospectGoal} numberOfLines={1}>Intent: {datingSetup.intent}</Text>
+              ) : null}
+            </View>
+            <View style={s.talkRatioChip}>
+              <Text style={[s.talkRatioPct, { color: ratioColor }]}>{talkRatio}%</Text>
+              <Text style={s.talkRatioLbl}>you talking</Text>
+            </View>
+          </Animated.View>
 
-        <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
+          <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
 
-        <LiveStats
-          chips={[
-            { icon: '🤐', value: silenceCount.toString(), label: 'SILENCES' },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
-            { icon: '💞', value: vibe, label: 'VIBE' },
-          ]}
-        />
+          <LiveStats
+            chips={[
+              { icon: '🤐', value: silenceCount.toString(), label: 'SILENCES' },
+              { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
+              { icon: '💞', value: vibe, label: 'VIBE' },
+            ]}
+          />
 
-        <View style={s.transcriptArea}>
-          <View style={s.transcriptHeader}>
-            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
-            {transcript.length > 0 && (
-              <Text style={s.wordCount}>{wordsSelf} words</Text>
-            )}
+          <View style={s.transcriptArea}>
+            <View style={s.transcriptHeader}>
+              <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+              {transcript.length > 0 && (
+                <Text style={s.wordCount}>{wordsSelf} words</Text>
+              )}
+            </View>
+            <TranscriptView entries={transcript} />
           </View>
-          <TranscriptView entries={transcript} />
-        </View>
+        </ScrollView>
 
         <View style={s.bottomBar}>
           <LinearGradient
@@ -256,6 +263,8 @@ export function ActiveDatingScreen({ onEnd }: Props) {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
+  bodyScroll: { flex: 1 },
+  bodyContent: { paddingBottom: 18 },
   glowOverlay: {
     position: 'absolute',
     top: 0,
@@ -322,7 +331,7 @@ const s = StyleSheet.create({
   talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
   talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
 
-  transcriptArea: { flex: 1 },
+  transcriptArea: { minHeight: 220 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 6,
@@ -330,7 +339,7 @@ const s = StyleSheet.create({
   sectionLabel: { color: '#1e293b', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
   wordCount: { color: '#334155', fontSize: 10, fontWeight: '600' },
 
-  bottomBar: { paddingBottom: 8, position: 'relative' },
+  bottomBar: { paddingBottom: 18, position: 'relative' },
   bottomFade: { position: 'absolute', top: -40, left: 0, right: 0, height: 50 },
   waveContainer: {
     alignItems: 'center', paddingHorizontal: 20,

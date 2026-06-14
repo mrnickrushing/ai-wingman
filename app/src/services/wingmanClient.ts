@@ -52,14 +52,20 @@ const getHealthUrl = (): string =>
     .replace(/^ws:\/\//, 'http://')
     .replace(/\/ws$/, '/health');
 
+const HEALTH_RETRY_STATUSES = new Set([502, 503, 504]);
+const HEALTH_RETRY_DELAYS_MS = [350, 900, 1600];
+
 export type WingmanServerHealth = {
   ok: boolean;
   status: number;
   message: string;
   sessions?: number;
+  attempts?: number;
 };
 
-export async function checkWingmanServerHealth(timeoutMs = 4000): Promise<WingmanServerHealth> {
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchWingmanServerHealth(timeoutMs: number): Promise<WingmanServerHealth> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
@@ -79,6 +85,7 @@ export async function checkWingmanServerHealth(timeoutMs = 4000): Promise<Wingma
       status: res.status,
       message,
       sessions,
+      attempts: 1,
     };
   } catch (error) {
     return {
@@ -87,10 +94,36 @@ export async function checkWingmanServerHealth(timeoutMs = 4000): Promise<Wingma
       message: error instanceof Error && error.name === 'AbortError'
         ? 'Health check timed out'
         : (error instanceof Error ? error.message : 'Health check failed'),
+      attempts: 1,
     };
   } finally {
     if (timeout) clearTimeout(timeout);
   }
+}
+
+export async function checkWingmanServerHealth(timeoutMs = 4000): Promise<WingmanServerHealth> {
+  let last = await fetchWingmanServerHealth(timeoutMs);
+  for (let i = 0; i < HEALTH_RETRY_DELAYS_MS.length; i += 1) {
+    const shouldRetry = !last.ok && (last.status === 0 || HEALTH_RETRY_STATUSES.has(last.status));
+    if (!shouldRetry) break;
+    await wait(HEALTH_RETRY_DELAYS_MS[i]);
+    const next = await fetchWingmanServerHealth(timeoutMs);
+    last = { ...next, attempts: (last.attempts ?? 1) + 1 };
+    if (last.ok) {
+      return {
+        ...last,
+        message: last.attempts && last.attempts > 1 ? 'ok after retry' : last.message,
+      };
+    }
+  }
+
+  if (!last.ok && (last.status === 0 || HEALTH_RETRY_STATUSES.has(last.status))) {
+    return {
+      ...last,
+      message: `Wingman server is waking up or temporarily unavailable (${last.message}). Try again in a few seconds.`,
+    };
+  }
+  return last;
 }
 
 export class WingmanClient {

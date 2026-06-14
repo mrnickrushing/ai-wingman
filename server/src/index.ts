@@ -5,10 +5,13 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { SessionManager } from './session/SessionManager';
 import { ClientMessage } from './types';
+import { initDb } from './db/index';
+import authRouter from './routes/auth';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/auth', authRouter);
 
 const server = http.createServer(app);
 // Manage the upgrade ourselves (noServer) so we can log handshake attempts and
@@ -106,9 +109,24 @@ wss.on('connection', (ws: WebSocket) => {
 });
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
-server.listen(PORT, () => {
-  console.log(`AI Wingman server running on port ${PORT}`);
-});
+
+async function main() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await initDb();
+      console.log('[DB] Schema ready');
+    } catch (err) {
+      console.error('[DB] Failed to initialize schema:', (err as Error).message);
+    }
+  } else {
+    console.warn('[DB] DATABASE_URL not set — auth endpoints disabled');
+  }
+  server.listen(PORT, () => {
+    console.log(`AI Wingman server running on port ${PORT}`);
+  });
+}
+
+main().catch(console.error);
 
 process.on('SIGTERM', () => {
   sessionManager.endAll();

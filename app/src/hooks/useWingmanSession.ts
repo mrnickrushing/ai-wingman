@@ -5,8 +5,6 @@ import {
   createAudioPlayer,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
-  AudioQuality,
-  IOSOutputFormat,
   RecordingPresets,
   type AudioPlayer,
   type AudioRecorder,
@@ -25,63 +23,101 @@ const nextId = () => String(++idCounter);
 const COACHING_VISIBLE_MS = 6000;
 
 // dBFS threshold below which we treat the chunk as silence and skip it.
-// Typical quiet room: -60 to -50 dBFS. Speech starts around -40 dBFS.
-const SILENCE_THRESHOLD_DBFS = -45;
-
-// We record complete AAC/m4a chunks. Keep the public nested option shape for
-// prepareToRecordAsync so expo-audio can normalize it for the current platform,
-// and keep a matching flattened shape for the native constructor.
-const CHUNK_RECORDING_OPTIONS: RecordingOptions = {
-  extension: '.m4a',
-  sampleRate: 44100,
-  numberOfChannels: 1,
-  bitRate: 64000,
-  isMeteringEnabled: true,
-  android: {
-    ...RecordingPresets.HIGH_QUALITY.android,
-    audioSource: 'voice_communication',
-  },
-  ios: {
-    ...RecordingPresets.HIGH_QUALITY.ios,
-    outputFormat: IOSOutputFormat.MPEG4AAC,
-    audioQuality: AudioQuality.MEDIUM,
-  },
-  web: {
-    mimeType: 'audio/webm',
-    bitsPerSecond: 64000,
-  },
-};
+// Typical quiet room: -60 to -50 dBFS. AirPods and some iPhone mics report
+// speech slightly lower than the built-in mic, so keep this forgiving.
+const SILENCE_THRESHOLD_DBFS = -55;
 
 type RecorderConstructorOptions = ConstructorParameters<typeof AudioModule.AudioRecorder>[0];
 
-const NATIVE_CHUNK_RECORDING_OPTIONS = (
-  Platform.OS === 'ios'
-    ? {
-        extension: CHUNK_RECORDING_OPTIONS.extension,
-        sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
-        numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
-        bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
-        isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
-        ...CHUNK_RECORDING_OPTIONS.ios,
+type RecorderProfile = {
+  label: string;
+  options: RecordingOptions;
+  nativeOptions: RecorderConstructorOptions;
+  mimeType: string;
+};
+
+const withMetering = (options: RecordingOptions, overrides?: Partial<RecordingOptions>): RecordingOptions => ({
+  ...options,
+  ...overrides,
+  isMeteringEnabled: true,
+  android: {
+    ...options.android,
+    ...overrides?.android,
+    audioSource: 'voice_communication',
+  },
+  ios: {
+    ...options.ios,
+    ...overrides?.ios,
+  },
+  web: {
+    ...options.web,
+    ...overrides?.web,
+  },
+});
+
+const toNativeRecordingOptions = (options: RecordingOptions): RecorderConstructorOptions => {
+  const common = {
+    extension: options.extension,
+    sampleRate: options.sampleRate,
+    numberOfChannels: options.numberOfChannels,
+    bitRate: options.bitRate,
+    isMeteringEnabled: options.isMeteringEnabled ?? false,
+    directory: options.directory,
+  };
+  if (Platform.OS === 'ios') {
+    return { ...common, ...options.ios } as unknown as RecorderConstructorOptions;
+  }
+  if (Platform.OS === 'android') {
+    return { ...common, ...options.android } as unknown as RecorderConstructorOptions;
+  }
+  return { ...common, ...options.web } as unknown as RecorderConstructorOptions;
+};
+
+const createProfile = (label: string, options: RecordingOptions, mimeType = 'audio/mp4'): RecorderProfile => ({
+  label,
+  options,
+  nativeOptions: toNativeRecordingOptions(options),
+  mimeType,
+});
+
+const RECORDER_PROFILES: RecorderProfile[] = [
+  createProfile('high-quality-m4a', withMetering(RecordingPresets.HIGH_QUALITY)),
+  createProfile('low-quality-m4a', withMetering(RecordingPresets.LOW_QUALITY)),
+  createProfile(
+    'mono-voice-m4a',
+    withMetering(RecordingPresets.HIGH_QUALITY, {
+      numberOfChannels: 1,
+      bitRate: 64000,
+    })
+  ),
+];
+
+let preferredRecorderProfileIndex = 0;
+
+const createPreparedRecorder = async (): Promise<{ recorder: AudioRecorder; profile: RecorderProfile }> => {
+  let lastError: unknown = null;
+  const orderedProfiles = [
+    ...RECORDER_PROFILES.slice(preferredRecorderProfileIndex),
+    ...RECORDER_PROFILES.slice(0, preferredRecorderProfileIndex),
+  ];
+
+  for (const profile of orderedProfiles) {
+    let recorder: AudioRecorder | null = null;
+    try {
+      recorder = new AudioModule.AudioRecorder(profile.nativeOptions);
+      await recorder.prepareToRecordAsync();
+      preferredRecorderProfileIndex = RECORDER_PROFILES.findIndex((candidate) => candidate.label === profile.label);
+      return { recorder, profile };
+    } catch (err) {
+      lastError = err;
+      if (recorder) {
+        try { recorder.release(); } catch { /* noop */ }
       }
-    : Platform.OS === 'android'
-      ? {
-          extension: CHUNK_RECORDING_OPTIONS.extension,
-          sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
-          numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
-          bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
-          isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
-          ...CHUNK_RECORDING_OPTIONS.android,
-      }
-    : {
-        extension: CHUNK_RECORDING_OPTIONS.extension,
-        sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
-        numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
-        bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
-        isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
-        ...CHUNK_RECORDING_OPTIONS.web,
-      }
-) as unknown as RecorderConstructorOptions;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Failed to prepare recorder');
+};
 
 export type WingmanPreflightResult = {
   ok: boolean;
@@ -136,8 +172,8 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
       shouldRouteThroughEarpiece: false,
     } as Parameters<typeof setAudioModeAsync>[0]);
 
-    recorder = new AudioModule.AudioRecorder(NATIVE_CHUNK_RECORDING_OPTIONS);
-    await recorder.prepareToRecordAsync(CHUNK_RECORDING_OPTIONS);
+    const prepared = await createPreparedRecorder();
+    recorder = prepared.recorder;
     recorder.record();
     meteringPoll = setInterval(() => {
       const status = recorder?.getStatus();
@@ -156,7 +192,9 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
 
     result.recorder = {
       ok: Boolean(uri && fileSize > 512),
-      message: uri && fileSize > 512 ? 'Recorder produced an audio sample.' : 'Recorder did not produce usable audio.',
+      message: uri && fileSize > 512
+        ? `Recorder produced an audio sample (${prepared.profile.label}).`
+        : 'Recorder did not produce usable audio.',
     };
     result.input = {
       ok: peakDb >= SILENCE_THRESHOLD_DBFS || fileSize > 4096,
@@ -189,6 +227,7 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
 
 export function useWingmanSession() {
   const recordingRef = useRef<AudioRecorder | null>(null);
+  const recordingProfileRef = useRef<RecorderProfile | null>(null);
   // Peak metering (dBFS) tracked during each 1.5 s recording cycle.
   // Reset when a new recorder starts; checked before sending to skip silence.
   const peakMeteringRef = useRef<number>(SILENCE_THRESHOLD_DBFS - 1);
@@ -402,7 +441,7 @@ export function useWingmanSession() {
                 encoding: FileSystem.EncodingType.Base64,
               });
               useSessionStore.getState().setLastAudioChunkAt(Date.now());
-              wingmanClient.sendAudioChunk(b64, 'audio/mp4');
+              wingmanClient.sendAudioChunk(b64, recordingProfileRef.current?.mimeType ?? 'audio/mp4');
               captureFailureCountRef.current = 0;
               await FileSystem.deleteAsync(uri, { idempotent: true });
             } else {
@@ -443,8 +482,9 @@ export function useWingmanSession() {
       // configured for voice chat on iOS).
       let recording: AudioRecorder | null = null;
       try {
-        recording = new AudioModule.AudioRecorder(NATIVE_CHUNK_RECORDING_OPTIONS);
-        await recording.prepareToRecordAsync(CHUNK_RECORDING_OPTIONS);
+        const prepared = await createPreparedRecorder();
+        recording = prepared.recorder;
+        recordingProfileRef.current = prepared.profile;
         // Reset peak and poll metering for this cycle.
         peakMeteringRef.current = SILENCE_THRESHOLD_DBFS - 1;
         if (meteringPollRef.current) clearInterval(meteringPollRef.current);

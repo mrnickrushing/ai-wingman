@@ -18,6 +18,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Set to your Sentry DSN to turn on crash reporting (empty = disabled).
+        EXPO_PUBLIC_SENTRY_DSN: ""
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
@@ -97,6 +99,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Set to your Sentry DSN to turn on crash reporting (empty = disabled).
+        EXPO_PUBLIC_SENTRY_DSN: ""
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
@@ -152,6 +156,8 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        # Set to your Sentry DSN to turn on crash reporting (empty = disabled).
+        EXPO_PUBLIC_SENTRY_DSN: ""
         EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:

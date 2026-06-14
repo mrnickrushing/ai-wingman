@@ -11,8 +11,15 @@ const updatesUrl = process.env.EXPO_UPDATES_URL ?? (hasProjectId ? `https://u.ex
 const updatesEnabled = Boolean(updatesUrl);
 const updatesChannel = process.env.EXPO_UPDATE_CHANNEL ?? 'production';
 
+// Only add the Sentry config plugin when a DSN is configured, so builds without
+// Sentry don't pick up the native source-map/dSYM upload build phase.
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const basePlugins = baseConfig.expo.plugins ?? [];
+const plugins = sentryDsn ? [...basePlugins, '@sentry/react-native'] : basePlugins;
+
 module.exports = {
   ...baseConfig.expo,
+  plugins,
   runtimeVersion: {
     policy: 'appVersion',
   },

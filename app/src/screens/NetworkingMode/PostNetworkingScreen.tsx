@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated, ActivityIndicator,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
+
+function cleanText(raw: string): string {
+  return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
@@ -168,6 +172,13 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
                     <Text style={s.messageText}>
                       {`Hi ${firstName(contact)}, great connecting at ${eventLabel}! I really enjoyed our chat — would love to keep the conversation going. Open to a quick call this week?`}
                     </Text>
+                    <TouchableOpacity
+                      style={s.shareBtn}
+                      activeOpacity={0.75}
+                      onPress={() => Share.share({ message: cleanText(`Hi ${firstName(contact)}, great connecting at ${eventLabel}! I really enjoyed our chat — would love to keep the conversation going. Open to a quick call this week?`) }).catch(() => {})}
+                    >
+                      <Text style={s.shareBtnText}>Share →</Text>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -277,6 +288,13 @@ const s = StyleSheet.create({
   timingText: { color: '#22d3ee', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
   messageLabel: { color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   messageText: { color: '#cbd5e1', fontSize: 13, lineHeight: 20 },
+  shareBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(34,211,238,0.15)',
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.35)',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7,
+  },
+  shareBtnText: { color: '#22d3ee', fontSize: 13, fontWeight: '700' },
 
   actions: { flexDirection: 'row', gap: 12 },
   secondaryBtn: { flex: 1, borderRadius: 14, overflow: 'hidden' },

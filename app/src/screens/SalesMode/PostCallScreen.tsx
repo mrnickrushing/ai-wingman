@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated, ActivityIndicator,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
+
+function cleanText(raw: string): string {
+  return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
@@ -220,6 +224,13 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                   <View key={i} style={s.followCard}>
                     <View style={s.timingPill}><Text style={s.timingText}>{f.timing}</Text></View>
                     <Text style={s.followText}>{f.text}</Text>
+                    <TouchableOpacity
+                      style={s.shareBtn}
+                      activeOpacity={0.75}
+                      onPress={() => Share.share({ message: cleanText(f.text) }).catch(() => {})}
+                    >
+                      <Text style={s.shareBtnText}>Share →</Text>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -370,6 +381,13 @@ const s = StyleSheet.create({
   },
   timingText: { color: '#6366f1', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   followText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  shareBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(99,102,241,0.15)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.35)',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7,
+  },
+  shareBtnText: { color: '#6366f1', fontSize: 13, fontWeight: '700' },
 
   starsRow: { flexDirection: 'row', gap: 8 },
   starBtn: { padding: 4 },

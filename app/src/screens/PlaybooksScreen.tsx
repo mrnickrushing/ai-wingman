@@ -4,9 +4,14 @@ import {
   SafeAreaView, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConversationMode } from '../types';
 import { useSessionStore } from '../store/sessionStore';
+import {
+  appendCustomPlaybook,
+  loadCustomPlaybooks,
+  saveCustomPlaybooks,
+  type SavedPlaybook,
+} from '../utils/playbookStorage';
 
 type Playbook = {
   title: string;
@@ -15,19 +20,6 @@ type Playbook = {
   accent: string;
   apply: () => void;
 };
-
-type SavedPlaybook = {
-  id: string;
-  title: string;
-  mode: ConversationMode;
-  description: string;
-  goal: string;
-  notes: string;
-  pinned: boolean;
-  createdAt: string;
-};
-
-const CUSTOM_PLAYBOOK_KEY = 'wingman:customPlaybooks';
 
 type Props = {
   onBack: () => void;
@@ -112,22 +104,12 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
   ];
 
   useEffect(() => {
-    AsyncStorage.getItem(CUSTOM_PLAYBOOK_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as SavedPlaybook[];
-        if (Array.isArray(parsed)) {
-          setCustomPlaybooks(parsed);
-        }
-      } catch {
-        // ignore malformed saved data
-      }
-    });
+    loadCustomPlaybooks().then(setCustomPlaybooks);
   }, []);
 
   const persistCustomPlaybooks = async (next: SavedPlaybook[]) => {
     setCustomPlaybooks(next);
-    await AsyncStorage.setItem(CUSTOM_PLAYBOOK_KEY, JSON.stringify(next)).catch(() => {});
+    await saveCustomPlaybooks(next);
   };
 
   const applyPlaybook = (playbook: Playbook) => {
@@ -148,7 +130,8 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
       pinned,
       createdAt: new Date().toISOString(),
     };
-    await persistCustomPlaybooks([next, ...customPlaybooks].slice(0, 12));
+    const list = await appendCustomPlaybook(next);
+    setCustomPlaybooks(list);
     setCustomTitle('');
     setCustomDescription('');
     setCustomGoal('');

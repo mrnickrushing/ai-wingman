@@ -73,6 +73,10 @@ export function SessionPreflightCard() {
         <Text style={s.buttonText}>{running ? 'Listening...' : 'Run ready check'}</Text>
       </Pressable>
 
+      <Text style={s.backgroundNote}>
+        Background audio is enabled in this build. If the phone locks, coaching audio should keep going when iOS allows it.
+      </Text>
+
       {steps.length > 0 && (
         <View style={s.list}>
           {steps.map((step) => (
@@ -127,6 +131,7 @@ const s = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: '#f8fafc', fontSize: 13, fontWeight: '800' },
+  backgroundNote: { color: '#94a3b8', fontSize: 11, lineHeight: 16 },
   list: { gap: 8 },
   row: {
     flexDirection: 'row',

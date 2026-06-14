@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { listSessions, SavedSession } from '../services/sessionService';
 import { ConversationMode } from '../types';
+import { loadBookmarks, removeBookmark, saveBookmark, type SavedBookmark } from '../utils/bookmarks';
 
 const MODE_META: Record<string, { icon: string; label: string; accent: string }> = {
   sales: { icon: 'S', label: 'Sales', accent: '#6366f1' },
@@ -40,12 +41,14 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [bookmarks, setBookmarks] = useState<SavedBookmark[]>([]);
 
   useEffect(() => {
     listSessions().then((data) => {
       setSessions(data);
       setLoading(false);
     });
+    loadBookmarks().then(setBookmarks);
   }, []);
 
   const dashboard = useMemo(() => {
@@ -111,6 +114,21 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
 
   const shareSession = async (session: SavedSession) => {
     await Share.share({ message: buildShareText(session) }).catch(() => {});
+  };
+
+  const bookmarkExcerpt = async (session: SavedSession) => {
+    const excerpt = buildTranscriptExcerpt(session);
+    const next = await saveBookmark({
+      sessionId: session.id,
+      title: session.title || MODE_META[session.mode]?.label || 'Session',
+      excerpt,
+    });
+    setBookmarks(next);
+  };
+
+  const deleteBookmark = async (id: string) => {
+    const next = await removeBookmark(id);
+    setBookmarks(next);
   };
 
   const transcriptQuery = search.trim().toLowerCase();
@@ -229,6 +247,42 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
               ) : null}
             </View>
 
+            {bookmarks.length > 0 ? (
+              <View style={st.bookmarkPanel}>
+                <View style={st.sectionTop}>
+                  <Text style={st.dashboardTitle}>Saved moments</Text>
+                  <Text style={st.sectionMeta}>{bookmarks.length} saved</Text>
+                </View>
+                <View style={st.bookmarkList}>
+                  {bookmarks.slice(0, 5).map((bookmark) => (
+                    <View key={bookmark.id} style={st.bookmarkCard}>
+                      <View style={st.bookmarkHeader}>
+                        <Text style={st.bookmarkTitle} numberOfLines={1}>{bookmark.title}</Text>
+                        <Text style={st.bookmarkTime}>{formatDate(bookmark.createdAt)}</Text>
+                      </View>
+                      <Text style={st.bookmarkExcerpt} numberOfLines={3}>{bookmark.excerpt}</Text>
+                      <View style={st.bookmarkActions}>
+                        <TouchableOpacity
+                          onPress={() => Share.share({ message: `${bookmark.title}\n\n${bookmark.excerpt}` }).catch(() => {})}
+                          style={st.bookmarkBtn}
+                          activeOpacity={0.82}
+                        >
+                          <Text style={st.bookmarkBtnText}>Share</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => deleteBookmark(bookmark.id)}
+                          style={st.bookmarkBtn}
+                          activeOpacity={0.82}
+                        >
+                          <Text style={st.bookmarkBtnText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             {grouped.map((group) => (
               <View key={group.label}>
                 <Text style={st.groupLabel}>{group.label}</Text>
@@ -315,6 +369,13 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                               >
                                 <Text style={st.cardActionText}>Share transcript</Text>
                               </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => bookmarkExcerpt(session)}
+                                style={st.cardActionBtn}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.cardActionText}>Bookmark excerpt</Text>
+                              </TouchableOpacity>
                             </View>
                           </View>
                         ) : null}
@@ -396,6 +457,39 @@ const st = StyleSheet.create({
     gap: 12,
   },
   dashboardTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
+  sectionTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionMeta: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  bookmarkPanel: {
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 16,
+  },
+  bookmarkList: { gap: 10 },
+  bookmarkCard: {
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  bookmarkHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  bookmarkTitle: { flex: 1, color: '#f8fafc', fontSize: 14, fontWeight: '900' },
+  bookmarkTime: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  bookmarkExcerpt: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
+  bookmarkActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bookmarkBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  bookmarkBtnText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
   metricRow: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,

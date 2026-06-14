@@ -73,6 +73,7 @@ interface SessionStore {
   loggedContacts: string[];
   lastTranscriptAt: number | null;
   lastAudioChunkAt: number | null;
+  micLevelDb: number | null;
   lastErrorAt: number | null;
   lastSessionStartedAt: number | null;
 
@@ -100,6 +101,7 @@ interface SessionStore {
   setCurrentCoaching: (text: string | null) => void;
   setLastTranscriptAt: (timestamp: number | null) => void;
   setLastAudioChunkAt: (timestamp: number | null) => void;
+  setMicLevelDb: (level: number | null) => void;
   setLastErrorAt: (timestamp: number | null) => void;
   setLastSessionStartedAt: (timestamp: number | null) => void;
   incrementElapsed: () => void;
@@ -180,6 +182,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   loggedContacts: [],
   lastTranscriptAt: null,
   lastAudioChunkAt: null,
+  micLevelDb: null,
   lastErrorAt: null,
   lastSessionStartedAt: null,
 
@@ -218,6 +221,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setCurrentCoaching: (text) => set({ currentCoaching: text }),
   setLastTranscriptAt: (timestamp) => set({ lastTranscriptAt: timestamp }),
   setLastAudioChunkAt: (timestamp) => set({ lastAudioChunkAt: timestamp }),
+  setMicLevelDb: (micLevelDb) => set({ micLevelDb }),
   setLastErrorAt: (timestamp) => set({ lastErrorAt: timestamp }),
   setLastSessionStartedAt: (timestamp) => set({ lastSessionStartedAt: timestamp }),
 
@@ -271,6 +275,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       loggedContacts: [],
       lastTranscriptAt: null,
       lastAudioChunkAt: null,
+      micLevelDb: null,
       lastErrorAt: null,
       lastSessionStartedAt: null,
     }),

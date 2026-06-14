@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 import { SessionPreflightCard } from '../../components/SessionPreflightCard';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 const INTENTS = ['Casual', 'Serious', 'Playful', 'Confident'];
 
@@ -54,6 +55,12 @@ export function PreDatingScreen({ onStart, onBack }: Props) {
               ]}
             />
             <SessionPreflightCard />
+            <ConversationPrepBrief
+              mode="dating"
+              title={datingSetup.name}
+              goal={datingSetup.intent}
+              context={datingSetup.profileUrl}
+            />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>Who are you meeting?</Text>

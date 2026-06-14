@@ -72,6 +72,7 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
     currentCoaching,
     lastTranscriptAt,
     lastAudioChunkAt,
+    micLevelDb,
     lastErrorAt,
     error,
   } = useSessionStore();
@@ -86,6 +87,27 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
     : isReconnecting
       ? 'Reconnecting'
       : 'Offline';
+  const micPercent = micLevelDb === null
+    ? 0
+    : Math.max(4, Math.min(100, Math.round(((micLevelDb + 70) / 40) * 100)));
+  const hearingLabel = !isRecording
+    ? 'Not listening'
+    : micLevelDb === null
+      ? 'Listening'
+      : micLevelDb > -35
+        ? 'Hearing you clearly'
+        : micLevelDb > -50
+          ? 'Hearing low speech'
+          : 'Too quiet';
+  const hearingColor = !isRecording
+    ? '#64748b'
+    : micLevelDb === null
+      ? '#22d3ee'
+      : micLevelDb > -35
+        ? '#4ade80'
+        : micLevelDb > -50
+          ? '#f59e0b'
+          : '#f43f5e';
 
   const chips = [
     { label: 'Server', value: server.label, color: server.color },
@@ -117,6 +139,16 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
             <Text style={[s.chipValue, { color: chip.color }]} numberOfLines={1}>{chip.value}</Text>
           </View>
         ))}
+      </View>
+
+      <View style={s.levelBlock}>
+        <View style={s.levelHeader}>
+          <Text style={s.levelLabel}>Mic level</Text>
+          <Text style={[s.levelValue, { color: hearingColor }]}>{hearingLabel}</Text>
+        </View>
+        <View style={s.levelTrack}>
+          <View style={[s.levelFill, { width: `${micPercent}%`, backgroundColor: hearingColor }]} />
+        </View>
       </View>
 
       {!compact ? null : (
@@ -193,6 +225,17 @@ const s = StyleSheet.create({
   chipValue: { fontSize: 13, fontWeight: '800' },
   footerRow: { gap: 4 },
   footerText: { color: '#64748b', fontSize: 11 },
+  levelBlock: { gap: 7 },
+  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  levelLabel: { color: '#64748b', fontSize: 11, fontWeight: '800' },
+  levelValue: { fontSize: 11, fontWeight: '900' },
+  levelTrack: {
+    height: 7,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  levelFill: { height: '100%', borderRadius: 999 },
   errorText: { color: '#fca5c5', fontSize: 12, lineHeight: 18 },
   noteText: { color: '#64748b', fontSize: 11 },
 });

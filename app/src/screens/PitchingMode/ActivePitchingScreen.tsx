@@ -11,6 +11,7 @@ import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
+import { LiveSessionStatus } from '../../components/LiveSessionStatus';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -129,8 +130,8 @@ export function ActivePitchingScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
+        <LiveSessionStatus />
         <SessionTelemetry onRetry={handleRetry} />
-
         {/* Prominent timer */}
         <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>
           <Text style={s.timerHeroValue}>{formatTime(elapsedSeconds)}</Text>

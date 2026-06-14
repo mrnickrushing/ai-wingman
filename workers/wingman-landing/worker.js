@@ -8,7 +8,7 @@ const PAGES = {
   <meta name="description" content="AI Wingman listens to your conversations and whispers live coaching to your AirPods. Sales calls, dates, pitches, hard conversations — win them all." />
   <meta property="og:title" content="AI Wingman — The smartest person in every room" />
   <meta property="og:description" content="Real-time AI coaching whispered to your earpiece. Deepgram + Claude = <700ms from speech to advice." />
-  <meta property="og:url" content="https://aiwingman.app" />
+  <meta property="og:url" content="https://aiwingman.rushingtechnologies.com" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -273,7 +273,7 @@ const PAGES = {
         <li>Onboarding flows</li>
         <li>Priority support</li>
       </ul>
-      <a href="mailto:sales@aiwingman.app" class="price-btn price-btn-ghost">Contact sales</a>
+      <a href="mailto:support@rushingtechnologies.com" class="price-btn price-btn-ghost">Contact sales</a>
     </div>
   </div>
 </section>
@@ -308,7 +308,7 @@ const PAGES = {
   <div class="footer-links">
     <a href="/terms">Terms</a>
     <a href="/support">Support</a>
-    <a href="mailto:hello@aiwingman.app">Contact</a>
+    <a href="mailto:support@rushingtechnologies.com">Contact</a>
   </div>
   <div class="footer-copy">© 2026 AI Wingman. All rights reserved. Built by <a href="https://rushingtechnologies.com" style="color:var(--indigo);text-decoration:none;">Rushing Technologies</a>.</div>
 </footer>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert,
+  SafeAreaView, Animated, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -133,52 +133,54 @@ export function ActivePitchingScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        <LiveSessionStatus />
-        <SessionTelemetry
-          onRetry={handleRetry}
-          onReconnect={handleReconnect}
-          onRestartMic={handleRestartMic}
-        />
-        <ConversationPrepBrief
-          compact
-          label="BATTLE CARDS"
-          mode="pitching"
-          title={pitchLabel}
-          audience={pitchingSetup.audience}
-          context={pitchingSetup.deck}
-        />
-        {/* Prominent timer */}
-        <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>
-          <Text style={s.timerHeroValue}>{formatTime(elapsedSeconds)}</Text>
-          <Text style={s.timerHeroLabel}>ELAPSED</Text>
-        </Animated.View>
+        <ScrollView style={s.bodyScroll} contentContainerStyle={s.bodyContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <LiveSessionStatus />
+          <SessionTelemetry
+            onRetry={handleRetry}
+            onReconnect={handleReconnect}
+            onRestartMic={handleRestartMic}
+          />
+          <ConversationPrepBrief
+            compact
+            label="BATTLE CARDS"
+            mode="pitching"
+            title={pitchLabel}
+            audience={pitchingSetup.audience}
+            context={pitchingSetup.deck}
+          />
+          {/* Prominent timer */}
+          <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>
+            <Text style={s.timerHeroValue}>{formatTime(elapsedSeconds)}</Text>
+            <Text style={s.timerHeroLabel}>ELAPSED</Text>
+          </Animated.View>
 
-        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>🚀</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{pitchLabel}</Text>
-            {pitchingSetup.audience ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Audience: {pitchingSetup.audience}</Text>
-            ) : null}
-          </View>
-        </Animated.View>
+          <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+            <View style={s.prospectAvatar}>
+              <Text style={s.prospectInitial}>🚀</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.prospectName} numberOfLines={1}>{pitchLabel}</Text>
+              {pitchingSetup.audience ? (
+                <Text style={s.prospectGoal} numberOfLines={1}>Audience: {pitchingSetup.audience}</Text>
+              ) : null}
+            </View>
+          </Animated.View>
 
-        <LiveStats
-          chips={[
-            { icon: '📊', value: `~${slideNum}`, label: 'SLIDE ~' },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
-          ]}
-        />
+          <LiveStats
+            chips={[
+              { icon: '📊', value: `~${slideNum}`, label: 'SLIDE ~' },
+              { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
+              { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+            ]}
+          />
 
-        <View style={s.transcriptArea}>
-          <View style={s.transcriptHeader}>
-            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+          <View style={s.transcriptArea}>
+            <View style={s.transcriptHeader}>
+              <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+            </View>
+            <TranscriptView entries={transcript} />
           </View>
-          <TranscriptView entries={transcript} />
-        </View>
+        </ScrollView>
 
         <View style={s.bottomBar}>
           <LinearGradient
@@ -272,7 +274,9 @@ const s = StyleSheet.create({
   prospectName: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
   prospectGoal: { color: '#475569', fontSize: 11, marginTop: 2, lineHeight: 16 },
 
-  transcriptArea: { flex: 1 },
+  transcriptArea: { minHeight: 220 },
+  bodyScroll: { flex: 1 },
+  bodyContent: { paddingBottom: 18 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 6, marginTop: 6,

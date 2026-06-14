@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert,
+  SafeAreaView, Animated, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -170,63 +170,65 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        <LiveSessionStatus />
-        <SessionTelemetry
-          onRetry={handleRetry}
-          onReconnect={handleReconnect}
-          onRestartMic={handleRestartMic}
-        />
-        <ConversationPrepBrief
-          compact
-          label="BATTLE CARDS"
-          mode="hard_conversations"
-          title={scenarioLabel}
-          goal={hardConvoSetup.goal}
-          context={hardConvoSetup.situation}
-        />
-        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>
-            <Text style={s.prospectInitial}>🔥</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{scenarioLabel}</Text>
-            {hardConvoSetup.goal ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {hardConvoSetup.goal}</Text>
-            ) : null}
-          </View>
-          <View style={s.intensityChip}>
-            <View style={[s.intensityDot, { backgroundColor: tone.color }]} />
-            <Text style={[s.intensityLbl, { color: tone.color }]}>{tone.label}</Text>
-          </View>
-        </Animated.View>
+        <ScrollView style={s.bodyScroll} contentContainerStyle={s.bodyContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <LiveSessionStatus />
+          <SessionTelemetry
+            onRetry={handleRetry}
+            onReconnect={handleReconnect}
+            onRestartMic={handleRestartMic}
+          />
+          <ConversationPrepBrief
+            compact
+            label="BATTLE CARDS"
+            mode="hard_conversations"
+            title={scenarioLabel}
+            goal={hardConvoSetup.goal}
+            context={hardConvoSetup.situation}
+          />
+          <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+            <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>
+              <Text style={s.prospectInitial}>🔥</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.prospectName} numberOfLines={1}>{scenarioLabel}</Text>
+              {hardConvoSetup.goal ? (
+                <Text style={s.prospectGoal} numberOfLines={1}>Goal: {hardConvoSetup.goal}</Text>
+              ) : null}
+            </View>
+            <View style={s.intensityChip}>
+              <View style={[s.intensityDot, { backgroundColor: tone.color }]} />
+              <Text style={[s.intensityLbl, { color: tone.color }]}>{tone.label}</Text>
+            </View>
+          </Animated.View>
 
-        <View style={s.intensityTrack}>
-          <View style={[
-            s.intensityFill,
-            {
-              width: intensity === 'calm' ? '33%' : intensity === 'tense' ? '66%' : '100%',
-              backgroundColor: tone.color,
-            },
-          ]} />
-        </View>
-
-        <LiveStats
-          chips={[
-            { icon: '🌡', value: tone.label, label: 'INTENSITY', color: tone.color },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
-          ]}
-        />
-
-        <View style={s.transcriptArea}>
-          <View style={s.transcriptHeader}>
-            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
-            {transcript.length > 0 && (
-              <Text style={s.wordCount}>{wordsSelf} words</Text>
-            )}
+          <View style={s.intensityTrack}>
+            <View style={[
+              s.intensityFill,
+              {
+                width: intensity === 'calm' ? '33%' : intensity === 'tense' ? '66%' : '100%',
+                backgroundColor: tone.color,
+              },
+            ]} />
           </View>
-          <TranscriptView entries={transcript} />
-        </View>
+
+          <LiveStats
+            chips={[
+              { icon: '🌡', value: tone.label, label: 'INTENSITY', color: tone.color },
+              { icon: '⚡', value: paceWord, label: 'PACE', color: paceColor },
+              { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+            ]}
+          />
+
+          <View style={s.transcriptArea}>
+            <View style={s.transcriptHeader}>
+              <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+              {transcript.length > 0 && (
+                <Text style={s.wordCount}>{wordsSelf} words</Text>
+              )}
+            </View>
+            <TranscriptView entries={transcript} />
+          </View>
+        </ScrollView>
 
         <View style={s.bottomBar}>
           <LinearGradient
@@ -330,7 +332,9 @@ const s = StyleSheet.create({
   },
   intensityFill: { height: '100%', borderRadius: 2 },
 
-  transcriptArea: { flex: 1 },
+  transcriptArea: { minHeight: 220 },
+  bodyScroll: { flex: 1 },
+  bodyContent: { paddingBottom: 18 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 6,

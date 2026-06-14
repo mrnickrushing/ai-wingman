@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert,
+  SafeAreaView, Animated, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -153,60 +153,62 @@ export function ActiveCallScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        <LiveSessionStatus />
-        <SessionTelemetry
-          onRetry={handleRetry}
-          onReconnect={handleReconnect}
-          onRestartMic={handleRestartMic}
-        />
-        <ConversationPrepBrief
-          compact
-          label="BATTLE CARDS"
-          mode="sales"
-          title={[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' at ')}
-          goal={salesSetup.callGoal}
-          context={salesSetup.objectionLibrary}
-        />
-        {/* Prospect header */}
-        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>
-              {salesSetup.prospectName?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{prospectLabel}</Text>
-            {salesSetup.callGoal ? (
-              <Text style={s.prospectGoal} numberOfLines={1}>Goal: {salesSetup.callGoal}</Text>
-            ) : null}
-          </View>
-          <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: ratioColor }]}>{talkRatio}%</Text>
-            <Text style={s.talkRatioLbl}>you talking</Text>
-          </View>
-        </Animated.View>
+        <ScrollView style={s.bodyScroll} contentContainerStyle={s.bodyContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <LiveSessionStatus />
+          <SessionTelemetry
+            onRetry={handleRetry}
+            onReconnect={handleReconnect}
+            onRestartMic={handleRestartMic}
+          />
+          <ConversationPrepBrief
+            compact
+            label="BATTLE CARDS"
+            mode="sales"
+            title={[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' at ')}
+            goal={salesSetup.callGoal}
+            context={salesSetup.objectionLibrary}
+          />
+          {/* Prospect header */}
+          <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+            <View style={s.prospectAvatar}>
+              <Text style={s.prospectInitial}>
+                {salesSetup.prospectName?.[0]?.toUpperCase() ?? '?'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.prospectName} numberOfLines={1}>{prospectLabel}</Text>
+              {salesSetup.callGoal ? (
+                <Text style={s.prospectGoal} numberOfLines={1}>Goal: {salesSetup.callGoal}</Text>
+              ) : null}
+            </View>
+            <View style={s.talkRatioChip}>
+              <Text style={[s.talkRatioPct, { color: ratioColor }]}>{talkRatio}%</Text>
+              <Text style={s.talkRatioLbl}>you talking</Text>
+            </View>
+          </Animated.View>
 
-        <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
+          <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
 
-        {/* Live stats */}
-        <LiveStats
-          chips={[
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS USED' },
-            { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
-            { icon: '🎯', value: (salesSetup.callGoal || '—').slice(0, 20), label: 'GOAL' },
-          ]}
-        />
+          {/* Live stats */}
+          <LiveStats
+            chips={[
+              { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS USED' },
+              { icon: '⚡', value: paceWord, label: 'PACE', color: talkColor },
+              { icon: '🎯', value: (salesSetup.callGoal || '—').slice(0, 20), label: 'GOAL' },
+            ]}
+          />
 
-        {/* Transcript */}
-        <View style={s.transcriptArea}>
-          <View style={s.transcriptHeader}>
-            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
-            {transcript.length > 0 && (
-              <Text style={s.wordCount}>{wordsSelf} words</Text>
-            )}
+          {/* Transcript */}
+          <View style={s.transcriptArea}>
+            <View style={s.transcriptHeader}>
+              <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+              {transcript.length > 0 && (
+                <Text style={s.wordCount}>{wordsSelf} words</Text>
+              )}
+            </View>
+            <TranscriptView entries={transcript} />
           </View>
-          <TranscriptView entries={transcript} />
-        </View>
+        </ScrollView>
 
         {/* Bottom controls */}
         <View style={s.bottomBar}>
@@ -303,7 +305,9 @@ const s = StyleSheet.create({
   talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
   talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
 
-  transcriptArea: { flex: 1 },
+  transcriptArea: { minHeight: 220 },
+  bodyScroll: { flex: 1 },
+  bodyContent: { paddingBottom: 18 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 6,

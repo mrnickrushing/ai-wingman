@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Alert, Modal, KeyboardAvoidingView, Platform,
+  SafeAreaView, Animated, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
@@ -140,50 +140,52 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
-        <LiveSessionStatus />
-        <SessionTelemetry
-          onRetry={handleRetry}
-          onReconnect={handleReconnect}
-          onRestartMic={handleRestartMic}
-        />
-        <ConversationPrepBrief
-          compact
-          label="BATTLE CARDS"
-          mode="networking"
-          title={eventLabel}
-          context={networkingSetup.attendees}
-        />
-        <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
-          <View style={s.prospectAvatar}>
-            <Text style={s.prospectInitial}>🤝</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.prospectName} numberOfLines={1}>{eventLabel}</Text>
-            <Text style={s.prospectGoal} numberOfLines={1}>
-              {loggedContacts.length} contact{loggedContacts.length === 1 ? '' : 's'} logged
-            </Text>
-          </View>
-        </Animated.View>
+        <ScrollView style={s.bodyScroll} contentContainerStyle={s.bodyContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <LiveSessionStatus />
+          <SessionTelemetry
+            onRetry={handleRetry}
+            onReconnect={handleReconnect}
+            onRestartMic={handleRestartMic}
+          />
+          <ConversationPrepBrief
+            compact
+            label="BATTLE CARDS"
+            mode="networking"
+            title={eventLabel}
+            context={networkingSetup.attendees}
+          />
+          <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
+            <View style={s.prospectAvatar}>
+              <Text style={s.prospectInitial}>🤝</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.prospectName} numberOfLines={1}>{eventLabel}</Text>
+              <Text style={s.prospectGoal} numberOfLines={1}>
+                {loggedContacts.length} contact{loggedContacts.length === 1 ? '' : 's'} logged
+              </Text>
+            </View>
+          </Animated.View>
 
-        <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
+          <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
 
-        <LiveStats
-          chips={[
-            { icon: '👥', value: loggedContacts.length.toString(), label: 'CONTACTS' },
-            { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
-            { icon: '⏱', value: formatTime(elapsedSeconds), label: 'ELAPSED' },
-          ]}
-        />
+          <LiveStats
+            chips={[
+              { icon: '👥', value: loggedContacts.length.toString(), label: 'CONTACTS' },
+              { icon: '💡', value: coachingHistory.length.toString(), label: 'TIPS' },
+              { icon: '⏱', value: formatTime(elapsedSeconds), label: 'ELAPSED' },
+            ]}
+          />
 
-        <View style={s.transcriptArea}>
-          <View style={s.transcriptHeader}>
-            <Text style={s.sectionLabel}>TRANSCRIPT</Text>
-            {loggedContacts.length > 0 && (
-              <Text style={s.wordCount}>{loggedContacts.length} logged</Text>
-            )}
+          <View style={s.transcriptArea}>
+            <View style={s.transcriptHeader}>
+              <Text style={s.sectionLabel}>TRANSCRIPT</Text>
+              {loggedContacts.length > 0 && (
+                <Text style={s.wordCount}>{loggedContacts.length} logged</Text>
+              )}
+            </View>
+            <TranscriptView entries={transcript} />
           </View>
-          <TranscriptView entries={transcript} />
-        </View>
+        </ScrollView>
 
         {/* Log Contact floating button */}
         <TouchableOpacity
@@ -332,7 +334,9 @@ const s = StyleSheet.create({
   prospectName: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
   prospectGoal: { color: '#475569', fontSize: 11, marginTop: 2, lineHeight: 16 },
 
-  transcriptArea: { flex: 1 },
+  transcriptArea: { minHeight: 220 },
+  bodyScroll: { flex: 1 },
+  bodyContent: { paddingBottom: 18 },
   transcriptHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 6, marginTop: 6,

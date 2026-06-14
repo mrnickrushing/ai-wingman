@@ -14,6 +14,12 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+import {
+  buildHighlights,
+  buildSessionSummary,
+  createSessionRecap,
+  saveSessionRecap,
+} from '../../utils/sessionArchive';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -41,7 +47,6 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-
     const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
     const title = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Sales call';
     saveSession({
@@ -64,6 +69,20 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
+      void saveSessionRecap(
+        createSessionRecap({
+          mode: 'sales',
+          title: 'Sales recap',
+          subtitle: title,
+          score,
+          durationSeconds: elapsedSeconds,
+          coachingTips: coachingHistory.length,
+          wordsSelf,
+          rating,
+          summary: buildSessionSummary(transcript, coachingHistory),
+          highlights: buildHighlights(coachingHistory),
+        })
+      );
     });
   }, []);
 

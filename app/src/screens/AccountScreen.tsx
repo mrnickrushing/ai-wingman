@@ -8,9 +8,12 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadLaunchSnapshot, signOut, resetLaunchState, type LaunchSnapshot } from '../services/auth';
+import { checkWingmanServerHealth, getWingmanServerUrl } from '../services/wingmanClient';
+import { useSessionStore } from '../store/sessionStore';
 
 const PROVIDER_LABEL: Record<string, string> = {
   email: 'Email & Password',
@@ -27,12 +30,31 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
   const [snapshot, setSnapshot] = useState<LaunchSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [health, setHealth] = useState<{ label: string; detail: string; color: string }>({
+    label: 'Unknown',
+    detail: 'Tap check to verify the backend.',
+    color: '#64748b',
+  });
+  const { sessionPhase, serverHealth, lastTranscriptAt, lastAudioChunkAt, lastErrorAt } = useSessionStore();
 
   useEffect(() => {
     loadLaunchSnapshot().then((s) => {
       setSnapshot(s);
       setLoading(false);
     });
+  }, []);
+
+  const refreshHealth = async () => {
+    const result = await checkWingmanServerHealth();
+    setHealth({
+      label: result.ok ? 'Online' : 'Offline',
+      detail: result.message || `HTTP ${result.status || '—'}`,
+      color: result.ok ? '#4ade80' : '#f43f5e',
+    });
+  };
+
+  useEffect(() => {
+    void refreshHealth();
   }, []);
 
   const handleSignOut = async () => {
@@ -124,6 +146,29 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
                   ? new Date(account.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                   : '—'}
               />
+            </View>
+
+            <View style={s.card}>
+              <View style={s.cardHeader}>
+                <Text style={s.cardTitle}>Diagnostics</Text>
+                <TouchableOpacity onPress={refreshHealth} style={s.smallBtn}>
+                  <Text style={s.smallBtnText}>Check</Text>
+                </TouchableOpacity>
+              </View>
+              <Row label="Backend" value={health.label} valueColor={health.color} />
+              <Divider />
+              <Row label="Server URL" value={getWingmanServerUrl()} />
+              <Divider />
+              <Row label="Session phase" value={sessionPhase} />
+              <Divider />
+              <Row label="Server state" value={serverHealth} />
+              <Divider />
+              <Row label="Last transcript" value={lastTranscriptAt ? new Date(lastTranscriptAt).toLocaleTimeString() : '—'} />
+              <Divider />
+              <Row label="Last audio" value={lastAudioChunkAt ? new Date(lastAudioChunkAt).toLocaleTimeString() : '—'} />
+              <Divider />
+              <Row label="Last error" value={lastErrorAt ? new Date(lastErrorAt).toLocaleTimeString() : '—'} />
+              <Text style={s.diagnosticsNote} numberOfLines={2}>{health.detail}</Text>
             </View>
 
             {/* Actions */}
@@ -220,6 +265,17 @@ const s = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
     overflow: 'hidden',
   },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 10,
+  },
+  cardTitle: { color: '#f1f5f9', fontSize: 14, fontWeight: '800' },
+  smallBtn: {
+    backgroundColor: 'rgba(99,102,241,0.14)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.26)',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  smallBtnText: { color: '#c4b5fd', fontSize: 11, fontWeight: '800' },
   row: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 18, paddingVertical: 15,
@@ -244,5 +300,9 @@ const s = StyleSheet.create({
   dataNote: {
     color: '#334155', fontSize: 12, textAlign: 'center', lineHeight: 18,
     paddingHorizontal: 8,
+  },
+  diagnosticsNote: {
+    color: '#64748b', fontSize: 12, paddingHorizontal: 18, paddingBottom: 14,
+    paddingTop: 2, lineHeight: 18,
   },
 });

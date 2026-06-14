@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 
 const AUDIENCES = ['Investors', 'Customers', 'Internal', 'Press'];
 
@@ -42,6 +43,16 @@ export function PrePitchingScreen({ onStart, onBack }: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={s.scrollContent}
           >
+            <SessionPrepChecklist
+              title="Ready check"
+              subtitle="The stronger the setup, the better the cues."
+              items={[
+                { label: 'Title', detail: pitchingSetup.title || 'Add a pitch title', ready: Boolean(pitchingSetup.title.trim()) },
+                { label: 'Audience', detail: pitchingSetup.audience || 'Choose the audience', ready: Boolean(pitchingSetup.audience) },
+                { label: 'Deck', detail: pitchingSetup.deck ? 'Outline captured' : 'Optional but useful', ready: Boolean(pitchingSetup.deck.trim()) },
+              ]}
+            />
+
             <View style={s.body}>
               <Text style={s.stepTitle}>What are you pitching?</Text>
               <Text style={s.stepDesc}>Add your structure so Wingman can track timing and surface answers.</Text>

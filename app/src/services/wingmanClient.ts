@@ -41,6 +41,51 @@ const resolveServerUrl = (): string => {
 
 const SERVER_URL = resolveServerUrl();
 
+export const getWingmanServerUrl = (): string => SERVER_URL;
+
+const getHealthUrl = (): string => SERVER_URL.replace(/\/ws$/, '/health');
+
+export type WingmanServerHealth = {
+  ok: boolean;
+  status: number;
+  message: string;
+  sessions?: number;
+};
+
+export async function checkWingmanServerHealth(timeoutMs = 4000): Promise<WingmanServerHealth> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(getHealthUrl(), controller ? { signal: controller.signal } : undefined);
+    let message = `Server responded ${res.status}`;
+    let sessions: number | undefined;
+    try {
+      const json = await res.json() as Record<string, unknown>;
+      if (typeof json.status === 'string') message = json.status;
+      if (typeof json.sessions === 'number') sessions = json.sessions;
+      if (typeof json.message === 'string' && json.message) message = json.message;
+    } catch {
+      // non-JSON health response
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      message,
+      sessions,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      message: error instanceof Error && error.name === 'AbortError'
+        ? 'Health check timed out'
+        : (error instanceof Error ? error.message : 'Health check failed'),
+    };
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 export class WingmanClient {
   private ws: WebSocket | null = null;
   private handlers: EventHandler[] = [];

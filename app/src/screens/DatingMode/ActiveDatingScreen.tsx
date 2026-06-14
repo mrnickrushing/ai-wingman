@@ -10,6 +10,7 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { SessionTelemetry } from '../../components/SessionTelemetry';
 
 const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
 const NEGATIVE_VIBE = ['slow', 'awkward', 'silence'];
@@ -98,6 +99,11 @@ export function ActiveDatingScreen({ onEnd }: Props) {
     ]);
   };
 
+  const handleRetry = async () => {
+    await stop();
+    await start(getSessionConfig('dating'));
+  };
+
   // Over-talking alert: words-per-minute relative to a balanced 120 wpm target.
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
   const wpm = Math.round(wordsSelf / minutes);
@@ -154,6 +160,8 @@ export function ActiveDatingScreen({ onEnd }: Props) {
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
         )}
+
+        <SessionTelemetry onRetry={handleRetry} />
 
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>

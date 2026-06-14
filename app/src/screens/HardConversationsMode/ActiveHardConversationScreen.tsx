@@ -10,6 +10,7 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { SessionTelemetry } from '../../components/SessionTelemetry';
 import { HardConversationScenario } from '../../types';
 
 function formatTime(s: number): string {
@@ -108,6 +109,11 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
     ]);
   };
 
+  const handleRetry = async () => {
+    await stop();
+    await start(getSessionConfig('hard_conversations'));
+  };
+
   const intensity = deriveIntensity(currentCoaching);
   const tone = INTENSITY_STYLE[intensity];
 
@@ -159,6 +165,8 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
         )}
+
+        <SessionTelemetry onRetry={handleRetry} />
 
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>

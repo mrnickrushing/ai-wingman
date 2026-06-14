@@ -10,6 +10,7 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { SessionTelemetry } from '../../components/SessionTelemetry';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -78,6 +79,11 @@ export function ActivePitchingScreen({ onEnd }: Props) {
     ]);
   };
 
+  const handleRetry = async () => {
+    await stop();
+    await start(getSessionConfig('pitching'));
+  };
+
   const pitchLabel = pitchingSetup.title || 'Active Pitch';
 
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
@@ -122,6 +128,8 @@ export function ActivePitchingScreen({ onEnd }: Props) {
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
         )}
+
+        <SessionTelemetry onRetry={handleRetry} />
 
         {/* Prominent timer */}
         <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>

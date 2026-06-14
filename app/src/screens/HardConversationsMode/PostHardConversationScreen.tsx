@@ -10,6 +10,12 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+import {
+  buildHighlights,
+  buildSessionSummary,
+  createSessionRecap,
+  saveSessionRecap,
+} from '../../utils/sessionArchive';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -52,7 +58,6 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-
     const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
     saveSession({
       mode: 'hard_conversations',
@@ -73,8 +78,21 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
+      void saveSessionRecap(
+        createSessionRecap({
+          mode: 'hard_conversations',
+          title: 'Conversation recap',
+          subtitle: hardConvoSetup.scenario ? hardConvoSetup.situation || 'Hard conversation' : 'Hard conversation',
+          score,
+          durationSeconds: elapsedSeconds,
+          coachingTips: coachingHistory.length,
+          wordsSelf,
+          rating: lastRating,
+          summary: buildSessionSummary(transcript, coachingHistory),
+          highlights: buildHighlights(coachingHistory),
+        })
+      );
     });
-
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),

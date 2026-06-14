@@ -10,6 +10,7 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { SessionTelemetry } from '../../components/SessionTelemetry';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -25,7 +26,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
     isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
     elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching, setError,
-    coachingHistory,
+    coachingHistory, getSessionConfig,
   } = useSessionStore();
 
   const ringAnim = useRef(new Animated.Value(1)).current;
@@ -79,6 +80,11 @@ export function ActiveCallScreen({ onEnd }: Props) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'End Call', style: 'destructive', onPress: async () => { await stop(); onEnd(); } },
     ]);
+  };
+
+  const handleRetry = async () => {
+    await stop();
+    await start(getSessionConfig('sales'));
   };
 
   // Speaking pace: words-per-minute relative to a 120 wpm target
@@ -135,6 +141,8 @@ export function ActiveCallScreen({ onEnd }: Props) {
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
         )}
+
+        <SessionTelemetry onRetry={handleRetry} />
 
         {/* Prospect header */}
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>

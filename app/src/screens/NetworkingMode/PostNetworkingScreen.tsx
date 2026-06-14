@@ -14,6 +14,12 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+import {
+  buildHighlights,
+  buildSessionSummary,
+  createSessionRecap,
+  saveSessionRecap,
+} from '../../utils/sessionArchive';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -49,7 +55,6 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-
     saveSession({
       mode: 'networking',
       title: networkingSetup.eventName || 'Networking event',
@@ -68,6 +73,20 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
+      void saveSessionRecap(
+        createSessionRecap({
+          mode: 'networking',
+          title: 'Networking recap',
+          subtitle: eventLabel,
+          score,
+          durationSeconds: elapsedSeconds,
+          coachingTips: coachingHistory.length,
+          wordsSelf,
+          rating: lastRating,
+          summary: buildSessionSummary([], coachingHistory),
+          highlights: buildHighlights(coachingHistory),
+        })
+      );
     });
   }, []);
 

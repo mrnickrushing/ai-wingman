@@ -10,6 +10,7 @@ import { CoachingBubble } from '../../components/CoachingBubble';
 import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
+import { SessionTelemetry } from '../../components/SessionTelemetry';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -80,6 +81,11 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
     ]);
   };
 
+  const handleRetry = async () => {
+    await stop();
+    await start(getSessionConfig('networking'));
+  };
+
   const confirmLogContact = () => {
     const name = contactName.trim();
     if (name) addLoggedContact(name);
@@ -128,6 +134,8 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
         )}
+
+        <SessionTelemetry onRetry={handleRetry} />
 
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>

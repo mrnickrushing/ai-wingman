@@ -5,6 +5,18 @@ export type ConversationMode =
   | 'pitching'
   | 'hard_conversations';
 
+export type SessionPhase =
+  | 'idle'
+  | 'connecting'
+  | 'checking_server'
+  | 'ready'
+  | 'recording'
+  | 'streaming'
+  | 'coaching'
+  | 'error';
+
+export type ServerHealthStatus = 'unknown' | 'checking' | 'online' | 'offline';
+
 export type HardConversationScenario =
   | 'salary_negotiation'
   | 'firing'
@@ -51,4 +63,35 @@ export interface CoachingEntry {
   id: string;
   text: string;
   timestamp: number;
+}
+
+export interface SessionRecap {
+  id: string;
+  mode: ConversationMode;
+  title: string;
+  subtitle: string;
+  score: number;
+  durationSeconds: number;
+  coachingTips: number;
+  wordsSelf: number;
+  rating: number;
+  summary: string;
+  highlights: string[];
+  createdAt: string;
+}
+
+export interface SessionHealthSnapshot {
+  phase: SessionPhase;
+  serverHealth: ServerHealthStatus;
+  micPermissionGranted: boolean | null;
+  isConnected: boolean;
+  isReconnecting: boolean;
+  isRecording: boolean;
+  transcriptCount: number;
+  coachingCount: number;
+  lastTranscriptAt: number | null;
+  lastAudioChunkAt: number | null;
+  lastErrorAt: number | null;
+  lastSessionStartedAt: number | null;
+  error: string | null;
 }

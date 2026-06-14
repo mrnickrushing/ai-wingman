@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import {
   ConversationMode,
+  ServerHealthStatus,
+  SessionPhase,
   SessionConfig,
   TranscriptEntry,
   CoachingEntry,
@@ -54,6 +56,9 @@ interface SessionStore {
 
   // Active session state
   sessionId: string | null;
+  sessionPhase: SessionPhase;
+  serverHealth: ServerHealthStatus;
+  micPermissionGranted: boolean | null;
   isConnected: boolean;
   isReconnecting: boolean;
   isRecording: boolean;
@@ -66,6 +71,10 @@ interface SessionStore {
   wordsSelf: number;
   lastRating: number;
   loggedContacts: string[];
+  lastTranscriptAt: number | null;
+  lastAudioChunkAt: number | null;
+  lastErrorAt: number | null;
+  lastSessionStartedAt: number | null;
 
   // Lifetime stats (non-persisted — reset when the app process restarts).
   // Surfaced on the Home screen. recordSession() is called once per finished
@@ -77,6 +86,9 @@ interface SessionStore {
 
   // Actions
   setSessionId: (id: string | null) => void;
+  setSessionPhase: (phase: SessionPhase) => void;
+  setServerHealth: (status: ServerHealthStatus) => void;
+  setMicPermissionGranted: (granted: boolean | null) => void;
   setConnected: (connected: boolean) => void;
   setReconnecting: (reconnecting: boolean) => void;
   setRecording: (recording: boolean) => void;
@@ -86,6 +98,10 @@ interface SessionStore {
   updateLastTranscript: (text: string) => void;
   addCoaching: (entry: CoachingEntry) => void;
   setCurrentCoaching: (text: string | null) => void;
+  setLastTranscriptAt: (timestamp: number | null) => void;
+  setLastAudioChunkAt: (timestamp: number | null) => void;
+  setLastErrorAt: (timestamp: number | null) => void;
+  setLastSessionStartedAt: (timestamp: number | null) => void;
   incrementElapsed: () => void;
   incrementWords: (count: number) => void;
   setRating: (rating: number) => void;
@@ -147,6 +163,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ hardConvoSetup: { ...s.hardConvoSetup, ...setup } })),
 
   sessionId: null,
+  sessionPhase: 'idle',
+  serverHealth: 'unknown',
+  micPermissionGranted: null,
   isConnected: false,
   isReconnecting: false,
   isRecording: false,
@@ -159,6 +178,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   wordsSelf: 0,
   lastRating: 0,
   loggedContacts: [],
+  lastTranscriptAt: null,
+  lastAudioChunkAt: null,
+  lastErrorAt: null,
+  lastSessionStartedAt: null,
 
   sessions: 0,
   bestScore: 0,
@@ -166,11 +189,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lastSessionDay: null,
 
   setSessionId: (id) => set({ sessionId: id }),
+  setSessionPhase: (phase) => set({ sessionPhase: phase }),
+  setServerHealth: (serverHealth) => set({ serverHealth }),
+  setMicPermissionGranted: (micPermissionGranted) => set({ micPermissionGranted }),
   setConnected: (connected) => set({ isConnected: connected }),
   setReconnecting: (reconnecting) => set({ isReconnecting: reconnecting }),
   setRecording: (recording) => set({ isRecording: recording }),
   setWingmanSpeaking: (speaking) => set({ isWingmanSpeaking: speaking }),
-  setError: (error) => set({ error }),
+  setError: (error) => set({ error, lastErrorAt: error ? Date.now() : null }),
 
   addTranscript: (entry) =>
     set((s) => ({ transcript: [...s.transcript.slice(-100), entry] })),
@@ -190,6 +216,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ coachingHistory: [...s.coachingHistory.slice(-50), entry] })),
 
   setCurrentCoaching: (text) => set({ currentCoaching: text }),
+  setLastTranscriptAt: (timestamp) => set({ lastTranscriptAt: timestamp }),
+  setLastAudioChunkAt: (timestamp) => set({ lastAudioChunkAt: timestamp }),
+  setLastErrorAt: (timestamp) => set({ lastErrorAt: timestamp }),
+  setLastSessionStartedAt: (timestamp) => set({ lastSessionStartedAt: timestamp }),
 
   incrementElapsed: () => set((s) => ({ elapsedSeconds: s.elapsedSeconds + 1 })),
 
@@ -224,6 +254,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   reset: () =>
     set({
       sessionId: null,
+      sessionPhase: 'idle',
+      serverHealth: 'unknown',
+      micPermissionGranted: null,
       isConnected: false,
       isReconnecting: false,
       isRecording: false,
@@ -236,6 +269,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       wordsSelf: 0,
       lastRating: 0,
       loggedContacts: [],
+      lastTranscriptAt: null,
+      lastAudioChunkAt: null,
+      lastErrorAt: null,
+      lastSessionStartedAt: null,
     }),
 
   getSessionConfig: (mode: ConversationMode = 'sales'): SessionConfig => {
@@ -244,6 +281,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (mode === 'dating') {
       return {
         mode: 'dating',
+        keywords: ['date', 'text', 'plan', 'chemistry', 'vibe', 'kiss', 'follow up'],
         datingName: datingSetup.name,
         datingProfileUrl: datingSetup.profileUrl,
         datingIntent: datingSetup.intent,
@@ -253,6 +291,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (mode === 'networking') {
       return {
         mode: 'networking',
+        keywords: ['intro', 'follow up', 'contact', 'connection', 'referral', 'conference', 'meetup'],
         eventName: networkingSetup.eventName,
         attendeeList: networkingSetup.attendees,
       };
@@ -261,6 +300,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (mode === 'pitching') {
       return {
         mode: 'pitching',
+        keywords: ['pitch', 'deck', 'traction', 'metrics', 'valuation', 'investor', 'demo', 'burn'],
         pitchTitle: pitchingSetup.title,
         pitchDeck: pitchingSetup.deck,
         audienceType: pitchingSetup.audience,
@@ -270,6 +310,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (mode === 'hard_conversations') {
       return {
         mode: 'hard_conversations',
+        keywords: ['boundary', 'salary', 'raise', 'breakup', 'firing', 'landlord', 'de-escalate', 'apology'],
         scenario: hardConvoSetup.scenario ?? 'confrontation',
         situation: hardConvoSetup.situation,
         conversationGoal: hardConvoSetup.goal,
@@ -287,6 +328,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     return {
       mode: 'sales',
+      keywords: ['objection', 'close', 'demo', 'budget', 'decision', 'next step', 'proposal', 'renewal'],
       prospectContext,
       callGoal: salesSetup.callGoal,
       objectionLibrary: salesSetup.objectionLibrary,

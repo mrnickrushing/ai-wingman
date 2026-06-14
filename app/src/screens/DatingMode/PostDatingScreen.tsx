@@ -10,6 +10,12 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+import {
+  buildHighlights,
+  buildSessionSummary,
+  createSessionRecap,
+  saveSessionRecap,
+} from '../../utils/sessionArchive';
 
 // Strip wrapping quotes the AI sometimes adds around message text.
 function cleanText(raw: string): string {
@@ -41,7 +47,6 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-
     const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
     saveSession({
       mode: 'dating',
@@ -61,6 +66,20 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
+      void saveSessionRecap(
+        createSessionRecap({
+          mode: 'dating',
+          title: 'Dating recap',
+          subtitle: datingSetup.name || 'Dating session',
+          score,
+          durationSeconds: elapsedSeconds,
+          coachingTips: coachingHistory.length,
+          wordsSelf,
+          rating: lastRating,
+          summary: buildSessionSummary(transcript, coachingHistory),
+          highlights: buildHighlights(coachingHistory),
+        })
+      );
     });
   }, []);
 

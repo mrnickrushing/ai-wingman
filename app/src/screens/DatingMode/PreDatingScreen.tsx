@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 
 const INTENTS = ['Casual', 'Serious', 'Playful', 'Confident'];
 
@@ -42,6 +43,16 @@ export function PreDatingScreen({ onStart, onBack }: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={s.scrollContent}
           >
+            <SessionPrepChecklist
+              title="Ready check"
+              subtitle="Make sure the basics are in place before you start."
+              items={[
+                { label: 'Name', detail: datingSetup.name || 'Add their name', ready: Boolean(datingSetup.name.trim()) },
+                { label: 'Intent', detail: datingSetup.intent || 'Pick an intent', ready: Boolean(datingSetup.intent) },
+                { label: 'Profile', detail: datingSetup.profileUrl ? 'Link saved' : 'Optional', ready: Boolean(datingSetup.profileUrl.trim()) },
+              ]}
+            />
+
             <View style={s.body}>
               <Text style={s.stepTitle}>Who are you meeting?</Text>
               <Text style={s.stepDesc}>A little context sharpens every suggestion.</Text>

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 
 interface Props {
   onStart: () => void;
@@ -44,6 +45,16 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={s.scrollContent}
           >
+            <SessionPrepChecklist
+              title="Ready check"
+              subtitle="Set the room before Wingman starts listening."
+              items={[
+                { label: 'Event', detail: networkingSetup.eventName || 'Add the event name', ready: Boolean(networkingSetup.eventName.trim()) },
+                { label: 'Contacts', detail: targetCount > 0 ? `${targetCount} loaded` : 'Optional', ready: targetCount > 0 },
+                { label: 'Follow-up', detail: targetCount > 0 ? 'Ready to log contacts' : 'Add contacts for better follow-ups', ready: targetCount > 0 },
+              ]}
+            />
+
             <View style={s.body}>
               <Text style={s.stepTitle}>What's the event?</Text>
               <Text style={s.stepDesc}>Add target contacts and Wingman pre-loads conversation starters.</Text>

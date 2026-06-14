@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
+import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 
 const DEFAULT_OBJECTIONS = [
   '"Too expensive" → Ask: "What ROI would make this a no-brainer?"',
@@ -95,6 +96,16 @@ export function PreCallScreen({ onStart, onBack }: Props) {
             ))}
             <View style={s.stepLine} />
           </View>
+
+          <SessionPrepChecklist
+            title="Ready check"
+            subtitle="Make sure the essentials are in before you start."
+            items={[
+              { label: 'Prospect', detail: salesSetup.prospectName || 'Add a name', ready: Boolean(salesSetup.prospectName) },
+              { label: 'Goal', detail: salesSetup.callGoal || 'Add a call goal', ready: Boolean(salesSetup.callGoal) },
+              { label: 'Objections', detail: salesSetup.objectionLibrary ? 'Custom or default' : 'Default library will load', ready: Boolean(salesSetup.objectionLibrary) },
+            ]}
+          />
 
           {/* Step content */}
           <Animated.View style={[s.stepContent, {

@@ -13,7 +13,7 @@ import {
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
-import { wingmanClient } from '../services/wingmanClient';
+import { checkWingmanServerHealth, wingmanClient } from '../services/wingmanClient';
 import { useSessionStore } from '../store/sessionStore';
 import { TranscriptEntry, CoachingEntry } from '../types';
 
@@ -142,6 +142,8 @@ export function useWingmanSession() {
       if (event.type === 'connected') {
         store.setConnected(true);
         store.setReconnecting(false);
+        store.setServerHealth('online');
+        store.setSessionPhase('ready');
         store.setError(null);
         if (connectWatchdogRef.current) {
           clearTimeout(connectWatchdogRef.current);
@@ -162,14 +164,21 @@ export function useWingmanSession() {
       } else if (event.type === 'reconnecting') {
         store.setConnected(false);
         store.setReconnecting(true);
+        store.setSessionPhase('connecting');
       } else if (event.type === 'disconnected') {
         store.setConnected(false);
+        if (!isActiveRef.current) {
+          store.setSessionPhase('idle');
+        }
       } else if (event.type === 'error') {
+        store.setSessionPhase('error');
         store.setError(event.message);
       } else if (event.type === 'session_started') {
         store.setSessionId(event.sessionId);
       } else if (event.type === 'transcript') {
         hasReceivedTranscriptRef.current = true;
+        store.setLastTranscriptAt(Date.now());
+        store.setSessionPhase('streaming');
         if (transcriptWatchdogRef.current) {
           clearTimeout(transcriptWatchdogRef.current);
           transcriptWatchdogRef.current = null;
@@ -187,6 +196,7 @@ export function useWingmanSession() {
           store.updateLastTranscript(event.text);
         }
       } else if (event.type === 'coaching') {
+        store.setSessionPhase('coaching');
         const entry: CoachingEntry = {
           id: nextId(),
           text: event.text,
@@ -207,6 +217,9 @@ export function useWingmanSession() {
         void playCoachingAudio(event.audio);
       } else if (event.type === 'session_ended') {
         store.setSessionId(null);
+        if (!isActiveRef.current) {
+          store.setSessionPhase('idle');
+        }
       }
     });
 
@@ -216,10 +229,12 @@ export function useWingmanSession() {
   const startChunkRecording = useCallback(async () => {
     try {
       const permissions = await requestRecordingPermissionsAsync();
+      useSessionStore.getState().setMicPermissionGranted('granted' in permissions ? permissions.granted : null);
       if ('granted' in permissions && !permissions.granted) {
         throw new Error('Microphone permission is required for live coaching.');
       }
     } catch (err) {
+      useSessionStore.getState().setMicPermissionGranted(false);
       throw err instanceof Error ? err : new Error('Microphone permission is required for live coaching.');
     }
 
@@ -266,6 +281,7 @@ export function useWingmanSession() {
               const b64 = await FileSystem.readAsStringAsync(uri, {
                 encoding: FileSystem.EncodingType.Base64,
               });
+              useSessionStore.getState().setLastAudioChunkAt(Date.now());
               wingmanClient.sendAudioChunk(b64, 'audio/mp4');
               captureFailureCountRef.current = 0;
               await FileSystem.deleteAsync(uri, { idempotent: true });
@@ -281,6 +297,7 @@ export function useWingmanSession() {
         }
 
         if (captureFailureCountRef.current >= 3) {
+          useSessionStore.getState().setSessionPhase('error');
           useSessionStore.getState().setError(
             'Microphone capture is not producing usable audio. Check permissions and try again.'
           );
@@ -321,6 +338,7 @@ export function useWingmanSession() {
         recording.record();
         recordingRef.current = recording;
         captureFailureCountRef.current = 0;
+        useSessionStore.getState().setSessionPhase('recording');
         return true;
       } catch {
         if (recording) {
@@ -346,11 +364,28 @@ export function useWingmanSession() {
       captureFailureCountRef.current = 0;
       hasReceivedTranscriptRef.current = false;
       isActiveRef.current = true;
+      store.setLastSessionStartedAt(Date.now());
+      store.setSessionPhase('checking_server');
+      store.setServerHealth('checking');
+
+      const health = await checkWingmanServerHealth();
+      store.setServerHealth(health.ok ? 'online' : 'offline');
+      if (!health.ok) {
+        store.setSessionPhase('error');
+        store.setError(`Wingman server unavailable: ${health.message}`);
+        wingmanClient.disconnect();
+        isActiveRef.current = false;
+        store.setRecording(false);
+        return;
+      }
+
+      store.setSessionPhase('connecting');
       wingmanClient.connect(config);
       if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
       connectWatchdogRef.current = setTimeout(() => {
         const current = useSessionStore.getState();
         if (!current.isConnected && isActiveRef.current) {
+          current.setSessionPhase('error');
           current.setError('Could not connect to the Wingman server. Check your network and server URL.');
         }
       }, 10000);
@@ -361,6 +396,7 @@ export function useWingmanSession() {
       const started = await startChunkRecording().catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
         useSessionStore.getState().setError(message);
+        useSessionStore.getState().setSessionPhase('error');
         return false;
       });
       useSessionStore.getState().setRecording(started);
@@ -371,6 +407,7 @@ export function useWingmanSession() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not start session.';
       store.setError(message);
+      store.setSessionPhase('error');
       wingmanClient.disconnect();
       isActiveRef.current = false;
       store.setRecording(false);
@@ -423,6 +460,7 @@ export function useWingmanSession() {
     const store = useSessionStore.getState();
     store.setRecording(false);
     store.setWingmanSpeaking(false);
+    store.setSessionPhase('idle');
   }, []);
 
   return { start, stop };

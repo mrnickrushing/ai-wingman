@@ -10,6 +10,12 @@ import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
+import {
+  buildHighlights,
+  buildSessionSummary,
+  createSessionRecap,
+  saveSessionRecap,
+} from '../../utils/sessionArchive';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -40,7 +46,6 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-
     saveSession({
       mode: 'pitching',
       title: pitchingSetup.title || 'Pitch',
@@ -60,6 +65,20 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
       setAnalysis(s?.analysis ?? null);
       setAnalysisLoading(false);
       resetInactivityNudge().catch(() => {});
+      void saveSessionRecap(
+        createSessionRecap({
+          mode: 'pitching',
+          title: 'Pitch recap',
+          subtitle: pitchingSetup.title || 'Pitch session',
+          score,
+          durationSeconds: elapsedSeconds,
+          coachingTips: coachingHistory.length,
+          wordsSelf,
+          rating: lastRating,
+          summary: buildSessionSummary([], coachingHistory),
+          highlights: buildHighlights(coachingHistory),
+        })
+      );
     });
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),

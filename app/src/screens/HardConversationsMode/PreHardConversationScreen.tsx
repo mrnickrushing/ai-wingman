@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { HardConversationScenario } from '../../types';
+import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 
 const SCENARIOS: { id: HardConversationScenario; label: string }[] = [
   { id: 'salary_negotiation', label: 'Salary Negotiation' },
@@ -50,6 +51,16 @@ export function PreHardConversationScreen({ onStart, onBack }: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={s.scrollContent}
           >
+            <SessionPrepChecklist
+              title="Ready check"
+              subtitle="Make the stakes and goal explicit before starting."
+              items={[
+                { label: 'Scenario', detail: hardConvoSetup.scenario ? 'Chosen' : 'Pick a scenario', ready: Boolean(hardConvoSetup.scenario) },
+                { label: 'Situation', detail: hardConvoSetup.situation || 'Add the context', ready: Boolean(hardConvoSetup.situation.trim()) },
+                { label: 'Goal', detail: hardConvoSetup.goal || 'Add your target outcome', ready: Boolean(hardConvoSetup.goal.trim()) },
+              ]}
+            />
+
             <View style={s.body}>
               <Text style={s.stepTitle}>What are you walking into?</Text>
               <Text style={s.stepDesc}>Pick the scenario so coaching fits the moment.</Text>

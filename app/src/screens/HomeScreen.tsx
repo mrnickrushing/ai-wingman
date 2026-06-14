@@ -6,6 +6,8 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadStats, PersistedStats } from '../utils/statsStorage';
+import { loadSessionRecaps } from '../utils/sessionArchive';
+import { SessionRecap } from '../types';
 
 interface Mode {
   id: string;
@@ -83,9 +85,11 @@ export function HomeScreen({ onSelectMode, onOpenAccount, onOpenHistory }: Props
   const [stats, setStats] = useState<PersistedStats>({
     sessions: 0, bestScore: 0, streak: 0, lastSessionDate: null,
   });
+  const [recentRecaps, setRecentRecaps] = useState<SessionRecap[]>([]);
 
   useEffect(() => {
     loadStats().then(setStats);
+    loadSessionRecaps(3).then(setRecentRecaps);
   }, []);
 
   const liveStats = [
@@ -160,6 +164,27 @@ export function HomeScreen({ onSelectMode, onOpenAccount, onOpenHistory }: Props
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.sectionLabel}>CHOOSE YOUR MODE</Text>
+
+          {recentRecaps.length > 0 && (
+            <View style={s.recentSection}>
+              <View style={s.recentHeader}>
+                <Text style={s.recentTitle}>Recent sessions</Text>
+                <Text style={s.recentSub}>What Wingman learned last</Text>
+              </View>
+              <View style={s.recentList}>
+                {recentRecaps.map((recap) => (
+                  <View key={recap.id} style={s.recentCard}>
+                    <View style={s.recentTopRow}>
+                      <Text style={s.recentCardTitle}>{recap.title}</Text>
+                      <Text style={s.recentScore}>{recap.score}</Text>
+                    </View>
+                    <Text style={s.recentSubtitle} numberOfLines={1}>{recap.subtitle}</Text>
+                    <Text style={s.recentSummary} numberOfLines={2}>{recap.summary}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {MODES.map((mode, i) => (
             <Animated.View
@@ -285,6 +310,24 @@ const s = StyleSheet.create({
     color: '#2d3748', fontSize: 10, fontWeight: '700',
     letterSpacing: 2.5, marginBottom: 4, paddingLeft: 4,
   },
+  recentSection: { gap: 10, marginBottom: 4 },
+  recentHeader: { gap: 2, paddingHorizontal: 4 },
+  recentTitle: { color: '#f1f5f9', fontSize: 15, fontWeight: '800' },
+  recentSub: { color: '#64748b', fontSize: 12 },
+  recentList: { gap: 8 },
+  recentCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  recentTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  recentCardTitle: { color: '#f1f5f9', fontSize: 14, fontWeight: '700', flex: 1 },
+  recentScore: { color: '#6366f1', fontSize: 14, fontWeight: '800' },
+  recentSubtitle: { color: '#64748b', fontSize: 12 },
+  recentSummary: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
   cardOuter: { borderRadius: 16, overflow: 'hidden' },
   card: {
     borderRadius: 16, padding: 18, borderLeftWidth: 3,

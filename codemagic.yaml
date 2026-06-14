@@ -46,6 +46,13 @@ workflows:
             mv /tmp/Podfile_patched "$PODFILE"
           fi
           echo "Podfile first line: $(head -1 $PODFILE)"
+          # Belt-and-suspenders: also delete the replay .mm files so CocoaPods
+          # never includes them in the Xcode project even if the Ruby variable
+          # is ignored by this version of the @sentry/react-native podspec.
+          find node_modules/@sentry/react-native/ios -name "*Replay*.mm" -delete 2>/dev/null || true
+          find node_modules/@sentry/react-native/ios/Replay -name "*.mm" -delete 2>/dev/null || true
+          echo "Sentry replay .mm files after deletion:"
+          find node_modules/@sentry/react-native/ios -name "*Replay*.mm" 2>/dev/null || echo "(none)"
       - name: Set bundle version
         script: |
           cd app/ios

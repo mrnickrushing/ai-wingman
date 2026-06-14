@@ -79,17 +79,27 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   const [purchaseStatus, setPurchaseStatus] = useState<string | null>(null);
   const contentAnim = useRef(new Animated.Value(0)).current;
 
-  const googleConfig = useMemo(() => ({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-  }), []);
+  const googleConfig = useMemo(() => {
+    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    const expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID;
+
+    if (Platform.OS === 'web') {
+      return { webClientId };
+    }
+
+    return {
+      iosClientId,
+      androidClientId,
+      expoClientId,
+      clientId: Platform.OS === 'ios' ? iosClientId : androidClientId ?? expoClientId,
+    };
+  }, []);
   const googleConfigured = Boolean(
-    googleConfig.androidClientId
-    || googleConfig.iosClientId
-    || googleConfig.webClientId
-    || googleConfig.expoClientId
+    Platform.OS === 'web'
+      ? googleConfig.webClientId
+      : googleConfig.iosClientId || googleConfig.androidClientId || googleConfig.expoClientId
   );
   useEffect(() => {
     let active = true;
@@ -462,6 +472,7 @@ function AccountStage({
     iosClientId?: string;
     webClientId?: string;
     expoClientId?: string;
+    clientId?: string;
   };
   onGoogleToken: (token: string) => void;
   loading: string | null;
@@ -660,6 +671,7 @@ type GoogleConfig = {
   iosClientId?: string;
   webClientId?: string;
   expoClientId?: string;
+  clientId?: string;
 };
 
 // When Google is NOT configured (all client IDs undefined), we must NOT call

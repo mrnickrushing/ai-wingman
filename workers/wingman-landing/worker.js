@@ -382,7 +382,7 @@ async function submitWaitlist(e) {
 </nav>
 <main>
   <h1>Terms of Service</h1>
-  <div class="meta">Last updated: June 13, 2026 &nbsp;·&nbsp; Effective: June 13, 2026</div>
+  <div class="meta">Last updated: June 14, 2026 &nbsp;·&nbsp; Effective: June 14, 2026</div>
 
   <h2>1. Acceptance of Terms</h2>
   <p>By downloading, installing, or using AI Wingman ("the App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the App.</p>
@@ -412,11 +412,20 @@ async function submitWaitlist(e) {
   <h2>5. Privacy and Data</h2>
   <p>Audio captured by the App is processed in real time and transmitted to our servers for transcription and coaching. We do not retain raw audio beyond the active session. Session transcripts may be stored for up to 90 days to provide post-session summaries and improve our service. Please review our <a href="/privacy">Privacy Policy</a> for full details.</p>
 
-  <h2>6. Subscriptions and Billing</h2>
-  <p>Paid plans are billed monthly or annually as selected at checkout. Subscriptions renew automatically unless cancelled before the renewal date. Refunds are available within 7 days of initial purchase or renewal if you have not used more than 60 minutes of coaching in that billing period. Contact <a href="mailto:support@aiwingman.app">support@aiwingman.app</a> for billing inquiries.</p>
+  <h2>6. Subscriptions, Auto-Renewal, and Billing</h2>
+  <p>AI Wingman offers <strong>Wingman Pro</strong>, an auto-renewable subscription sold through the Apple App Store:</p>
+  <ul>
+    <li><strong>Subscription:</strong> Wingman Pro — full access to all coaching modes and features.</li>
+    <li><strong>Price &amp; length:</strong> $9.99 (USD) per month. Prices may vary by region and are shown in the App before you confirm any purchase.</li>
+    <li><strong>Auto-renewal:</strong> Payment is charged to your Apple ID account upon confirmation of purchase. The subscription <strong>automatically renews each month</strong> unless auto-renew is turned off at least 24 hours before the end of the current period.</li>
+    <li><strong>Renewal charge:</strong> Your account is charged for renewal within 24 hours prior to the end of the current period, at the price stated above.</li>
+    <li><strong>Managing your subscription:</strong> You can manage or cancel your subscription at any time in your device's <strong>Settings → [your name] → Subscriptions</strong>, or in the App Store. Deleting the App does not cancel your subscription.</li>
+    <li><strong>Free trial:</strong> If a free trial is offered, any unused portion is forfeited when you purchase a subscription.</li>
+  </ul>
+  <p>Purchases are processed by Apple and are subject to Apple's <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Terms of Use (EULA)</a> and our <a href="/privacy">Privacy Policy</a>. Refunds for App Store purchases are handled by Apple in accordance with its policies. For billing questions, contact <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>.</p>
 
   <h2>7. AI Disclaimer</h2>
-  <p>AI Wingman provides AI-generated coaching suggestions for informational purposes only. Suggestions are not professional legal, financial, medical, or psychological advice. You are solely responsible for any decisions or actions you take based on coaching suggestions.</p>
+  <p>AI Wingman uses artificial intelligence — including automated speech recognition and large language models — to generate coaching suggestions in real time. <strong>AI-generated output may be inaccurate, incomplete, biased, or inappropriate for your specific situation.</strong> All suggestions are provided for informational purposes only and do not constitute professional legal, financial, medical, psychological, or other professional advice. You are solely responsible for reviewing any suggestion and for any decision or action you take. Do not rely on AI Wingman in situations where an error could result in harm.</p>
 
   <h2>8. Limitation of Liability</h2>
   <p>To the maximum extent permitted by law, AI Wingman and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the App, including but not limited to lost revenue, lost profits, or relationship harm.</p>
@@ -428,9 +437,10 @@ async function submitWaitlist(e) {
   <p>We may update these Terms from time to time. Continued use of the App after changes constitutes acceptance of the updated Terms. Material changes will be notified via email or in-app notice.</p>
 
   <h2>11. Contact</h2>
-  <p>Questions about these Terms? Email us at <a href="mailto:legal@aiwingman.app">legal@aiwingman.app</a>.</p>
+  <p>Questions about these Terms? Email us at <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>.</p>
+  <p>AI Wingman is operated by Rushing Technologies.</p>
 </main>
-<footer>© 2026 AI Wingman · <a href="/">Home</a> · <a href="/support">Support</a></footer>
+<footer>© 2026 AI Wingman by Rushing Technologies · <a href="/">Home</a> · <a href="/support">Support</a> · <a href="/privacy">Privacy</a></footer>
 </body>
 </html>`,
 
@@ -499,19 +509,19 @@ async function submitWaitlist(e) {
       <div class="contact-icon">💬</div>
       <h3>General support</h3>
       <p>Questions, bugs, feedback</p>
-      <a href="mailto:support@aiwingman.app">support@aiwingman.app</a>
+      <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>
     </div>
     <div class="contact-card">
       <div class="contact-icon">💳</div>
       <h3>Billing</h3>
       <p>Refunds, plan changes</p>
-      <a href="mailto:billing@aiwingman.app">billing@aiwingman.app</a>
+      <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>
     </div>
     <div class="contact-card">
       <div class="contact-icon">🏢</div>
       <h3>Enterprise sales</h3>
       <p>Team plans, custom deals</p>
-      <a href="mailto:sales@aiwingman.app">sales@aiwingman.app</a>
+      <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>
     </div>
   </div>
 
@@ -539,11 +549,15 @@ async function submitWaitlist(e) {
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="toggle(this)">How do I cancel my subscription? <span class="faq-chevron">▼</span></div>
-      <div class="faq-a">You can cancel anytime from the app under Settings → Subscription → Cancel. Alternatively email billing@aiwingman.app and we'll handle it immediately. No questions asked.</div>
+      <div class="faq-a">Wingman Pro is an auto-renewing subscription billed through your Apple ID. To cancel, open your device <strong>Settings → [your name] → Subscriptions → AI Wingman → Cancel Subscription</strong> (or manage it in the App Store). Cancel at least 24 hours before your renewal date to avoid the next charge. Deleting the app does not cancel the subscription. Need help? Email <a href="mailto:support@rushingtechnologies.com" style="color:#6366f1">support@rushingtechnologies.com</a>.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="toggle(this)">Is there an Android version? <span class="faq-chevron">▼</span></div>
       <div class="faq-a">Android is on our roadmap for later this year. Right now we're iOS-only. Join the waitlist to be notified when Android launches.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggle(this)">Is the coaching professional advice? <span class="faq-chevron">▼</span></div>
+      <div class="faq-a">No. AI Wingman uses artificial intelligence to generate suggestions in real time, and that output can be inaccurate or inappropriate for your situation. Coaching is for informational purposes only and is not legal, financial, medical, or psychological advice. You're always responsible for what you say and do — see our <a href="/terms" style="color:#6366f1">Terms</a> for the full AI disclaimer.</div>
     </div>
   </div>
 
@@ -569,7 +583,7 @@ async function submitWaitlist(e) {
     </form>
   </div>
 </main>
-<footer>© 2026 AI Wingman · <a href="/" style="color:#6366f1">Home</a> · <a href="/terms" style="color:#6366f1">Terms</a></footer>
+<footer>© 2026 AI Wingman by Rushing Technologies · <a href="/" style="color:#6366f1">Home</a> · <a href="/terms" style="color:#6366f1">Terms</a> · <a href="/privacy" style="color:#6366f1">Privacy</a><br/><span style="font-size:.75rem">Coaching is AI-generated and may be inaccurate — for informational purposes only, not professional advice.</span></footer>
 <script>
 function toggle(el) {
   el.closest('.faq-item').classList.toggle('open');
@@ -607,6 +621,95 @@ async function submitSupport(e) {
   }
 }
 </script>
+</body>
+</html>`,
+
+  '/privacy': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — AI Wingman</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#070710;--bg2:#0d0d1a;--border:rgba(255,255,255,.07);--indigo:#6366f1;--text:#f1f5f9;--muted:#94a3b8}
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;line-height:1.7;-webkit-font-smoothing:antialiased}
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 5%;height:68px;background:rgba(7,7,16,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+    .nav-logo{font-size:1.1rem;font-weight:700;background:linear-gradient(135deg,var(--indigo),#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+    .nav-back{color:var(--muted);text-decoration:none;font-size:.9rem}
+    .nav-back:hover{color:var(--text)}
+    main{max-width:760px;margin:0 auto;padding:120px 5% 80px}
+    h1{font-size:2.5rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:.5rem}
+    .meta{color:var(--muted);font-size:.9rem;margin-bottom:3rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
+    h2{font-size:1.3rem;font-weight:700;margin:2.5rem 0 .75rem;color:var(--text)}
+    p{color:var(--muted);margin-bottom:1rem}
+    ul{color:var(--muted);margin:.5rem 0 1rem 1.5rem;display:flex;flex-direction:column;gap:.4rem}
+    a{color:var(--indigo)}
+    footer{text-align:center;padding:3rem 5%;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border)}
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">🎧 AI Wingman</a>
+  <a href="/" class="nav-back">← Back to home</a>
+</nav>
+<main>
+  <h1>Privacy Policy</h1>
+  <div class="meta">Last updated: June 14, 2026 &nbsp;·&nbsp; Effective: June 14, 2026</div>
+
+  <p>AI Wingman ("we", "us"), operated by Rushing Technologies, respects your privacy. This policy explains what we collect, how we use it, and the choices you have. By using the App, you agree to this Privacy Policy.</p>
+
+  <h2>1. Information We Collect</h2>
+  <ul>
+    <li><strong>Account information:</strong> your name, email address, and an authentication identifier when you create an account or sign in with Apple or Google.</li>
+    <li><strong>Audio &amp; conversation content:</strong> audio captured by your microphone during an active coaching session is streamed to our servers and transcribed in real time. <strong>We do not retain raw audio after the session ends.</strong> Session transcripts and the coaching we generate may be stored for up to 90 days so you can review past sessions.</li>
+    <li><strong>Usage data:</strong> session length, mode used, number of coaching tips, and your post-session ratings.</li>
+    <li><strong>Device &amp; push tokens:</strong> if you enable notifications, we store a push token to deliver them.</li>
+    <li><strong>Payment data:</strong> subscriptions are processed by Apple. We never receive or store your full payment-card details; we receive subscription status from Apple and RevenueCat.</li>
+  </ul>
+
+  <h2>2. How We Use Your Information</h2>
+  <ul>
+    <li>To provide real-time coaching and post-session summaries.</li>
+    <li>To operate, secure, and improve the App.</li>
+    <li>To manage your account, subscription, and support requests.</li>
+    <li>To send notifications you have opted into.</li>
+  </ul>
+
+  <h2>3. AI Processing &amp; Service Providers</h2>
+  <p>To deliver coaching, your conversation audio and text are processed by trusted third-party providers acting on our behalf:</p>
+  <ul>
+    <li><strong>Deepgram</strong> — speech-to-text transcription.</li>
+    <li><strong>Anthropic (Claude)</strong> — generates coaching suggestions.</li>
+    <li><strong>ElevenLabs</strong> — text-to-speech for whispered coaching.</li>
+    <li><strong>Apple &amp; RevenueCat</strong> — payments and subscription management.</li>
+    <li><strong>Railway &amp; Cloudflare</strong> — hosting and infrastructure.</li>
+  </ul>
+  <p>These providers process data only to perform their function. <strong>We do not sell your personal information.</strong></p>
+
+  <h2>4. Data Retention</h2>
+  <p>Raw audio is discarded immediately after processing. Transcripts and session data are retained for up to 90 days and then deleted, unless you delete them sooner. Account information is retained until you delete your account.</p>
+
+  <h2>5. Your Rights &amp; Choices</h2>
+  <ul>
+    <li><strong>Access &amp; deletion:</strong> you can delete your account and associated data at any time from the App's account settings, or by emailing us.</li>
+    <li><strong>Notifications:</strong> you can disable notifications in your device settings.</li>
+    <li><strong>Microphone:</strong> the App only listens during an active session that you start and stop.</li>
+  </ul>
+
+  <h2>6. Consent &amp; Recording</h2>
+  <p>You are responsible for complying with recording and consent laws in your jurisdiction. Please review our <a href="/terms">Terms of Service</a> for details.</p>
+
+  <h2>7. Children</h2>
+  <p>AI Wingman is not directed to children under 17, and we do not knowingly collect personal information from them.</p>
+
+  <h2>8. Changes to This Policy</h2>
+  <p>We may update this policy from time to time. Material changes will be notified in-app or by email.</p>
+
+  <h2>9. Contact</h2>
+  <p>Questions about your privacy? Email <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>.</p>
+</main>
+<footer>© 2026 AI Wingman by Rushing Technologies · <a href="/">Home</a> · <a href="/terms">Terms</a> · <a href="/support">Support</a></footer>
 </body>
 </html>`,
 };

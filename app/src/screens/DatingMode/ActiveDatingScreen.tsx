@@ -11,6 +11,7 @@ import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
+import { TalkRatioBar } from '../../components/TalkRatioBar';
 
 const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
 const NEGATIVE_VIBE = ['slow', 'awkward', 'silence'];
@@ -107,9 +108,15 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   // Over-talking alert: words-per-minute relative to a balanced 120 wpm target.
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
   const wpm = Math.round(wordsSelf / minutes);
-  const talkPct = Math.min(100, Math.round((wpm / 200) * 100));
   const talkColor = wpm > 150 ? '#f43f5e' : wpm > 120 ? '#f59e0b' : '#4ade80';
   const paceWord = wpm > 150 ? 'Fast' : wpm < 90 ? 'Slow' : 'Good';
+
+  // Talk ratio: estimated % of session time spent speaking
+  const talkSec = wordsSelf / (130 / 60);
+  const talkRatio = elapsedSeconds > 2
+    ? Math.min(100, Math.round((talkSec / elapsedSeconds) * 100))
+    : 0;
+  const ratioColor = talkRatio > 70 ? '#f43f5e' : talkRatio > 50 ? '#f59e0b' : '#4ade80';
 
   const coachLower = (currentCoaching ?? '').toLowerCase();
   const vibe = POSITIVE_VIBE.some((w) => coachLower.includes(w))
@@ -176,14 +183,12 @@ export function ActiveDatingScreen({ onEnd }: Props) {
             ) : null}
           </View>
           <View style={s.talkRatioChip}>
-            <Text style={[s.talkRatioPct, { color: talkColor }]}>{wpm}</Text>
-            <Text style={s.talkRatioLbl}>wpm</Text>
+            <Text style={[s.talkRatioPct, { color: ratioColor }]}>{talkRatio}%</Text>
+            <Text style={s.talkRatioLbl}>you talking</Text>
           </View>
         </Animated.View>
 
-        <View style={s.ratioTrack}>
-          <Animated.View style={[s.ratioFill, { width: `${talkPct}%`, backgroundColor: talkColor }]} />
-        </View>
+        <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
 
         <LiveStats
           chips={[
@@ -300,12 +305,6 @@ const s = StyleSheet.create({
   talkRatioChip: { alignItems: 'center', flexShrink: 0 },
   talkRatioPct: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
   talkRatioLbl: { color: '#475569', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
-
-  ratioTrack: {
-    height: 3, marginHorizontal: 20, marginBottom: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden',
-  },
-  ratioFill: { height: '100%', borderRadius: 2 },
 
   transcriptArea: { flex: 1 },
   transcriptHeader: {

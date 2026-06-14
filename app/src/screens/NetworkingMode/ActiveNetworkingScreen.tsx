@@ -11,6 +11,7 @@ import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
+import { TalkRatioBar } from '../../components/TalkRatioBar';
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -25,7 +26,7 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
   const {
     isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
-    elapsedSeconds, networkingSetup, setCurrentCoaching, setError,
+    elapsedSeconds, wordsSelf, networkingSetup, setCurrentCoaching, setError,
     coachingHistory, loggedContacts, addLoggedContact, getSessionConfig,
   } = useSessionStore();
 
@@ -148,6 +149,8 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
             </Text>
           </View>
         </Animated.View>
+
+        <TalkRatioBar wordsSelf={wordsSelf} elapsedSeconds={elapsedSeconds} />
 
         <LiveStats
           chips={[

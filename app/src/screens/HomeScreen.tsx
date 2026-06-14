@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { loadStats, PersistedStats } from '../utils/statsStorage';
 import { loadSessionRecaps } from '../utils/sessionArchive';
 import { SessionRecap } from '../types';
+import { fetchStats } from '../services/sessionService';
 
 interface Mode {
   id: string;
@@ -90,6 +91,16 @@ export function HomeScreen({ onSelectMode, onOpenAccount, onOpenHistory }: Props
   useEffect(() => {
     loadStats().then(setStats);
     loadSessionRecaps(3).then(setRecentRecaps);
+    fetchStats().then((s) => {
+      if (s) {
+        setStats((prev) => ({
+          ...prev,
+          sessions: s.totalSessions,
+          bestScore: s.bestScore,
+          streak: s.streak,
+        }));
+      }
+    });
   }, []);
 
   const liveStats = [

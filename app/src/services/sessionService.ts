@@ -66,6 +66,26 @@ export async function saveSession(input: {
   }
 }
 
+export type SessionStats = {
+  totalSessions: number;
+  bestScore: number;
+  streak: number;
+};
+
+export async function fetchStats(): Promise<SessionStats | null> {
+  try {
+    const token = await getToken();
+    if (!token) return null;
+    const res = await fetch(`${SERVER_BASE}/sessions/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as SessionStats;
+  } catch {
+    return null;
+  }
+}
+
 export async function listSessions(): Promise<SavedSession[]> {
   try {
     const token = await getToken();

@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadStats, PersistedStats } from '../utils/statsStorage';
 import { ConversationMode } from '../types';
-import { fetchStats } from '../services/sessionService';
+import { fetchStatsSnapshot, type SessionSnapshotSource } from '../services/sessionService';
 
 type Mode = {
   id: ConversationMode;
@@ -34,7 +34,6 @@ interface Props {
   onOpenAccount: () => void;
   onOpenHistory: () => void;
   onOpenPractice: () => void;
-  onOpenPlaybooks: () => void;
   onOpenMessages: () => void;
 }
 
@@ -44,7 +43,6 @@ export function HomeScreen({
   onOpenAccount,
   onOpenHistory,
   onOpenPractice,
-  onOpenPlaybooks,
   onOpenMessages,
 }: Props) {
   const [stats, setStats] = useState<PersistedStats>({
@@ -53,10 +51,12 @@ export function HomeScreen({
     streak: 0,
     lastSessionDate: null,
   });
+  const [statsSource, setStatsSource] = useState<SessionSnapshotSource>('empty');
 
   useEffect(() => {
     loadStats().then(setStats);
-    fetchStats().then((s) => {
+    fetchStatsSnapshot().then(({ stats: s, source }) => {
+      setStatsSource(source);
       if (s) {
         setStats((prev) => ({
           ...prev,
@@ -97,6 +97,11 @@ export function HomeScreen({
               </View>
               <Text style={s.statusCopy}>Mic, transcript, and server checks run before every session.</Text>
             </View>
+            {statsSource === 'cache' ? (
+              <View style={s.cacheBadge}>
+                <Text style={s.cacheBadgeText}>Offline cache active</Text>
+              </View>
+            ) : null}
             <Text style={s.heroTitle}>Choose the room you need to win.</Text>
             <Text style={s.heroBody}>
               The home screen stays focused. Open a page for briefs, text coaching, history, or playbooks.
@@ -120,32 +125,9 @@ export function HomeScreen({
             <Metric label="Streak" value={stats.streak > 0 ? `${stats.streak}d` : '--'} />
           </View>
 
-          <SectionTitle title="Pages" action="Open a focused workspace" />
-          <View style={s.pageGrid}>
-            <PageCard
-              title="Briefs"
-              subtitle="Prep notes and recaps in one place."
-              action="Open"
-              onPress={onOpenBriefs}
-            />
-            <PageCard
-              title="Text Coach"
-              subtitle="Draft replies for real conversations."
-              action="Open"
-              onPress={onOpenMessages}
-            />
-            <PageCard
-              title="History"
-              subtitle="Search sessions, scores, and transcripts."
-              action="Open"
-              onPress={onOpenHistory}
-            />
-            <PageCard
-              title="Playbooks"
-              subtitle="Reuse your best setups and pinned prompts."
-              action="Open"
-              onPress={onOpenPlaybooks}
-            />
+          <View style={s.dockHint}>
+            <Text style={s.dockHintTitle}>Pages live in the bottom dock.</Text>
+            <Text style={s.dockHintBody}>Open Briefs, Text Coach, History, or Playbooks from the bar at the bottom.</Text>
           </View>
 
           <SectionTitle title="Modes" action="Start live coaching" />
@@ -189,28 +171,6 @@ function SectionTitle({ title, action }: { title: string; action: string }) {
   );
 }
 
-function PageCard({
-  title,
-  subtitle,
-  action,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  action: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} style={s.pageCard} activeOpacity={0.84}>
-      <View style={s.pageTop}>
-        <Text style={s.pageTitle}>{title}</Text>
-        <Text style={s.pageAction}>{action}</Text>
-      </View>
-      <Text style={s.pageSubtitle}>{subtitle}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
@@ -236,7 +196,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   iconButtonText: { color: '#cbd5e1', fontSize: 13, fontWeight: '900' },
-  content: { paddingHorizontal: 18, paddingBottom: 42, gap: 18 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 18 },
   commandPanel: {
     borderRadius: 8,
     padding: 18,
@@ -260,6 +220,16 @@ const s = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
   liveText: { color: '#4ade80', fontSize: 10, fontWeight: '900' },
   statusCopy: { color: '#94a3b8', fontSize: 11, flex: 1, lineHeight: 16 },
+  cacheBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.26)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  cacheBadgeText: { color: '#fbbf24', fontSize: 10, fontWeight: '900' },
   heroTitle: { color: '#f8fafc', fontSize: 26, fontWeight: '900', lineHeight: 31 },
   heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
   commandActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
@@ -298,19 +268,16 @@ const s = StyleSheet.create({
   sectionHeader: { gap: 2, marginTop: 4 },
   sectionTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   sectionAction: { color: '#64748b', fontSize: 12 },
-  pageGrid: { gap: 10 },
-  pageCard: {
+  dockHint: {
     borderRadius: 8,
     padding: 14,
-    gap: 8,
+    gap: 4,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  pageTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pageTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
-  pageAction: { color: '#cbd5e1', fontSize: 12, fontWeight: '800' },
-  pageSubtitle: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
+  dockHintTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
+  dockHintBody: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
   modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   modeTile: {
     width: '48.5%',

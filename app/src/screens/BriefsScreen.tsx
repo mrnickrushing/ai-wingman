@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Share,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,6 +14,7 @@ import { loadSessionRecaps } from '../utils/sessionArchive';
 import { PrepBriefCard } from '../components/PrepBriefCard';
 import { SessionPreflightCard } from '../components/SessionPreflightCard';
 import { appendCustomPlaybook, type SavedPlaybook } from '../utils/playbookStorage';
+import { scheduleFollowUpReminder } from '../hooks/useNotifications';
 
 type Mode = {
   id: ConversationMode;
@@ -42,6 +44,7 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
   }, []);
 
   const latestRecap = recentRecaps[0] ?? null;
+  const latestFollowUp = latestRecap?.followUps?.[0] ?? null;
 
   const nextUp = useMemo(() => {
     if (!latestRecap) {
@@ -114,6 +117,40 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
             <Text style={s.nextLabel}>Next move</Text>
             <Text style={s.nextText}>{nextUp}</Text>
           </View>
+
+          {latestFollowUp ? (
+            <View style={s.followUpCard}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Follow-up</Text>
+                <Text style={s.sectionAction}>Turn the recap into a reminder</Text>
+              </View>
+              <Text style={s.followUpBody}>{latestFollowUp.text}</Text>
+              <View style={s.followUpActions}>
+                <TouchableOpacity
+                  onPress={async () => {
+                    await scheduleFollowUpReminder({
+                      title: 'Wingman follow-up',
+                      body: latestFollowUp.text,
+                      hours: 24,
+                    });
+                  }}
+                  style={s.followUpBtn}
+                  activeOpacity={0.82}
+                >
+                  <Text style={s.followUpBtnText}>Remind tomorrow</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={async () => {
+                    await Share.share({ message: latestFollowUp.text }).catch(() => {});
+                  }}
+                  style={s.followUpBtn}
+                  activeOpacity={0.82}
+                >
+                  <Text style={s.followUpBtnText}>Export text</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
 
           <Section title="Quick start" action="Jump back into a mode" />
           <View style={s.modeGrid}>
@@ -197,7 +234,7 @@ const s = StyleSheet.create({
   title: { color: '#f8fafc', fontSize: 24, fontWeight: '900' },
   subtitle: { color: '#94a3b8', fontSize: 12, lineHeight: 17, marginTop: 2 },
   headerSpacer: { width: 68 },
-  content: { paddingHorizontal: 18, paddingBottom: 36, gap: 16 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 16 },
   hero: {
     backgroundColor: 'rgba(99,102,241,0.10)',
     borderWidth: 1,
@@ -218,6 +255,25 @@ const s = StyleSheet.create({
   },
   nextLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
   nextText: { color: '#f8fafc', fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  followUpCard: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 14,
+    gap: 10,
+  },
+  followUpBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
+  followUpActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  followUpBtn: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  followUpBtnText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
   savePlaybookCard: {
     borderRadius: 8,
     backgroundColor: 'rgba(245,158,11,0.08)',

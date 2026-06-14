@@ -82,3 +82,30 @@ export async function resetInactivityNudge(): Promise<void> {
     await scheduleInactivityNudge();
   } catch { /* noop */ }
 }
+
+export async function scheduleFollowUpReminder(input: {
+  title: string;
+  body: string;
+  hours?: number;
+}): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') return false;
+    const granted = await requestPermission();
+    if (!granted) return false;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: input.title,
+        body: input.body,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(60, Math.round((input.hours ?? 24) * 60 * 60)),
+        repeats: false,
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

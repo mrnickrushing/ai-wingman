@@ -34,7 +34,17 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', sessions: sessionManager.count });
+  const keys = {
+    deepgram: Boolean(process.env.DEEPGRAM_API_KEY),
+    anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+    elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+  };
+  const allPresent = Object.values(keys).every(Boolean);
+  res.status(allPresent ? 200 : 503).json({
+    status: allPresent ? 'ok' : 'misconfigured',
+    sessions: sessionManager.count,
+    keys,
+  });
 });
 
 wss.on('connection', (ws: WebSocket) => {

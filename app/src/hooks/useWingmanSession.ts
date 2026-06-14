@@ -32,12 +32,16 @@ const COACHING_VISIBLE_MS = 6000;
 // (with `ios`/`android`/`web` sub-objects) leaves the native recorder without
 // an `outputFormat`/`audioQuality`, which makes `prepareToRecordAsync()` throw
 // on iOS. We resolve the platform options here, once, at module load.
+// dBFS threshold below which we treat the chunk as silence and skip it.
+// Typical quiet room: -60 to -50 dBFS. Speech starts around -40 dBFS.
+const SILENCE_THRESHOLD_DBFS = -45;
+
 const COMMON_RECORDING_OPTIONS = {
   extension: '.m4a',
   sampleRate: 16000,
   numberOfChannels: 1,
   bitRate: 64000,
-  isMeteringEnabled: false,
+  isMeteringEnabled: true,
 };
 
 // Typed as the AudioRecorder constructor's first parameter. The public
@@ -67,6 +71,10 @@ const CHUNK_RECORDING_OPTIONS: RecorderConstructorOptions =
 
 export function useWingmanSession() {
   const recordingRef = useRef<AudioRecorder | null>(null);
+  // Peak metering (dBFS) tracked during each 1.5 s recording cycle.
+  // Reset when a new recorder starts; checked before sending to skip silence.
+  const peakMeteringRef = useRef<number>(SILENCE_THRESHOLD_DBFS - 1);
+  const meteringSubRef = useRef<{ remove: () => void } | null>(null);
   const chunkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef = useRef(false);
@@ -214,15 +222,22 @@ export function useWingmanSession() {
       if (recordingRef.current) {
         const recorder = recordingRef.current;
         recordingRef.current = null;
+        // Detach the metering listener before stopping.
+        meteringSubRef.current?.remove();
+        meteringSubRef.current = null;
+        const peakDb = peakMeteringRef.current;
         try {
           await recorder.stop();
-          const uri = recorder.uri;
-          if (uri) {
-            const b64 = await FileSystem.readAsStringAsync(uri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            wingmanClient.sendAudioChunk(b64, 'audio/mp4');
-            await FileSystem.deleteAsync(uri, { idempotent: true });
+          // Gate on amplitude: skip chunks that were below the speech threshold.
+          if (peakDb >= SILENCE_THRESHOLD_DBFS) {
+            const uri = recorder.uri;
+            if (uri) {
+              const b64 = await FileSystem.readAsStringAsync(uri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              wingmanClient.sendAudioChunk(b64, 'audio/mp4');
+              await FileSystem.deleteAsync(uri, { idempotent: true });
+            }
           }
         } catch {
           // ignore errors during capture cycle
@@ -252,6 +267,16 @@ export function useWingmanSession() {
       try {
         recording = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
         await recording.prepareToRecordAsync();
+        // Reset peak and subscribe to metering updates for this cycle.
+        peakMeteringRef.current = SILENCE_THRESHOLD_DBFS - 1;
+        meteringSubRef.current = recording.addListener(
+          'recordingStatusUpdate',
+          (status: { metering?: number }) => {
+            if (typeof status.metering === 'number' && status.metering > peakMeteringRef.current) {
+              peakMeteringRef.current = status.metering;
+            }
+          }
+        );
         recording.record();
         recordingRef.current = recording;
       } catch {
@@ -297,6 +322,9 @@ export function useWingmanSession() {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
     }
+
+    meteringSubRef.current?.remove();
+    meteringSubRef.current = null;
 
     if (recordingRef.current) {
       const recorder = recordingRef.current;

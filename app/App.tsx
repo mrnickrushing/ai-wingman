@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { ConsentScreen } from './src/screens/ConsentScreen';
@@ -38,6 +39,20 @@ type Screen =
 const ONBOARDED_KEY = 'wingman:onboarded';
 // Versioned so the consent gate can be re-shown if the disclosure materially changes.
 const CONSENT_KEY = 'wingman:consent:v1';
+
+async function applyAvailableUpdate() {
+  if (__DEV__ || !Updates.isEnabled) return;
+  try {
+    const update = await Updates.checkForUpdateAsync();
+    if (!update.isAvailable) return;
+    const fetched = await Updates.fetchUpdateAsync();
+    if (fetched.isNew) {
+      await Updates.reloadAsync();
+    }
+  } catch (error) {
+    console.warn('[wingman] update check failed', error);
+  }
+}
 
 // Catches render-time errors anywhere in the tree and shows a recoverable
 // fallback instead of letting the error bubble to the native fatal handler
@@ -126,6 +141,10 @@ function WingmanApp() {
   const [consented, setConsented] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   useNotifications();
+
+  useEffect(() => {
+    void applyAvailableUpdate();
+  }, []);
 
   useEffect(() => {
     AsyncStorage.multiGet([ONBOARDED_KEY, CONSENT_KEY])

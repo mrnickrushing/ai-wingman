@@ -7,9 +7,11 @@ import {
   setAudioModeAsync,
   AudioQuality,
   IOSOutputFormat,
+  RecordingPresets,
   type AudioPlayer,
   type AudioRecorder,
   type AudioStatus,
+  type RecordingOptions,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
@@ -22,51 +24,62 @@ const nextId = () => String(++idCounter);
 
 const COACHING_VISIBLE_MS = 6000;
 
-// We record a complete AAC/m4a container each cycle (reliable on both iOS and
-// Android); Deepgram auto-detects the codec server-side.
-//
-// The native `AudioModule.AudioRecorder` constructor expects a FLATTENED
-// options object (common fields + the active platform's fields spread at the
-// top level) — the same shape expo-audio's own `createRecordingOptions` helper
-// produces inside `useAudioRecorder`. Passing the cross-platform nested shape
-// (with `ios`/`android`/`web` sub-objects) leaves the native recorder without
-// an `outputFormat`/`audioQuality`, which makes `prepareToRecordAsync()` throw
-// on iOS. We resolve the platform options here, once, at module load.
 // dBFS threshold below which we treat the chunk as silence and skip it.
 // Typical quiet room: -60 to -50 dBFS. Speech starts around -40 dBFS.
 const SILENCE_THRESHOLD_DBFS = -45;
 
-const COMMON_RECORDING_OPTIONS = {
+// We record complete AAC/m4a chunks. Keep the public nested option shape for
+// prepareToRecordAsync so expo-audio can normalize it for the current platform,
+// and keep a matching flattened shape for the native constructor.
+const CHUNK_RECORDING_OPTIONS: RecordingOptions = {
   extension: '.m4a',
-  sampleRate: 16000,
+  sampleRate: 44100,
   numberOfChannels: 1,
   bitRate: 64000,
   isMeteringEnabled: true,
+  android: {
+    ...RecordingPresets.HIGH_QUALITY.android,
+    audioSource: 'voice_communication',
+  },
+  ios: {
+    ...RecordingPresets.HIGH_QUALITY.ios,
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MEDIUM,
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 64000,
+  },
 };
 
-// Typed as the AudioRecorder constructor's first parameter. The public
-// `RecordingOptions` type describes the cross-platform NESTED shape, but the
-// native constructor consumes the FLATTENED shape (what `createRecordingOptions`
-// emits), so we resolve to that type here.
 type RecorderConstructorOptions = ConstructorParameters<typeof AudioModule.AudioRecorder>[0];
 
-const CHUNK_RECORDING_OPTIONS = (
+const NATIVE_CHUNK_RECORDING_OPTIONS = (
   Platform.OS === 'ios'
     ? {
-        ...COMMON_RECORDING_OPTIONS,
-        outputFormat: IOSOutputFormat.MPEG4AAC,
-        audioQuality: AudioQuality.MEDIUM,
+        extension: CHUNK_RECORDING_OPTIONS.extension,
+        sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
+        numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
+        bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
+        isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
+        ...CHUNK_RECORDING_OPTIONS.ios,
       }
     : Platform.OS === 'android'
       ? {
-          ...COMMON_RECORDING_OPTIONS,
-          outputFormat: 'mpeg4',
-          audioEncoder: 'aac',
+          extension: CHUNK_RECORDING_OPTIONS.extension,
+          sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
+          numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
+          bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
+          isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
+          ...CHUNK_RECORDING_OPTIONS.android,
       }
     : {
-        ...COMMON_RECORDING_OPTIONS,
-        mimeType: 'audio/webm',
-        bitsPerSecond: 64000,
+        extension: CHUNK_RECORDING_OPTIONS.extension,
+        sampleRate: CHUNK_RECORDING_OPTIONS.sampleRate,
+        numberOfChannels: CHUNK_RECORDING_OPTIONS.numberOfChannels,
+        bitRate: CHUNK_RECORDING_OPTIONS.bitRate,
+        isMeteringEnabled: CHUNK_RECORDING_OPTIONS.isMeteringEnabled,
+        ...CHUNK_RECORDING_OPTIONS.web,
       }
 ) as unknown as RecorderConstructorOptions;
 
@@ -120,11 +133,11 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
       allowsRecording: true,
       playsInSilentMode: true,
       interruptionMode: 'doNotMix',
-      ...(Platform.OS === 'ios' ? { allowsBluetoothA2DP: true } : {}),
+      shouldRouteThroughEarpiece: false,
     } as Parameters<typeof setAudioModeAsync>[0]);
 
-    recorder = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
-    await recorder.prepareToRecordAsync();
+    recorder = new AudioModule.AudioRecorder(NATIVE_CHUNK_RECORDING_OPTIONS);
+    await recorder.prepareToRecordAsync(CHUNK_RECORDING_OPTIONS);
     recorder.record();
     meteringPoll = setInterval(() => {
       const status = recorder?.getStatus();
@@ -349,7 +362,7 @@ export function useWingmanSession() {
         allowsRecording: true,
         playsInSilentMode: true,
         interruptionMode: 'doNotMix',
-        ...(Platform.OS === 'ios' ? { allowsBluetoothA2DP: true } : {}),
+        shouldRouteThroughEarpiece: false,
       } as Parameters<typeof setAudioModeAsync>[0]);
     } catch {
       // audio mode config failed — recording may still work
@@ -430,8 +443,8 @@ export function useWingmanSession() {
       // configured for voice chat on iOS).
       let recording: AudioRecorder | null = null;
       try {
-        recording = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
-        await recording.prepareToRecordAsync();
+        recording = new AudioModule.AudioRecorder(NATIVE_CHUNK_RECORDING_OPTIONS);
+        await recording.prepareToRecordAsync(CHUNK_RECORDING_OPTIONS);
         // Reset peak and poll metering for this cycle.
         peakMeteringRef.current = SILENCE_THRESHOLD_DBFS - 1;
         if (meteringPollRef.current) clearInterval(meteringPollRef.current);

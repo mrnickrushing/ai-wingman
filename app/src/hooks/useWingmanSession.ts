@@ -83,6 +83,10 @@ export function useWingmanSession() {
   // past the 1.5s interval, and a second invocation racing the first would
   // orphan a native recorder (leak / double-record crash).
   const capturingRef = useRef(false);
+  const connectWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureFailureCountRef = useRef(0);
+  const hasReceivedTranscriptRef = useRef(false);
 
   // Coaching-audio playback queue so overlapping tips play in order, not on top
   // of each other.
@@ -139,6 +143,22 @@ export function useWingmanSession() {
         store.setConnected(true);
         store.setReconnecting(false);
         store.setError(null);
+        if (connectWatchdogRef.current) {
+          clearTimeout(connectWatchdogRef.current);
+          connectWatchdogRef.current = null;
+        }
+        if (transcriptWatchdogRef.current) {
+          clearTimeout(transcriptWatchdogRef.current);
+          transcriptWatchdogRef.current = null;
+        }
+        transcriptWatchdogRef.current = setTimeout(() => {
+          const current = useSessionStore.getState();
+          if (current.isRecording && current.isConnected && !hasReceivedTranscriptRef.current) {
+            current.setError(
+              'Connected, but no speech is reaching the server yet. Check microphone permission and input level.'
+            );
+          }
+        }, 12000);
       } else if (event.type === 'reconnecting') {
         store.setConnected(false);
         store.setReconnecting(true);
@@ -149,6 +169,11 @@ export function useWingmanSession() {
       } else if (event.type === 'session_started') {
         store.setSessionId(event.sessionId);
       } else if (event.type === 'transcript') {
+        hasReceivedTranscriptRef.current = true;
+        if (transcriptWatchdogRef.current) {
+          clearTimeout(transcriptWatchdogRef.current);
+          transcriptWatchdogRef.current = null;
+        }
         if (event.isFinal) {
           const entry: TranscriptEntry = {
             id: nextId(),
@@ -190,10 +215,14 @@ export function useWingmanSession() {
 
   const startChunkRecording = useCallback(async () => {
     try {
-      await requestRecordingPermissionsAsync();
-    } catch {
-      // permission request threw — proceed; recorder calls below are guarded
+      const permissions = await requestRecordingPermissionsAsync();
+      if ('granted' in permissions && !permissions.granted) {
+        throw new Error('Microphone permission is required for live coaching.');
+      }
+    } catch (err) {
+      throw err instanceof Error ? err : new Error('Microphone permission is required for live coaching.');
     }
+
     try {
       await setAudioModeAsync({
         allowsRecording: true,
@@ -236,13 +265,23 @@ export function useWingmanSession() {
                 encoding: FileSystem.EncodingType.Base64,
               });
               wingmanClient.sendAudioChunk(b64, 'audio/mp4');
+              captureFailureCountRef.current = 0;
               await FileSystem.deleteAsync(uri, { idempotent: true });
+            } else {
+              captureFailureCountRef.current += 1;
             }
           }
         } catch {
           // ignore errors during capture cycle
+          captureFailureCountRef.current += 1;
         } finally {
           try { recorder.release(); } catch { /* noop */ }
+        }
+
+        if (captureFailureCountRef.current >= 3) {
+          useSessionStore.getState().setError(
+            'Microphone capture is not producing usable audio. Check permissions and try again.'
+          );
         }
       }
 
@@ -279,11 +318,15 @@ export function useWingmanSession() {
         );
         recording.record();
         recordingRef.current = recording;
+        captureFailureCountRef.current = 0;
+        return true;
       } catch {
         if (recording) {
           try { recording.release(); } catch { /* noop */ }
         }
         recordingRef.current = null;
+        useSessionStore.getState().setError('Could not start microphone capture.');
+        return false;
       }
     };
 
@@ -291,19 +334,37 @@ export function useWingmanSession() {
     await captureAndSend();
     // Then every 1.5 seconds
     chunkTimerRef.current = setInterval(captureAndSend, 1500);
+    return Boolean(recordingRef.current);
   }, []);
 
   const start = useCallback(async (config = useSessionStore.getState().getSessionConfig()) => {
     const store = useSessionStore.getState();
     store.reset();
+    captureFailureCountRef.current = 0;
+    hasReceivedTranscriptRef.current = false;
     isActiveRef.current = true;
     wingmanClient.connect(config);
+    if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
+    connectWatchdogRef.current = setTimeout(() => {
+      const current = useSessionStore.getState();
+      if (!current.isConnected && isActiveRef.current) {
+        current.setError('Could not connect to the Wingman server. Check your network and server URL.');
+      }
+    }, 10000);
 
     // Elapsed time clock
     clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
 
-    await startChunkRecording();
-    useSessionStore.getState().setRecording(true);
+    const started = await startChunkRecording().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+      useSessionStore.getState().setError(message);
+      return false;
+    });
+    useSessionStore.getState().setRecording(started);
+    if (!started) {
+      wingmanClient.disconnect();
+      isActiveRef.current = false;
+    }
   }, [startChunkRecording]);
 
   const stop = useCallback(async () => {
@@ -321,6 +382,14 @@ export function useWingmanSession() {
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
+    }
+    if (connectWatchdogRef.current) {
+      clearTimeout(connectWatchdogRef.current);
+      connectWatchdogRef.current = null;
+    }
+    if (transcriptWatchdogRef.current) {
+      clearTimeout(transcriptWatchdogRef.current);
+      transcriptWatchdogRef.current = null;
     }
 
     meteringSubRef.current?.remove();

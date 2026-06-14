@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import {
   AudioModule,
+  useAudioStream,
   createAudioPlayer,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
@@ -23,6 +24,8 @@ let idCounter = 0;
 const nextId = () => String(++idCounter);
 
 const COACHING_VISIBLE_MS = 6000;
+const STREAM_SAMPLE_RATE = 16000;
+const STREAM_CHANNELS = 1;
 
 // dBFS threshold below which we treat the chunk as silence and skip it.
 // Typical quiet room: -60 to -50 dBFS. AirPods and some iPhone mics report
@@ -98,6 +101,21 @@ let preferredRecorderProfileIndex = 0;
 
 const describeError = (err: unknown): string =>
   err instanceof Error ? err.message : String(err || 'Unknown error');
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    let chunkText = '';
+    for (let j = 0; j < chunk.length; j += 1) {
+      chunkText += String.fromCharCode(chunk[j]);
+    }
+    binary += chunkText;
+  }
+  return globalThis.btoa(binary);
+}
 
 const configureRecordingAudioMode = async (resetSession = false) => {
   if (resetSession) {
@@ -244,6 +262,7 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
 }
 
 export function useWingmanSession() {
+  const audioStreamActiveRef = useRef(false);
   const recordingRef = useRef<AudioRecorder | null>(null);
   const recordingProfileRef = useRef<RecorderProfile | null>(null);
   // Peak metering (dBFS) tracked during each ~0.9 s recording cycle.
@@ -262,6 +281,26 @@ export function useWingmanSession() {
   const transcriptWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const captureFailureCountRef = useRef(0);
   const hasReceivedTranscriptRef = useRef(false);
+
+  const audioStream = useAudioStream({
+    sampleRate: STREAM_SAMPLE_RATE,
+    channels: STREAM_CHANNELS,
+    encoding: 'int16',
+    onBuffer: (buffer) => {
+      const store = useSessionStore.getState();
+      if (!isActiveRef.current || !audioStreamActiveRef.current) return;
+      if (!buffer.data || buffer.data.byteLength < 256) return;
+      try {
+        const b64 = arrayBufferToBase64(buffer.data);
+        store.setLastAudioChunkAt(Date.now());
+        wingmanClient.sendAudioChunk(b64, 'audio/pcm');
+        captureFailureCountRef.current = 0;
+      } catch (err) {
+        captureFailureCountRef.current += 1;
+        store.setError(`Microphone streaming failed. ${describeError(err)}`);
+      }
+    },
+  });
 
   // Coaching-audio playback queue so overlapping tips play in order, not on top
   // of each other.
@@ -576,6 +615,37 @@ export function useWingmanSession() {
     return Boolean(recordingRef.current);
   }, []);
 
+  const startContinuousAudioStream = useCallback(async () => {
+    try {
+      const permissions = await requestRecordingPermissionsAsync();
+      useSessionStore.getState().setMicPermissionGranted('granted' in permissions ? permissions.granted : null);
+      if ('granted' in permissions && !permissions.granted) {
+        throw new Error('Microphone permission is required for live coaching.');
+      }
+    } catch (err) {
+      useSessionStore.getState().setMicPermissionGranted(false);
+      throw err instanceof Error ? err : new Error('Microphone permission is required for live coaching.');
+    }
+
+    try {
+      await configureRecordingAudioMode(true);
+      await setIsAudioActiveAsync(true);
+      await audioStream.stream.start();
+      audioStreamActiveRef.current = true;
+      useSessionStore.getState().setSessionPhase('recording');
+      return true;
+    } catch (err) {
+      audioStreamActiveRef.current = false;
+      useSessionStore.getState().setError(`Could not start live microphone stream. ${describeError(err)}`);
+      try {
+        audioStream.stream.stop();
+      } catch {
+        // noop
+      }
+      return false;
+    }
+  }, [audioStream]);
+
   const start = useCallback(async (config = useSessionStore.getState().getSessionConfig()) => {
     const store = useSessionStore.getState();
     try {
@@ -585,6 +655,7 @@ export function useWingmanSession() {
       store.setBackgroundEnteredAt(null);
       captureFailureCountRef.current = 0;
       hasReceivedTranscriptRef.current = false;
+      audioStreamActiveRef.current = false;
       isActiveRef.current = true;
       store.setLastSessionStartedAt(Date.now());
       store.setSessionPhase('checking_server');
@@ -616,12 +687,15 @@ export function useWingmanSession() {
       // Elapsed time clock
       clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
 
-      const started = await startChunkRecording().catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
-        useSessionStore.getState().setError(message);
-        useSessionStore.getState().setSessionPhase('error');
-        return false;
-      });
+      let started = await startContinuousAudioStream().catch(() => false);
+      if (!started) {
+        started = await startChunkRecording().catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+          useSessionStore.getState().setError(message);
+          useSessionStore.getState().setSessionPhase('error');
+          return false;
+        });
+      }
       useSessionStore.getState().setRecording(started);
       if (!started) {
         wingmanClient.disconnect();
@@ -640,6 +714,7 @@ export function useWingmanSession() {
   const stop = useCallback(async () => {
     isActiveRef.current = false;
     capturingRef.current = false;
+    audioStreamActiveRef.current = false;
 
     if (chunkTimerRef.current) {
       clearInterval(chunkTimerRef.current);
@@ -676,6 +751,11 @@ export function useWingmanSession() {
         // already stopped
       }
       try { recorder.release(); } catch { /* noop */ }
+    }
+    try {
+      audioStream.stream.stop();
+    } catch {
+      // already stopped
     }
     useSessionStore.getState().setMicLevelDb(null);
     useSessionStore.getState().setBackgroundEnteredAt(null);

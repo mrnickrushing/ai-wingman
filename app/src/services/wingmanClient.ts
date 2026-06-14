@@ -43,7 +43,14 @@ const SERVER_URL = resolveServerUrl();
 
 export const getWingmanServerUrl = (): string => SERVER_URL;
 
-const getHealthUrl = (): string => SERVER_URL.replace(/\/ws$/, '/health');
+// The health endpoint is plain HTTP(S), so convert the WebSocket scheme
+// (wss:// → https://, ws:// → http://) as well as the /ws path → /health.
+// Without the scheme swap, fetch() hits a wss:// URL and Railway returns 502.
+const getHealthUrl = (): string =>
+  SERVER_URL
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/\/ws$/, '/health');
 
 export type WingmanServerHealth = {
   ok: boolean;

@@ -23,6 +23,9 @@ const RESUMMARIZE_EVERY = 20;
 // would blow past this we force a resummary regardless of turn count.
 const MAX_CONTEXT_TOKENS = 80_000;
 const CHARS_PER_TOKEN = 4;
+const RECENT_TRANSCRIPT_TURNS = 10;
+const MIN_COACH_INTERVAL_MS = 3500;
+const MIN_NEW_WORDS_FOR_COACH = 6;
 
 export class Session {
   readonly id: string;
@@ -31,6 +34,8 @@ export class Session {
   private wordCount = 0;
   private latestTranscript = '';
   private coachedTranscript = '';
+  private transcriptSinceCoach: string[] = [];
+  private lastCoachAttemptAt = 0;
 
   // --- Rolling context state (persists for the session lifetime) ---
   private rollingSummary = '';
@@ -87,7 +92,9 @@ export class Session {
     // request is already in flight, so the UI never loses words.
     this.send({ type: 'transcript', text, isFinal: true });
 
-    this.latestTranscript = text;
+    this.recordTranscript(text);
+    this.transcriptSinceCoach.push(text);
+    this.latestTranscript = this.buildRecentTranscriptWindow();
     void this.maybeCoach();
   }
 
@@ -107,8 +114,14 @@ export class Session {
     if (this.isCoaching) return;
     const transcript = this.latestTranscript;
     if (!transcript.trim()) return;
+    const newWords = this.transcriptSinceCoach.join(' ').split(/\s+/).filter(Boolean).length;
+    const now = Date.now();
+    if (newWords < MIN_NEW_WORDS_FOR_COACH && now - this.lastCoachAttemptAt < MIN_COACH_INTERVAL_MS) {
+      return;
+    }
 
     this.isCoaching = true;
+    this.lastCoachAttemptAt = now;
     this.coachedTranscript = transcript;
     try {
       const onChunk = (chunk: string) => {
@@ -118,9 +131,10 @@ export class Session {
       };
 
       const coaching = await this.generateCoaching(transcript, onChunk);
+      this.transcriptSinceCoach = [];
 
       if (coaching && coaching !== 'HOLD') {
-        this.recordTurns(transcript, coaching);
+        this.recordCoaching(coaching);
         // Send the full coaching text for the on-screen bubble. Audio for this
         // tip has already been streaming via enqueueTts as chunks arrived.
         this.send({ type: 'coaching', text: coaching });
@@ -197,11 +211,34 @@ export class Session {
 
   // --- Rolling context window --------------------------------------------------
 
-  private recordTurns(transcript: string, coaching: string): void {
-    this.history.push(
-      { role: 'user', content: `Transcript: "${transcript}"` },
-      { role: 'assistant', content: coaching }
-    );
+  private recordTranscript(transcript: string): void {
+    this.history.push({ role: 'user', content: `Transcript: "${transcript}"` });
+  }
+
+  private recordCoaching(coaching: string): void {
+    this.history.push({ role: 'assistant', content: coaching });
+  }
+
+  private buildRecentTranscriptWindow(): string {
+    return this.history
+      .filter((turn) => turn.role === 'user')
+      .slice(-RECENT_TRANSCRIPT_TURNS)
+      .map((turn) => turn.content.replace(/^Transcript:\s*/i, '').replace(/^"|"$/g, ''))
+      .join(' ')
+      .trim();
+  }
+
+  private mergeAdjacentTurns(turns: ConversationTurn[]): ConversationTurn[] {
+    const merged: ConversationTurn[] = [];
+    for (const turn of turns) {
+      const previous = merged[merged.length - 1];
+      if (previous && previous.role === turn.role) {
+        previous.content = `${previous.content}\n${turn.content}`;
+      } else {
+        merged.push({ ...turn });
+      }
+    }
+    return merged;
   }
 
   /**
@@ -214,7 +251,7 @@ export class Session {
    */
   private buildContext(): ConversationTurn[] {
     const recent = this.history.slice(this.summarizedUpTo);
-    if (!this.rollingSummary) return recent;
+    if (!this.rollingSummary) return this.mergeAdjacentTurns(recent);
 
     const summaryTurn: ConversationTurn = {
       role: 'user',
@@ -226,7 +263,7 @@ export class Session {
       role: 'assistant',
       content: 'Understood. Continuing to coach with that context in mind.',
     };
-    return [summaryTurn, ackTurn, ...recent];
+    return this.mergeAdjacentTurns([summaryTurn, ackTurn, ...recent]);
   }
 
   /**

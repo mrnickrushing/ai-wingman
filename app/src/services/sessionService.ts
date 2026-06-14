@@ -65,6 +65,11 @@ export type SessionAnalysis = {
   improvements: string[];
   keyMoment: string;
   followUps: Array<{ timing: string; text: string }>;
+  memory?: {
+    interests: string[];
+    personalDetails: string[];
+    callbackTopics: string[];
+  };
   secondDatePrep?: {
     recommendations: string[];
     conversationStarters: string[];

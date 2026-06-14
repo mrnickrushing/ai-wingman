@@ -573,7 +573,7 @@ export function useWingmanSession() {
     // First segment immediately
     await captureAndSend();
     // Then every 1.5 seconds
-    chunkTimerRef.current = setInterval(captureAndSend, 1500);
+    chunkTimerRef.current = setInterval(captureAndSend, 1200);
     return Boolean(recordingRef.current);
   }, []);
 

@@ -307,6 +307,38 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
             </Animated.View>
           )}
 
+          {analysis?.memory && (
+            <Animated.View style={[s.section, { opacity: fadeAnim }]}>
+              <Text style={s.sectionLabel}>DATE MEMORY</Text>
+              <View style={s.analysisCard}>
+                {(analysis.memory.interests?.length ?? 0) > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>Interests</Text>
+                    {analysis.memory.interests.map((item, i) => (
+                      <Text key={i} style={s.analysisItem}>· {item}</Text>
+                    ))}
+                  </View>
+                )}
+                {(analysis.memory.personalDetails?.length ?? 0) > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>Personal details</Text>
+                    {analysis.memory.personalDetails.map((item, i) => (
+                      <Text key={i} style={s.analysisItem}>· {item}</Text>
+                    ))}
+                  </View>
+                )}
+                {(analysis.memory.callbackTopics?.length ?? 0) > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>Callbacks</Text>
+                    {analysis.memory.callbackTopics.map((item, i) => (
+                      <Text key={i} style={s.analysisItem}>· {item}</Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </Animated.View>
+          )}
+
           <Animated.View style={[s.actions, { opacity: fadeAnim }]}>
             <TouchableOpacity onPress={onNewSession} style={s.secondaryBtn} activeOpacity={0.8}>
               <LinearGradient

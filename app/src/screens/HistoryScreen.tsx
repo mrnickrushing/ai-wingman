@@ -160,6 +160,10 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
       session.analysis?.summary,
       session.analysis?.strengths?.length ? `What worked: ${session.analysis.strengths.join('; ')}` : null,
       session.analysis?.improvements?.length ? `Next time: ${session.analysis.improvements.join('; ')}` : null,
+      session.analysis?.memory?.interests?.length ? `Interests: ${session.analysis.memory.interests.join('; ')}` : null,
+      session.analysis?.memory?.personalDetails?.length ? `Personal details: ${session.analysis.memory.personalDetails.join('; ')}` : null,
+      session.analysis?.memory?.callbackTopics?.length ? `Callbacks: ${session.analysis.memory.callbackTopics.join('; ')}` : null,
+      session.analysis?.secondDatePrep?.nextDateIdea ? `Next date: ${session.analysis.secondDatePrep.nextDateIdea}` : null,
       session.analysis?.followUps?.length ? `Follow-up: ${session.analysis.followUps[0].text}` : null,
       session.transcriptText ? `Transcript: ${session.transcriptText.slice(0, 1200)}` : null,
     ].filter(Boolean);
@@ -175,6 +179,8 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
     const followUps = session.analysis?.followUps ?? [];
     const strengths = session.analysis?.strengths ?? [];
     const improvements = session.analysis?.improvements ?? [];
+    const memory = session.analysis?.memory;
+    const secondDatePrep = session.analysis?.secondDatePrep;
     return `
       <html>
         <head>
@@ -211,6 +217,21 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
             <div class="section">
               <div class="label">Follow-up</div>
               ${followUps.map((item) => `<div class="card body">${item.timing}: ${item.text}</div>`).join('')}
+            </div>` : ''}
+          ${memory?.interests?.length || memory?.personalDetails?.length || memory?.callbackTopics?.length ? `
+            <div class="section">
+              <div class="label">Date memory</div>
+              ${memory?.interests?.length ? `<div class="card body"><strong>Interests</strong><br/>${memory.interests.join('<br/>')}</div>` : ''}
+              ${memory?.personalDetails?.length ? `<div class="card body"><strong>Personal details</strong><br/>${memory.personalDetails.join('<br/>')}</div>` : ''}
+              ${memory?.callbackTopics?.length ? `<div class="card body"><strong>Callbacks</strong><br/>${memory.callbackTopics.join('<br/>')}</div>` : ''}
+            </div>` : ''}
+          ${secondDatePrep?.nextDateIdea || secondDatePrep?.recommendations?.length || secondDatePrep?.conversationStarters?.length || secondDatePrep?.remember?.length ? `
+            <div class="section">
+              <div class="label">Second date prep</div>
+              ${secondDatePrep?.nextDateIdea ? `<div class="card body"><strong>Next date idea</strong><br/>${secondDatePrep.nextDateIdea}</div>` : ''}
+              ${secondDatePrep?.recommendations?.length ? `<div class="card body"><strong>Recommendations</strong><br/>${secondDatePrep.recommendations.join('<br/>')}</div>` : ''}
+              ${secondDatePrep?.conversationStarters?.length ? `<div class="card body"><strong>Callbacks</strong><br/>${secondDatePrep.conversationStarters.join('<br/>')}</div>` : ''}
+              ${secondDatePrep?.remember?.length ? `<div class="card body"><strong>Remember</strong><br/>${secondDatePrep.remember.join('<br/>')}</div>` : ''}
             </div>` : ''}
           <div class="section">
             <div class="label">Transcript</div>
@@ -520,6 +541,35 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                             ) : null}
                             {session.analysis.keyMoment ? (
                               <Text style={st.analysisKeyMoment}>Key moment: {session.analysis.keyMoment}</Text>
+                            ) : null}
+                            {session.analysis.memory ? (
+                              <View style={st.analysisSection}>
+                                <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Memory</Text>
+                                {session.analysis.memory.interests?.length > 0 ? (
+                                  <View style={st.followRow}>
+                                    <Text style={st.followTiming}>Interests</Text>
+                                    {session.analysis.memory.interests.map((item, index) => (
+                                      <Text key={`interest-${index}`} style={st.followText}>• {item}</Text>
+                                    ))}
+                                  </View>
+                                ) : null}
+                                {session.analysis.memory.personalDetails?.length > 0 ? (
+                                  <View style={st.followRow}>
+                                    <Text style={st.followTiming}>Personal details</Text>
+                                    {session.analysis.memory.personalDetails.map((item, index) => (
+                                      <Text key={`detail-${index}`} style={st.followText}>• {item}</Text>
+                                    ))}
+                                  </View>
+                                ) : null}
+                                {session.analysis.memory.callbackTopics?.length > 0 ? (
+                                  <View style={st.followRow}>
+                                    <Text style={st.followTiming}>Callbacks</Text>
+                                    {session.analysis.memory.callbackTopics.map((item, index) => (
+                                      <Text key={`callback-${index}`} style={st.followText}>• {item}</Text>
+                                    ))}
+                                  </View>
+                                ) : null}
+                              </View>
                             ) : null}
                             <SessionTranscriptExplorer
                               title={session.title || meta.label}

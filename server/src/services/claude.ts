@@ -4,7 +4,7 @@ import { ConversationTurn, HardConversationScenario } from '../types';
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const COACHING_MODEL = 'claude-sonnet-4-6';
-const COACHING_MAX_TOKENS = 120;
+const COACHING_MAX_TOKENS = 96;
 
 /**
  * Called as the coaching response streams in, once per sentence-boundary chunk
@@ -340,6 +340,11 @@ export type SessionAnalysis = {
   improvements: string[];
   keyMoment: string;
   followUps: Array<{ timing: string; text: string }>;
+  memory?: {
+    interests: string[];
+    personalDetails: string[];
+    callbackTopics: string[];
+  };
   secondDatePrep?: {
     recommendations: string[];
     conversationStarters: string[];
@@ -382,6 +387,14 @@ export async function analyzeSession(input: {
     hard_conversations: 'Provide 1-2 concrete next steps based on the conversation outcome.',
   };
 
+  const memoryInstructions: Record<string, string> = {
+    sales: 'Capture concrete buying signals, priorities, decision criteria, and names from the transcript.',
+    dating: 'Capture interests, personal details, hobbies, favorite places, family details, and callback topics.',
+    networking: 'Capture employer, role, shared interests, goals, and who should be followed up with.',
+    pitching: 'Capture objections, questions, priorities, and any audience-specific details worth remembering.',
+    hard_conversations: 'Capture names, stakes, boundaries, and any details that should be remembered for the next conversation.',
+  };
+
   try {
     const response = await anthropic.messages.create({
       model: COACHING_MODEL,
@@ -404,6 +417,11 @@ Return a JSON object with exactly these fields:
   "improvements": ["specific thing to work on", "another improvement"],
   "keyMoment": "1 sentence describing the most pivotal moment",
   "followUps": [{ "timing": "timing label", "text": "action or message text" }],
+  "memory": {
+    "interests": ["what this person likes or cares about"],
+    "personalDetails": ["important personal detail to remember"],
+    "callbackTopics": ["topics, names, or details to bring up later"]
+  },
   "secondDatePrep": {
     "recommendations": ["specific recommendation for the next date"],
     "conversationStarters": ["question or callback from this transcript"],
@@ -413,6 +431,7 @@ Return a JSON object with exactly these fields:
 }
 
 ${followUpInstructions[mode] ?? ''}
+${memoryInstructions[mode] ? `For ${modeLabel[mode] ?? 'this'} sessions, fill memory using the full transcript and context. Keep the items specific and factual.` : ''}
 For dating mode, fill secondDatePrep using the full transcript: callbacks, topics to revisit, what to avoid, and a next-date idea. For other modes, return empty arrays and an empty nextDateIdea.
 Be specific and reference what actually happened in the transcript. Strengths and improvements arrays should have 2-3 items each.`,
         },

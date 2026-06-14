@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
+import { ConsentScreen } from './src/screens/ConsentScreen';
 import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
@@ -35,6 +36,8 @@ type Screen =
   | 'hardconvo-precall' | 'hardconvo-active' | 'hardconvo-postcall';
 
 const ONBOARDED_KEY = 'wingman:onboarded';
+// Versioned so the consent gate can be re-shown if the disclosure materially changes.
+const CONSENT_KEY = 'wingman:consent:v1';
 
 // Catches render-time errors anywhere in the tree and shows a recoverable
 // fallback instead of letting the error bubble to the native fatal handler
@@ -120,18 +123,31 @@ export default function App() {
 function WingmanApp() {
   const [screen, setScreen] = useState<Screen>('home');
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [consented, setConsented] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   useNotifications();
 
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDED_KEY)
-      .then((value) => setOnboarded(value === 'true'))
-      .catch(() => setOnboarded(false));
+    AsyncStorage.multiGet([ONBOARDED_KEY, CONSENT_KEY])
+      .then((entries) => {
+        const map = Object.fromEntries(entries) as Record<string, string | null>;
+        setOnboarded(map[ONBOARDED_KEY] === 'true');
+        setConsented(map[CONSENT_KEY] === 'true');
+      })
+      .catch(() => {
+        setOnboarded(false);
+        setConsented(false);
+      });
   }, []);
 
   const completeOnboarding = () => {
     setOnboarded(true);
     AsyncStorage.setItem(ONBOARDED_KEY, 'true').catch(() => {});
+  };
+
+  const completeConsent = () => {
+    setConsented(true);
+    AsyncStorage.setItem(CONSENT_KEY, 'true').catch(() => {});
   };
 
   const openMode = (mode: string) => {
@@ -142,7 +158,7 @@ function WingmanApp() {
     else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
   };
 
-  if (onboarded === null) {
+  if (onboarded === null || consented === null) {
     return (
       <>
         <StatusBar style="light" />
@@ -156,6 +172,15 @@ function WingmanApp() {
       <>
         <StatusBar style="light" />
         <OnboardingScreen onComplete={completeOnboarding} />
+      </>
+    );
+  }
+
+  if (!consented) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <ConsentScreen onAgree={completeConsent} />
       </>
     );
   }

@@ -39,7 +39,10 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   const stoppedAtRef = useRef<number | null>(null);
   const prevRecordingRef = useRef(isRecording);
 
-  useEffect(() => { start(getSessionConfig('dating')); return () => { stop(); }; }, []);
+  useEffect(() => {
+    void start(getSessionConfig('dating')).catch(() => {});
+    return () => { void stop(); };
+  }, [start, stop, getSessionConfig]);
 
   // Count silence gaps: each time recording resumes after a >3s pause.
   useEffect(() => {

@@ -33,7 +33,10 @@ export function ActivePitchingScreen({ onEnd }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
 
-  useEffect(() => { start(getSessionConfig('pitching')); return () => { stop(); }; }, []);
+  useEffect(() => {
+    void start(getSessionConfig('pitching')).catch(() => {});
+    return () => { void stop(); };
+  }, [start, stop, getSessionConfig]);
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();

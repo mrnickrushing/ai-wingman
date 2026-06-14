@@ -339,31 +339,39 @@ export function useWingmanSession() {
 
   const start = useCallback(async (config = useSessionStore.getState().getSessionConfig()) => {
     const store = useSessionStore.getState();
-    store.reset();
-    captureFailureCountRef.current = 0;
-    hasReceivedTranscriptRef.current = false;
-    isActiveRef.current = true;
-    wingmanClient.connect(config);
-    if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
-    connectWatchdogRef.current = setTimeout(() => {
-      const current = useSessionStore.getState();
-      if (!current.isConnected && isActiveRef.current) {
-        current.setError('Could not connect to the Wingman server. Check your network and server URL.');
+    try {
+      store.reset();
+      captureFailureCountRef.current = 0;
+      hasReceivedTranscriptRef.current = false;
+      isActiveRef.current = true;
+      wingmanClient.connect(config);
+      if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
+      connectWatchdogRef.current = setTimeout(() => {
+        const current = useSessionStore.getState();
+        if (!current.isConnected && isActiveRef.current) {
+          current.setError('Could not connect to the Wingman server. Check your network and server URL.');
+        }
+      }, 10000);
+
+      // Elapsed time clock
+      clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
+
+      const started = await startChunkRecording().catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+        useSessionStore.getState().setError(message);
+        return false;
+      });
+      useSessionStore.getState().setRecording(started);
+      if (!started) {
+        wingmanClient.disconnect();
+        isActiveRef.current = false;
       }
-    }, 10000);
-
-    // Elapsed time clock
-    clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
-
-    const started = await startChunkRecording().catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
-      useSessionStore.getState().setError(message);
-      return false;
-    });
-    useSessionStore.getState().setRecording(started);
-    if (!started) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not start session.';
+      store.setError(message);
       wingmanClient.disconnect();
       isActiveRef.current = false;
+      store.setRecording(false);
     }
   }, [startChunkRecording]);
 

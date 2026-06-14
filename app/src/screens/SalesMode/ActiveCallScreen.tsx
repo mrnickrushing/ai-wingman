@@ -33,7 +33,10 @@ export function ActiveCallScreen({ onEnd }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
 
-  useEffect(() => { start(); return () => { stop(); }; }, []);
+  useEffect(() => {
+    void start().catch(() => {});
+    return () => { void stop(); };
+  }, [start, stop]);
 
   // Header entrance
   useEffect(() => {

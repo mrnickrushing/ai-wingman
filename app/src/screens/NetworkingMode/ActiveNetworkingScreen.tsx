@@ -35,7 +35,10 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [contactName, setContactName] = useState('');
 
-  useEffect(() => { start(getSessionConfig('networking')); return () => { stop(); }; }, []);
+  useEffect(() => {
+    void start(getSessionConfig('networking')).catch(() => {});
+    return () => { void stop(); };
+  }, [start, stop, getSessionConfig]);
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();

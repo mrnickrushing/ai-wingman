@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -8,6 +8,18 @@ import {
 import { signToken, verifyToken } from '../services/jwt';
 
 const router = Router();
+
+// Wrap an async handler so a rejected promise (e.g. a transient DB error)
+// returns a 500 JSON response instead of becoming an unhandled rejection that
+// hangs the request or crashes the process.
+function asyncHandler(fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler {
+  return (req: Request, res: Response, _next: NextFunction) => {
+    Promise.resolve(fn(req, res)).catch((err) => {
+      console.error(`[auth] ${req.method} ${req.path} failed:`, (err as Error).message);
+      if (!res.headersSent) res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    });
+  };
+}
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,7 +70,7 @@ function requireAuth(req: Request, res: Response): string | null {
 
 // ── POST /auth/register ──────────────────────────────────────────────────────
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const { email, password, displayName } = req.body as {
     email?: string; password?: string; displayName?: string;
   };
@@ -81,11 +93,11 @@ router.post('/register', async (req: Request, res: Response) => {
   });
   const token = signToken(account.id, account.email);
   return res.json({ token, account: toClientAccount(account) });
-});
+}));
 
 // ── POST /auth/login ─────────────────────────────────────────────────────────
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email?.trim() || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -102,11 +114,11 @@ router.post('/login', async (req: Request, res: Response) => {
   }
   const token = signToken(account.id, account.email);
   return res.json({ token, account: toClientAccount(account) });
-});
+}));
 
 // ── POST /auth/apple ─────────────────────────────────────────────────────────
 
-router.post('/apple', async (req: Request, res: Response) => {
+router.post('/apple', asyncHandler(async (req: Request, res: Response) => {
   const { userId, email, displayName } = req.body as {
     userId?: string; email?: string; displayName?: string;
   };
@@ -131,11 +143,11 @@ router.post('/apple', async (req: Request, res: Response) => {
   }
   const token = signToken(account.id, account.email);
   return res.json({ token, account: toClientAccount(account) });
-});
+}));
 
 // ── POST /auth/google ────────────────────────────────────────────────────────
 
-router.post('/google', async (req: Request, res: Response) => {
+router.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const { idToken, fallbackEmail, fallbackName } = req.body as {
     idToken?: string; fallbackEmail?: string; fallbackName?: string;
   };
@@ -160,45 +172,45 @@ router.post('/google', async (req: Request, res: Response) => {
   }
   const token = signToken(account.id, account.email);
   return res.json({ token, account: toClientAccount(account) });
-});
+}));
 
 // ── GET /auth/me ─────────────────────────────────────────────────────────────
 
-router.get('/me', async (req: Request, res: Response) => {
+router.get('/me', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAuth(req, res);
   if (!accountId) return;
   const account = await findById(accountId);
   if (!account) return res.status(404).json({ error: 'Account not found.' });
   return res.json({ account: toClientAccount(account) });
-});
+}));
 
 // ── PATCH /auth/premium ──────────────────────────────────────────────────────
 
-router.patch('/premium', async (req: Request, res: Response) => {
+router.patch('/premium', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAuth(req, res);
   if (!accountId) return;
   const account = await updateAccount(accountId, { premium: true });
   if (!account) return res.status(404).json({ error: 'Account not found.' });
   return res.json({ account: toClientAccount(account) });
-});
+}));
 
 // ── PATCH /auth/seen-intro ───────────────────────────────────────────────────
 
-router.patch('/seen-intro', async (req: Request, res: Response) => {
+router.patch('/seen-intro', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAuth(req, res);
   if (!accountId) return;
   const account = await updateAccount(accountId, { seenIntro: true });
   if (!account) return res.status(404).json({ error: 'Account not found.' });
   return res.json({ account: toClientAccount(account) });
-});
+}));
 
 // ── DELETE /auth/account ─────────────────────────────────────────────────────
 
-router.delete('/account', async (req: Request, res: Response) => {
+router.delete('/account', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAuth(req, res);
   if (!accountId) return;
   await deleteAccount(accountId);
   return res.json({ ok: true });
-});
+}));
 
 export default router;

@@ -17,6 +17,7 @@ workflows:
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
+        EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
       node: 22
     cache:
       cache_paths:
@@ -94,6 +95,7 @@ workflows:
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
+        EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
       node: 22
     cache:
       cache_paths:
@@ -147,6 +149,7 @@ workflows:
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
+        EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
       node: 22
     cache:
       cache_paths:

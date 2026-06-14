@@ -50,7 +50,7 @@ const COMMON_RECORDING_OPTIONS = {
 // emits), so we resolve to that type here.
 type RecorderConstructorOptions = ConstructorParameters<typeof AudioModule.AudioRecorder>[0];
 
-const CHUNK_RECORDING_OPTIONS: RecorderConstructorOptions =
+const CHUNK_RECORDING_OPTIONS = (
   Platform.OS === 'ios'
     ? {
         ...COMMON_RECORDING_OPTIONS,
@@ -65,16 +65,17 @@ const CHUNK_RECORDING_OPTIONS: RecorderConstructorOptions =
         }
       : {
           ...COMMON_RECORDING_OPTIONS,
-          mimeType: 'audio/webm',
-          bitsPerSecond: 64000,
-        };
+        mimeType: 'audio/webm',
+        bitsPerSecond: 64000,
+      }
+) as unknown as RecorderConstructorOptions;
 
 export function useWingmanSession() {
   const recordingRef = useRef<AudioRecorder | null>(null);
   // Peak metering (dBFS) tracked during each 1.5 s recording cycle.
   // Reset when a new recorder starts; checked before sending to skip silence.
   const peakMeteringRef = useRef<number>(SILENCE_THRESHOLD_DBFS - 1);
-  const meteringSubRef = useRef<{ remove: () => void } | null>(null);
+  const meteringPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef = useRef(false);
@@ -268,9 +269,11 @@ export function useWingmanSession() {
       if (recordingRef.current) {
         const recorder = recordingRef.current;
         recordingRef.current = null;
-        // Detach the metering listener before stopping.
-        meteringSubRef.current?.remove();
-        meteringSubRef.current = null;
+        // Stop the metering poll before stopping.
+        if (meteringPollRef.current) {
+          clearInterval(meteringPollRef.current);
+          meteringPollRef.current = null;
+        }
         const peakDb = peakMeteringRef.current;
         try {
           await recorder.stop();
@@ -325,16 +328,15 @@ export function useWingmanSession() {
       try {
         recording = new AudioModule.AudioRecorder(CHUNK_RECORDING_OPTIONS);
         await recording.prepareToRecordAsync();
-        // Reset peak and subscribe to metering updates for this cycle.
+        // Reset peak and poll metering for this cycle.
         peakMeteringRef.current = SILENCE_THRESHOLD_DBFS - 1;
-        meteringSubRef.current = recording.addListener(
-          'recordingStatusUpdate',
-          (status: { metering?: number }) => {
-            if (typeof status.metering === 'number' && status.metering > peakMeteringRef.current) {
-              peakMeteringRef.current = status.metering;
-            }
+        if (meteringPollRef.current) clearInterval(meteringPollRef.current);
+        meteringPollRef.current = setInterval(() => {
+          const status = recording?.getStatus();
+          if (status && typeof status.metering === 'number' && status.metering > peakMeteringRef.current) {
+            peakMeteringRef.current = status.metering;
           }
-        );
+        }, 100);
         recording.record();
         recordingRef.current = recording;
         captureFailureCountRef.current = 0;
@@ -439,8 +441,10 @@ export function useWingmanSession() {
       transcriptWatchdogRef.current = null;
     }
 
-    meteringSubRef.current?.remove();
-    meteringSubRef.current = null;
+    if (meteringPollRef.current) {
+      clearInterval(meteringPollRef.current);
+      meteringPollRef.current = null;
+    }
 
     if (recordingRef.current) {
       const recorder = recordingRef.current;

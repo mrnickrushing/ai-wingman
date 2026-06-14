@@ -171,7 +171,7 @@ export async function loadLaunchSnapshot(): Promise<LaunchSnapshot> {
   }
   // Refresh from server; fall back to local cache on network failure
   const result = await serverGet<{ account: ServerAccount }>('/auth/me', token);
-  if (result.error) return readLocalSnapshot();
+  if (result.error || !result.data) return readLocalSnapshot();
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -181,7 +181,7 @@ export async function markIntroSeen(): Promise<LaunchSnapshot> {
   const token = await loadToken();
   if (token && !isTokenExpired(token)) {
     const result = await serverPatch<{ account: ServerAccount }>('/auth/seen-intro', token);
-    if (!result.error) {
+    if (!result.error && result.data) {
       const snapshot = snapshotFromServer(result.data.account);
       await writeLocalSnapshot(snapshot);
       return snapshot;
@@ -203,7 +203,7 @@ export async function registerEmailAccount(input: {
     password: input.password,
     displayName: input.displayName,
   });
-  if (result.error) throw new Error(result.error);
+  if (result.error || !result.data) throw new Error(result.error ?? 'Registration failed.');
   await saveToken(result.data.token);
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
@@ -218,7 +218,7 @@ export async function loginEmailAccount(input: {
     email: input.email.trim().toLowerCase(),
     password: input.password,
   });
-  if (result.error) throw new Error(result.error);
+  if (result.error || !result.data) throw new Error(result.error ?? 'Login failed.');
   await saveToken(result.data.token);
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
@@ -235,7 +235,7 @@ export async function signInWithApple(input: {
     email: input.email,
     displayName: input.displayName,
   });
-  if (result.error) throw new Error(result.error);
+  if (result.error || !result.data) throw new Error(result.error ?? 'Apple sign-in failed.');
   await saveToken(result.data.token);
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
@@ -252,7 +252,7 @@ export async function signInWithGoogle(input: {
     fallbackEmail: input.fallbackEmail,
     fallbackName: input.fallbackName,
   });
-  if (result.error) throw new Error(result.error);
+  if (result.error || !result.data) throw new Error(result.error ?? 'Google sign-in failed.');
   await saveToken(result.data.token);
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
@@ -263,7 +263,7 @@ export async function markPremium(): Promise<LaunchSnapshot> {
   const token = await loadToken();
   if (token && !isTokenExpired(token)) {
     const result = await serverPatch<{ account: ServerAccount }>('/auth/premium', token);
-    if (!result.error) {
+    if (!result.error && result.data) {
       const snapshot = snapshotFromServer(result.data.account);
       await writeLocalSnapshot(snapshot);
       return snapshot;

@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, ActivityIndicator, Linking, Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
@@ -37,6 +38,7 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const score = computeWingmanScore({
@@ -219,13 +221,26 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
                         <Text style={s.timingText}>{f.timing}</Text>
                       </View>
                       <Text style={s.followText}>{f.text}</Text>
-                      <TouchableOpacity
-                        style={s.sendBtn}
-                        activeOpacity={0.75}
-                        onPress={() => Linking.openURL('sms:&body=' + encodeURIComponent(cleanText(f.text))).catch(() => {})}
-                      >
-                        <Text style={s.sendBtnText}>Send it →</Text>
-                      </TouchableOpacity>
+                      <View style={s.followActions}>
+                        <TouchableOpacity
+                          style={s.copyBtn}
+                          activeOpacity={0.75}
+                          onPress={() => {
+                            Clipboard.setStringAsync(cleanText(f.text)).catch(() => {});
+                            setCopiedIndex(i);
+                            setTimeout(() => setCopiedIndex((c) => (c === i ? null : c)), 2000);
+                          }}
+                        >
+                          <Text style={s.copyBtnText}>{copiedIndex === i ? 'Copied!' : '📋'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={s.sendBtn}
+                          activeOpacity={0.75}
+                          onPress={() => Linking.openURL('sms:&body=' + encodeURIComponent(cleanText(f.text))).catch(() => {})}
+                        >
+                          <Text style={s.sendBtnText}>Send it →</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -339,8 +354,14 @@ const s = StyleSheet.create({
   },
   timingText: { color: '#ec4899', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   followText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  followActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  copyBtn: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  copyBtnText: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
   sendBtn: {
-    alignSelf: 'flex-end',
     backgroundColor: 'rgba(236,72,153,0.15)',
     borderWidth: 1, borderColor: 'rgba(236,72,153,0.35)',
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7,

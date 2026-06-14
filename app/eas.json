@@ -8,8 +8,10 @@
       "channel": "production",
       "env": {
         "EAS_PROJECT_ID": "0f5adf3f-ab58-451a-bf61-dddc1b58143b",
-        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "98129298079-b90mce85ibkjtttl3e5ovhbhi0shs0cn.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "98129298079-p7q7vlrrj4s5t68r2a0qigqtd1p8guqj.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID": "98129298079-aj8fdiufoqpv90f9r8l724rnsroujesi.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "98129298079-vebr1dn59m28d9775pl2l0dhogb4a4rb.apps.googleusercontent.com",
         "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
         "EXPO_PUBLIC_REVENUECAT_PACKAGE_ID": "$rc_monthly",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_OttrUHeiQVFAqpgoQyuUyYGTHzH"

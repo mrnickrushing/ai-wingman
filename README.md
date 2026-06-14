@@ -47,8 +47,11 @@ The app uses `expo-updates` for over-the-air updates. This requires either an Ex
 - Set `EAS_PROJECT_ID` in the build environment, or set `EXPO_UPDATES_URL` directly.
 - The linked Expo project is `@rushingtechnologies/ai-wingman`, project ID `0f5adf3f-ab58-451a-bf61-dddc1b58143b`.
 - When a real project ID is set, `app/app.config.js` builds `https://u.expo.dev/<projectId>` and enables OTA updates.
+- Codemagic builds explicitly embed `expo-channel-name: production` so TestFlight/App Store binaries pull from the same EAS Update branch that the OTA workflow publishes to.
 - If the project ID is removed and no `EXPO_UPDATES_URL` is provided, OTA updates are disabled and the app launches normally. This avoids the startup crash caused by a malformed updates URL.
 - Codemagic includes an `expo-ota-production` workflow that runs `eas update --branch production --platform ios`.
+
+If an installed TestFlight build was created before the `expo-channel-name` header was embedded, it needs one full rebuild/install. OTA cannot repair the missing native update-channel header in that older binary.
 
 In short: the app runs fine without `EAS_PROJECT_ID` — you only need it to ship OTA updates.
 

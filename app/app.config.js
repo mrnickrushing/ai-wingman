@@ -9,6 +9,7 @@ const projectId = envProjectId && envProjectId !== 'YOUR_EXPO_PROJECT_ID_HERE'
 const hasProjectId = Boolean(projectId);
 const updatesUrl = process.env.EXPO_UPDATES_URL ?? (hasProjectId ? `https://u.expo.dev/${projectId}` : undefined);
 const updatesEnabled = Boolean(updatesUrl);
+const updatesChannel = process.env.EXPO_UPDATE_CHANNEL ?? 'production';
 
 module.exports = {
   ...baseConfig.expo,
@@ -19,6 +20,9 @@ module.exports = {
     ? {
         enabled: true,
         url: updatesUrl,
+        requestHeaders: {
+          'expo-channel-name': updatesChannel,
+        },
         checkAutomatically: 'ON_LOAD',
         fallbackToCacheTimeout: 0,
       }

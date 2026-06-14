@@ -18,6 +18,7 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
       cache_paths:
@@ -96,6 +97,7 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
       cache_paths:
@@ -142,7 +144,7 @@ workflows:
     instance_type: linux_x2
     environment:
       groups:
-        - expo_credentials
+        - appstore_credentials
       vars:
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
         EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com
@@ -150,6 +152,7 @@ workflows:
         EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
         EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
         EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: appl_OttrUHeiQVFAqpgoQyuUyYGTHzH
+        EXPO_UPDATE_CHANNEL: production
       node: 22
     cache:
       cache_paths:
@@ -164,6 +167,7 @@ workflows:
           npx eas-cli update \
             --branch production \
             --platform ios \
+            --environment production \
             --non-interactive \
             --message "Codemagic OTA $CM_BUILD_ID"
     publishing:

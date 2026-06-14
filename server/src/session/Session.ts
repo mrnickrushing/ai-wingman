@@ -75,7 +75,9 @@ export class Session {
     try {
       text = await transcribeChunk(buf, this.config.keywords ?? []);
     } catch (err) {
-      console.error(`[Session ${this.id}] Transcription error:`, (err as Error).message);
+      const msg = (err as Error).message ?? 'Transcription failed';
+      console.error(`[Session ${this.id}] Transcription error:`, msg);
+      this.send({ type: 'error', message: `Transcription error: ${msg}` });
       return;
     }
     if (!text) return;
@@ -127,7 +129,9 @@ export class Session {
         void this.maybeRollUpContext();
       }
     } catch (err) {
-      console.error(`[Session ${this.id}] Coaching error:`, err);
+      const msg = (err as Error).message ?? 'Coaching failed';
+      console.error(`[Session ${this.id}] Coaching error:`, msg);
+      this.send({ type: 'error', message: `Coaching error: ${msg}` });
     } finally {
       this.isCoaching = false;
       // New speech came in while we were coaching — coach on it now.

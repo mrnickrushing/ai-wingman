@@ -174,6 +174,17 @@ export function HistoryScreen({ onBack }: Props) {
                             {session.analysis.keyMoment ? (
                               <Text style={st.analysisKeyMoment}>Key moment: {session.analysis.keyMoment}</Text>
                             ) : null}
+                            {session.analysis.followUps.length > 0 ? (
+                              <View style={st.analysisSection}>
+                                <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Next moves</Text>
+                                {session.analysis.followUps.map((item, index) => (
+                                  <View key={index} style={st.followRow}>
+                                    <Text style={[st.followTiming, { color: meta.accent }]}>{item.timing}</Text>
+                                    <Text style={st.followText}>{item.text}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            ) : null}
                           </View>
                         ) : null}
 
@@ -290,4 +301,12 @@ const st = StyleSheet.create({
   analysisSectionLabel: { fontSize: 11, fontWeight: '900' },
   analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
   analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic' },
+  followRow: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderRadius: 8,
+    padding: 10,
+    gap: 4,
+  },
+  followTiming: { fontSize: 11, fontWeight: '900' },
+  followText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
 });

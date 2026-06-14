@@ -62,6 +62,10 @@ export function createSessionRecap(input: {
   rating: number;
   summary: string;
   highlights: string[];
+  strengths?: string[];
+  improvements?: string[];
+  followUps?: Array<{ timing: string; text: string }>;
+  keyMoment?: string;
 }): SessionRecap {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -75,6 +79,10 @@ export function createSessionRecap(input: {
     rating: input.rating,
     summary: input.summary,
     highlights: input.highlights,
+    strengths: input.strengths ?? [],
+    improvements: input.improvements ?? [],
+    followUps: input.followUps ?? [],
+    keyMoment: input.keyMoment ?? '',
     createdAt: new Date().toISOString(),
   };
 }

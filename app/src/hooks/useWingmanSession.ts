@@ -439,6 +439,7 @@ export function useWingmanSession() {
           const status = recording?.getStatus();
           if (status && typeof status.metering === 'number' && status.metering > peakMeteringRef.current) {
             peakMeteringRef.current = status.metering;
+            useSessionStore.getState().setMicLevelDb(status.metering);
           }
         }, 100);
         recording.record();
@@ -560,6 +561,7 @@ export function useWingmanSession() {
       }
       try { recorder.release(); } catch { /* noop */ }
     }
+    useSessionStore.getState().setMicLevelDb(null);
 
     audioQueueRef.current = [];
 

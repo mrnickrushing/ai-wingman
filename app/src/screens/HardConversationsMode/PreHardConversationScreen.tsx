@@ -8,6 +8,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import { HardConversationScenario } from '../../types';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 import { SessionPreflightCard } from '../../components/SessionPreflightCard';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 const SCENARIOS: { id: HardConversationScenario; label: string }[] = [
   { id: 'salary_negotiation', label: 'Salary Negotiation' },
@@ -62,6 +63,12 @@ export function PreHardConversationScreen({ onStart, onBack }: Props) {
               ]}
             />
             <SessionPreflightCard />
+            <ConversationPrepBrief
+              mode="hard_conversations"
+              title={hardConvoSetup.scenario ?? 'Hard conversation'}
+              goal={hardConvoSetup.goal}
+              context={hardConvoSetup.situation}
+            />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>What are you walking into?</Text>

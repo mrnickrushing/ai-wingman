@@ -88,8 +88,12 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
           coachingTips: coachingHistory.length,
           wordsSelf,
           rating: lastRating,
-          summary: buildSessionSummary(transcript, coachingHistory),
+          summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
           highlights: buildHighlights(coachingHistory),
+          strengths: s?.analysis?.strengths,
+          improvements: s?.analysis?.improvements,
+          keyMoment: s?.analysis?.keyMoment,
+          followUps: s?.analysis?.followUps,
         })
       );
     });

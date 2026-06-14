@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 import { SessionPreflightCard } from '../../components/SessionPreflightCard';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 const DEFAULT_OBJECTIONS = [
   '"Too expensive" → Ask: "What ROI would make this a no-brainer?"',
@@ -108,6 +109,12 @@ export function PreCallScreen({ onStart, onBack }: Props) {
             ]}
           />
           <SessionPreflightCard />
+          <ConversationPrepBrief
+            mode="sales"
+            title={[salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' at ')}
+            goal={salesSetup.callGoal}
+            context={salesSetup.objectionLibrary}
+          />
 
           {/* Step content */}
           <Animated.View style={[s.stepContent, {

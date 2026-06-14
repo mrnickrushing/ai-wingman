@@ -11,6 +11,7 @@ import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
+import { LiveSessionStatus } from '../../components/LiveSessionStatus';
 import { TalkRatioBar } from '../../components/TalkRatioBar';
 
 const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
@@ -168,8 +169,8 @@ export function ActiveDatingScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
+        <LiveSessionStatus />
         <SessionTelemetry onRetry={handleRetry} />
-
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>
             <Text style={s.prospectInitial}>

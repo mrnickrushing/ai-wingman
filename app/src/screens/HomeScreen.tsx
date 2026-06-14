@@ -63,7 +63,7 @@ export function HomeScreen({
   const nextFocus = useMemo(() => {
     const last = recentRecaps[0];
     if (!last) return 'Pick a mode and run your first coached session.';
-    const weak = last.highlights[0] ?? last.summary;
+    const weak = last.improvements?.[0] ?? last.followUps?.[0]?.text ?? last.highlights[0] ?? last.summary;
     return weak.length > 92 ? `${weak.slice(0, 92)}...` : weak;
   }, [recentRecaps]);
 
@@ -148,6 +148,17 @@ export function HomeScreen({
                   </View>
                   <Text style={s.recentSubtitle} numberOfLines={1}>{recap.subtitle}</Text>
                   <Text style={s.recentSummary} numberOfLines={2}>{recap.summary}</Text>
+                  {recap.followUps?.[0] ? (
+                    <View style={s.nextMove}>
+                      <Text style={s.nextMoveLabel}>{recap.followUps[0].timing}</Text>
+                      <Text style={s.nextMoveText} numberOfLines={1}>{recap.followUps[0].text}</Text>
+                    </View>
+                  ) : recap.improvements?.[0] ? (
+                    <View style={s.nextMove}>
+                      <Text style={s.nextMoveLabel}>Next</Text>
+                      <Text style={s.nextMoveText} numberOfLines={1}>{recap.improvements[0]}</Text>
+                    </View>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -307,4 +318,16 @@ const s = StyleSheet.create({
   recentScore: { color: '#818cf8', fontSize: 15, fontWeight: '900' },
   recentSubtitle: { color: '#64748b', fontSize: 12 },
   recentSummary: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
+  nextMove: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(99,102,241,0.09)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  nextMoveLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900' },
+  nextMoveText: { color: '#cbd5e1', flex: 1, fontSize: 11, fontWeight: '700' },
 });

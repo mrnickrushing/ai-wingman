@@ -11,6 +11,7 @@ import { TranscriptView } from '../../components/TranscriptView';
 import { AudioWaveform } from '../../components/AudioWaveform';
 import { LiveStats } from '../../components/LiveStats';
 import { SessionTelemetry } from '../../components/SessionTelemetry';
+import { LiveSessionStatus } from '../../components/LiveSessionStatus';
 import { HardConversationScenario } from '../../types';
 
 function formatTime(s: number): string {
@@ -166,8 +167,8 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
           </TouchableOpacity>
         )}
 
+        <LiveSessionStatus />
         <SessionTelemetry onRetry={handleRetry} />
-
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>
             <Text style={s.prospectInitial}>🔥</Text>

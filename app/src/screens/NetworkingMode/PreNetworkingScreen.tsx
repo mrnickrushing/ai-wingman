@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
 import { SessionPreflightCard } from '../../components/SessionPreflightCard';
+import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 
 interface Props {
   onStart: () => void;
@@ -56,6 +57,11 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
               ]}
             />
             <SessionPreflightCard />
+            <ConversationPrepBrief
+              mode="networking"
+              title={networkingSetup.eventName}
+              context={networkingSetup.attendees}
+            />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>What's the event?</Text>

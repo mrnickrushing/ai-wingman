@@ -100,3 +100,9 @@ export async function restoreMembership(account: WingmanAccount | null): Promise
   }
   return info;
 }
+
+export async function manageMembership(account: WingmanAccount | null): Promise<void> {
+  if (!account) throw new Error('Create or sign in to an account first.');
+  await configurePurchases(account);
+  await Purchases.showManageSubscriptions();
+}

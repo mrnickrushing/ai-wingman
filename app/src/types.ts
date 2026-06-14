@@ -77,6 +77,10 @@ export interface SessionRecap {
   rating: number;
   summary: string;
   highlights: string[];
+  strengths?: string[];
+  improvements?: string[];
+  followUps?: Array<{ timing: string; text: string }>;
+  keyMoment?: string;
   createdAt: string;
 }
 
@@ -91,6 +95,7 @@ export interface SessionHealthSnapshot {
   coachingCount: number;
   lastTranscriptAt: number | null;
   lastAudioChunkAt: number | null;
+  micLevelDb: number | null;
   lastErrorAt: number | null;
   lastSessionStartedAt: number | null;
   error: string | null;

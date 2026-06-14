@@ -6,6 +6,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadLaunchSnapshot, signOut, resetLaunchState, type LaunchSnapshot } from '../services/auth';
 import { checkWingmanServerHealth, getWingmanServerUrl } from '../services/wingmanClient';
+import { manageMembership, restoreMembership } from '../services/purchases';
+import { runWingmanPreflight } from '../hooks/useWingmanSession';
 import { useSessionStore } from '../store/sessionStore';
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -24,6 +26,7 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [audioCheck, setAudioCheck] = useState<string>('Not checked');
   const [health, setHealth] = useState<{ label: string; detail: string; color: string }>({
     label: 'Unknown',
     detail: 'Tap check to verify the backend.',
@@ -86,6 +89,42 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
     );
   };
 
+  const handleRestorePurchase = async () => {
+    setActionLoading('restore');
+    try {
+      await restoreMembership(account);
+      Alert.alert('Membership restored', 'Your active membership was found.');
+    } catch (err) {
+      Alert.alert('Restore failed', err instanceof Error ? err.message : 'Could not restore membership.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setActionLoading('manage');
+    try {
+      await manageMembership(account);
+    } catch (err) {
+      Alert.alert('Subscription', err instanceof Error ? err.message : 'Could not open subscription management.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAudioCheck = async () => {
+    setActionLoading('audio');
+    setAudioCheck('Listening...');
+    try {
+      const result = await runWingmanPreflight();
+      setAudioCheck(result.ok ? 'Ready' : result.input.message || result.recorder.message || result.server.message);
+    } catch (err) {
+      setAudioCheck(err instanceof Error ? err.message : 'Audio check failed.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const account = snapshot?.account ?? null;
   const initials = account?.displayName
     ? account.displayName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -136,10 +175,22 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
               />
             </SettingsCard>
 
+            <SettingsCard title="Membership">
+              <Row label="Status" value={account?.premium ? 'Pro active' : 'Not active'} valueColor={account?.premium ? '#4ade80' : '#f59e0b'} />
+              <Divider />
+              <ActionRow label="Restore purchase" loading={actionLoading === 'restore'} disabled={Boolean(actionLoading)} onPress={handleRestorePurchase} />
+              <Divider />
+              <ActionRow label="Manage subscription" loading={actionLoading === 'manage'} disabled={Boolean(actionLoading)} onPress={handleManageSubscription} />
+            </SettingsCard>
+
             <SettingsCard title="Audio">
               <Row label="Coaching voice" value="Enabled" />
               <Divider />
               <Row label="Session checks" value="Before every call" />
+              <Divider />
+              <Row label="Ready check" value={audioCheck} />
+              <Divider />
+              <ActionRow label="Test mic and server" loading={actionLoading === 'audio'} disabled={Boolean(actionLoading)} onPress={handleAudioCheck} />
               <Divider />
               <Row label="Transcript storage" value="Session recaps only" />
             </SettingsCard>

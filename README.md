@@ -63,6 +63,17 @@ Each mode setup screen includes a live audio check. It verifies:
 
 Run this before a live session when testing a fresh build or a new device.
 
+## Product Features
+
+Recent app upgrades:
+
+- Live session status strip for hearing, transcribing, and coaching state
+- Mic-level meter during active sessions and in troubleshooting
+- Conversation Prep AI on every mode setup screen
+- Richer saved recaps with strengths, improvements, key moments, and follow-ups
+- History cards with next moves and follow-up actions
+- Settings controls for restore purchase, manage subscription, delete account, sign out, and backend/audio diagnostics
+
 ---
 
 ## Modes

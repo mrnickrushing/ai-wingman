@@ -15,6 +15,7 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { checkWingmanServerHealth, wingmanClient } from '../services/wingmanClient';
+import { getAuthToken } from '../services/auth';
 import { useSessionStore } from '../store/sessionStore';
 import { TranscriptEntry, CoachingEntry } from '../types';
 
@@ -603,7 +604,8 @@ export function useWingmanSession() {
       }
 
       store.setSessionPhase('connecting');
-      wingmanClient.connect(config);
+      const authToken = await getAuthToken().catch(() => null);
+      wingmanClient.connect(config, authToken);
       if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
       connectWatchdogRef.current = setTimeout(() => {
         const current = useSessionStore.getState();

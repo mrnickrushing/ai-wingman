@@ -47,6 +47,40 @@ export async function findById(id: string): Promise<DbAccount | null> {
   return rows[0] ?? null;
 }
 
+// ── Admin reporting (no secrets) ─────────────────────────────────────────────
+
+export interface AdminAccountRow {
+  id: string;
+  provider: string;
+  email: string | null;
+  display_name: string | null;
+  premium: boolean;
+  created_at: string;
+}
+
+export async function countAccounts(): Promise<{ total: number; premium: number }> {
+  const { rows } = await pool.query<{ total: string; premium: string }>(
+    `SELECT COUNT(*)::text AS total,
+            COUNT(*) FILTER (WHERE premium)::text AS premium
+       FROM accounts`
+  );
+  return {
+    total: parseInt(rows[0]?.total ?? '0', 10),
+    premium: parseInt(rows[0]?.premium ?? '0', 10),
+  };
+}
+
+export async function listAccounts(limit = 200): Promise<AdminAccountRow[]> {
+  const { rows } = await pool.query<AdminAccountRow>(
+    `SELECT id, provider, email, display_name, premium, created_at
+       FROM accounts
+      ORDER BY created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+  return rows;
+}
+
 export async function createAccount(fields: {
   id: string;
   provider: DbAccount['provider'];

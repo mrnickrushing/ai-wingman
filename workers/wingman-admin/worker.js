@@ -188,7 +188,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Platform</th><th>Push token</th><th>Joined</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Sign-in</th><th>Member</th><th>Joined</th></tr></thead>
             <tbody id="users-tbody"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
           </table>
         </div>
@@ -364,8 +364,8 @@ function renderUsers() {
     \`<tr>
       <td>\${esc(r.name)}</td>
       <td>\${esc(r.email)}</td>
-      <td>\${r.platform === 'ios' ? '🍎 iOS' : r.platform === 'android' ? '🤖 Android' : '—'}</td>
-      <td><span style="font-family:monospace;font-size:.75rem;color:var(--muted)">\${r.push_token ? r.push_token.slice(0,16)+'...' : '—'}</span></td>
+      <td>\${r.provider === 'apple' ? '🍎 Apple' : r.provider === 'google' ? '🔵 Google' : '✉️ Email'}</td>
+      <td>\${r.premium ? '<span style="color:var(--green)">✓ Pro</span>' : '—'}</td>
       <td>\${fmtDate(r.created_at)}</td>
     </tr>\`
   ).join('') : '<tr><td colspan="5" class="empty">No results</td></tr>';
@@ -684,16 +684,25 @@ export default {
 
     if (!env.DB) return json({ error: 'Database not configured' }, 500);
 
-    // Stats
+    // Stats — waitlist/support/notifications come from D1; real user accounts
+    // (Apple/Google/email signups) live in the Railway Postgres server, so the
+    // user count is fetched from there via the admin API.
     if (path === '/api/stats' && method === 'GET') {
-      const [wl, us, sp, nt, recent] = await Promise.all([
-        env.DB.prepare('SELECT COUNT(*) as c FROM waitlist').first(),
-        env.DB.prepare('SELECT COUNT(*) as c FROM users').first().catch(() => ({ c: 0 })),
+      const [wl, sp, nt, recent, serverStats] = await Promise.all([
+        env.DB.prepare('SELECT COUNT(*) as c FROM waitlist').first().catch(() => ({ c: 0 })),
         env.DB.prepare('SELECT COUNT(*) as c FROM support_requests').first().catch(() => ({ c: 0 })),
         env.DB.prepare('SELECT COUNT(*) as c FROM notification_log').first().catch(() => ({ c: 0 })),
-        env.DB.prepare('SELECT name, email, mode, created_at FROM waitlist ORDER BY created_at DESC LIMIT 5').all(),
+        env.DB.prepare('SELECT name, email, mode, created_at FROM waitlist ORDER BY created_at DESC LIMIT 5').all().catch(() => ({ results: [] })),
+        serverFetch(env, '/admin/stats'),
       ]);
-      return json({ waitlist: wl?.c ?? 0, users: us?.c ?? 0, support: sp?.c ?? 0, notifications: nt?.c ?? 0, recentWaitlist: recent.results });
+      return json({
+        waitlist: wl?.c ?? 0,
+        users: serverStats?.accounts ?? 0,
+        premium: serverStats?.premium ?? 0,
+        support: sp?.c ?? 0,
+        notifications: nt?.c ?? 0,
+        recentWaitlist: recent.results,
+      });
     }
 
     // Waitlist
@@ -702,10 +711,18 @@ export default {
       return json({ rows: results });
     }
 
-    // Users
+    // Users — real signups from the Railway Postgres server (not D1), mapped to
+    // the table's shape.
     if (path === '/api/users' && method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT * FROM users ORDER BY created_at DESC').all().catch(() => ({ results: [] }));
-      return json({ rows: results });
+      const serverData = await serverFetch(env, '/admin/accounts');
+      const rows = (serverData?.accounts || []).map((a) => ({
+        name: a.display_name || (a.email ? a.email.split('@')[0] : (a.id || '').slice(0, 8)),
+        email: a.email || '',
+        provider: a.provider,
+        premium: a.premium,
+        created_at: a.created_at,
+      }));
+      return json({ rows });
     }
 
     // Support requests
@@ -769,4 +786,19 @@ function getCookie(request, name) {
   const cookie = request.headers.get('Cookie') || '';
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return match?.[1] ?? null;
+}
+
+// Calls the Railway server's admin API (where the real account data lives).
+// Returns null if not configured or on any error, so the dashboard degrades
+// gracefully (shows 0 / empty) instead of breaking.
+async function serverFetch(env, path) {
+  if (!env.SERVER_URL || !env.SERVER_ADMIN_KEY) return null;
+  try {
+    const base = env.SERVER_URL.replace(/\/$/, '');
+    const res = await fetch(base + path, { headers: { 'x-admin-key': env.SERVER_ADMIN_KEY } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

@@ -65,6 +65,14 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+// Returns the stored JWT if present and unexpired, else null. Used to
+// authenticate the realtime coaching WebSocket connection.
+export async function getAuthToken(): Promise<string | null> {
+  const token = await loadToken();
+  if (!token || isTokenExpired(token)) return null;
+  return token;
+}
+
 // ── Local snapshot cache ───────────────────────────────────────────────────────
 
 async function readLocalSnapshot(): Promise<LaunchSnapshot> {

@@ -62,6 +62,20 @@ export async function getSessionById(id: string): Promise<DbSession | null> {
   return rows[0] ?? null;
 }
 
+// Total seconds of coaching an account has used in the current calendar month
+// (UTC). Used to enforce a fair-use monthly cap. Sessions are recorded after
+// they end, so this lags live usage by one session — fine for a soft cap.
+export async function getMonthlyUsageSeconds(accountId: string): Promise<number> {
+  const { rows } = await pool.query<{ total: string | null }>(
+    `SELECT COALESCE(SUM(duration_seconds), 0)::text AS total
+       FROM sessions
+      WHERE account_id = $1
+        AND created_at >= date_trunc('month', NOW() AT TIME ZONE 'UTC')`,
+    [accountId]
+  );
+  return parseInt(rows[0]?.total ?? '0', 10);
+}
+
 export async function getSessionStats(accountId: string): Promise<{
   totalSessions: number;
   bestScore: number;

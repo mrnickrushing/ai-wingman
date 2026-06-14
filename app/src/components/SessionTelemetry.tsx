@@ -98,9 +98,9 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
     <View style={[s.card, compact && s.compactCard]}>
       <View style={s.headerRow}>
         <View>
-          <Text style={s.sectionLabel}>SESSION HEALTH</Text>
+          <Text style={s.sectionLabel}>WINGMAN STATUS</Text>
           <Text style={s.statusText} numberOfLines={1}>
-            {phase} · {connectionLabel} · {transcript.length} transcript lines
+            {error ? error : `${phase} · ${connectionLabel}`}
           </Text>
         </View>
         {onRetry && error ? (
@@ -119,29 +119,30 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
         ))}
       </View>
 
-      <View style={s.footerRow}>
-        <Text style={s.footerText} numberOfLines={1}>
-          Last audio {agoLabel(lastAudioChunkAt)} · Last transcript {agoLabel(lastTranscriptAt)}
-        </Text>
-        <Text style={s.footerText} numberOfLines={1}>
-          Coaching {coachingHistory.length} · Live tip {currentCoaching ? 'yes' : 'no'}
-        </Text>
-      </View>
+      {!compact ? null : (
+        <View style={s.footerRow}>
+          <Text style={s.footerText} numberOfLines={1}>
+            Last audio {agoLabel(lastAudioChunkAt)} · Last transcript {agoLabel(lastTranscriptAt)}
+          </Text>
+          <Text style={s.footerText} numberOfLines={1}>
+            Lines {transcript.length} · Tips {coachingHistory.length} · Live tip {currentCoaching ? 'yes' : 'no'}
+          </Text>
+        </View>
+      )}
 
-      {error ? <Text style={s.errorText} numberOfLines={2}>{error}</Text> : null}
-      {!error && lastErrorAt ? <Text style={s.noteText}>Last error {agoLabel(lastErrorAt)}</Text> : null}
+      {!error && lastErrorAt && compact ? <Text style={s.noteText}>Last error {agoLabel(lastErrorAt)}</Text> : null}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 12,
+    gap: 10,
     marginHorizontal: 16,
     marginBottom: 10,
   },
@@ -155,10 +156,10 @@ const s = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    color: '#334155',
+    color: '#64748b',
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   statusText: {
     color: '#cbd5e1',
@@ -181,7 +182,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 10,
     alignItems: 'center',

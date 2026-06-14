@@ -7,6 +7,8 @@ import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
+import { PracticeScreen } from './src/screens/PracticeScreen';
+import { PlaybooksScreen } from './src/screens/PlaybooksScreen';
 import { useNotifications } from './src/hooks/useNotifications';
 import { PreCallScreen } from './src/screens/SalesMode/PreCallScreen';
 import { ActiveCallScreen } from './src/screens/SalesMode/ActiveCallScreen';
@@ -25,7 +27,7 @@ import { ActiveHardConversationScreen } from './src/screens/HardConversationsMod
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 
 type Screen =
-  | 'home' | 'account' | 'history'
+  | 'home' | 'account' | 'history' | 'practice' | 'playbooks'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
   | 'networking-precall' | 'networking-active' | 'networking-postcall'
@@ -132,6 +134,14 @@ function WingmanApp() {
     AsyncStorage.setItem(ONBOARDED_KEY, 'true').catch(() => {});
   };
 
+  const openMode = (mode: string) => {
+    if (mode === 'sales') setScreen('sales-precall');
+    else if (mode === 'dating') setScreen('dating-precall');
+    else if (mode === 'networking') setScreen('networking-precall');
+    else if (mode === 'pitching') setScreen('pitching-precall');
+    else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
+  };
+
   if (onboarded === null) {
     return (
       <>
@@ -167,15 +177,11 @@ function WingmanApp() {
       <StatusBar style="light" />
       {screen === 'home' && (
         <HomeScreen
-          onSelectMode={(mode) => {
-            if (mode === 'sales') setScreen('sales-precall');
-            else if (mode === 'dating') setScreen('dating-precall');
-            else if (mode === 'networking') setScreen('networking-precall');
-            else if (mode === 'pitching') setScreen('pitching-precall');
-            else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
-          }}
+          onSelectMode={openMode}
           onOpenAccount={() => setScreen('account')}
           onOpenHistory={() => setScreen('history')}
+          onOpenPractice={() => setScreen('practice')}
+          onOpenPlaybooks={() => setScreen('playbooks')}
         />
       )}
 
@@ -191,6 +197,20 @@ function WingmanApp() {
 
       {screen === 'history' && (
         <HistoryScreen onBack={() => setScreen('home')} />
+      )}
+
+      {screen === 'practice' && (
+        <PracticeScreen
+          onBack={() => setScreen('home')}
+          onStartMode={openMode}
+        />
+      )}
+
+      {screen === 'playbooks' && (
+        <PlaybooksScreen
+          onBack={() => setScreen('home')}
+          onStartMode={openMode}
+        />
       )}
 
       {/* Sales Mode */}

@@ -5,6 +5,7 @@ import {
   createAudioPlayer,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
+  setIsAudioActiveAsync,
   RecordingPresets,
   type AudioPlayer,
   type AudioRecorder,
@@ -94,8 +95,23 @@ const RECORDER_PROFILES: RecorderProfile[] = [
 
 let preferredRecorderProfileIndex = 0;
 
+const describeError = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err || 'Unknown error');
+
+const configureRecordingAudioMode = async (resetSession = false) => {
+  if (resetSession) {
+    await setIsAudioActiveAsync(false).catch(() => {});
+  }
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
+    interruptionMode: 'doNotMix',
+    shouldRouteThroughEarpiece: false,
+  } as Parameters<typeof setAudioModeAsync>[0]);
+};
+
 const createPreparedRecorder = async (): Promise<{ recorder: AudioRecorder; profile: RecorderProfile }> => {
-  let lastError: unknown = null;
+  const failures: string[] = [];
   const orderedProfiles = [
     ...RECORDER_PROFILES.slice(preferredRecorderProfileIndex),
     ...RECORDER_PROFILES.slice(0, preferredRecorderProfileIndex),
@@ -109,14 +125,14 @@ const createPreparedRecorder = async (): Promise<{ recorder: AudioRecorder; prof
       preferredRecorderProfileIndex = RECORDER_PROFILES.findIndex((candidate) => candidate.label === profile.label);
       return { recorder, profile };
     } catch (err) {
-      lastError = err;
+      failures.push(`${profile.label}: ${describeError(err)}`);
       if (recorder) {
         try { recorder.release(); } catch { /* noop */ }
       }
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Failed to prepare recorder');
+  throw new Error(`Recorder failed for every profile. ${failures.join(' | ')}`);
 };
 
 export type WingmanPreflightResult = {
@@ -165,16 +181,15 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
   let meteringPoll: ReturnType<typeof setInterval> | null = null;
   let peakDb = SILENCE_THRESHOLD_DBFS - 1;
   try {
-    await setAudioModeAsync({
-      allowsRecording: true,
-      playsInSilentMode: true,
-      interruptionMode: 'doNotMix',
-      shouldRouteThroughEarpiece: false,
-    } as Parameters<typeof setAudioModeAsync>[0]);
+    await configureRecordingAudioMode(true);
 
     const prepared = await createPreparedRecorder();
     recorder = prepared.recorder;
-    recorder.record();
+    try {
+      recorder.record();
+    } catch (err) {
+      throw new Error(`Recorder prepared but could not start (${prepared.profile.label}): ${describeError(err)}`);
+    }
     meteringPoll = setInterval(() => {
       const status = recorder?.getStatus();
       if (status && typeof status.metering === 'number' && status.metering > peakDb) {
@@ -396,13 +411,7 @@ export function useWingmanSession() {
     }
 
     try {
-      // allowsBluetoothA2DP routes coaching audio to AirPods/BT headphones when connected (iOS).
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-        interruptionMode: 'doNotMix',
-        shouldRouteThroughEarpiece: false,
-      } as Parameters<typeof setAudioModeAsync>[0]);
+      await configureRecordingAudioMode(true);
     } catch {
       // audio mode config failed — recording may still work
     }
@@ -500,12 +509,12 @@ export function useWingmanSession() {
         captureFailureCountRef.current = 0;
         useSessionStore.getState().setSessionPhase('recording');
         return true;
-      } catch {
+      } catch (err) {
         if (recording) {
           try { recording.release(); } catch { /* noop */ }
         }
         recordingRef.current = null;
-        useSessionStore.getState().setError('Could not start microphone capture.');
+        useSessionStore.getState().setError(`Could not start microphone capture. ${describeError(err)}`);
         return false;
       }
     };

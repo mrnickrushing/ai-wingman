@@ -4,7 +4,6 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
-      xcode: latest-stable
       groups:
         - appstore_credentials
       vars:
@@ -35,6 +34,15 @@ workflows:
         script: |
           cd app
           npx expo prebuild --platform ios --clean
+      - name: Patch Podfile — disable Sentry session replay
+        script: |
+          # RNSentryReplayUnmask.mm / RNSentryReplay.mm do not compile against the
+          # Xcode 26 / iOS 26 SDK. Setting this Ruby variable before pod install
+          # tells the @sentry/react-native podspec to skip the replay subspec.
+          PODFILE=app/ios/Podfile
+          if ! grep -q 'RNSentryExcludeSessionReplay' "$PODFILE"; then
+            sed -i'' '1s/^/$RNSentryExcludeSessionReplay = true\n/' "$PODFILE"
+          fi
       - name: Set bundle version
         script: |
           cd app/ios
@@ -88,7 +96,6 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      xcode: latest-stable
       vars:
         BUNDLE_ID: com.rushingtechnologies.aiwingman
         XCODE_PROJECT: AIWingman.xcodeproj

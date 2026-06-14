@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { generateRoleplayTurn } from '../services/claude';
+import { transcribeChunk } from '../services/deepgram';
 import { verifyToken } from '../services/jwt';
 
 const router = Router();
@@ -76,6 +77,26 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   return res.json({ turn, accountId });
+});
+
+// POST /coach/roleplay/transcribe — one-shot STT for the roleplay practice screen
+router.post('/transcribe', async (req: Request, res: Response) => {
+  const accountId = requireAccountId(req, res);
+  if (!accountId) return;
+
+  const { audio } = req.body as { audio?: string };
+  if (!audio) {
+    return res.status(400).json({ error: 'audio (base64) is required.' });
+  }
+
+  try {
+    const text = await transcribeChunk(Buffer.from(audio, 'base64'));
+    return res.json({ text });
+  } catch (err) {
+    return res.status(502).json({
+      error: err instanceof Error ? err.message : 'Transcription failed.',
+    });
+  }
 });
 
 export default router;

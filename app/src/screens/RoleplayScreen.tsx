@@ -16,6 +16,7 @@ import { fetchMemoryBrief, type MemorySnapshot } from '../services/memory';
 import { LiveSessionStatus } from '../components/LiveSessionStatus';
 import { SessionTelemetry } from '../components/SessionTelemetry';
 import { ConversationPrepBrief } from '../components/ConversationPrepBrief';
+import { AudioWaveform } from '../components/AudioWaveform';
 
 type RoleplayPreset = {
   mode: ConversationMode;
@@ -104,6 +105,7 @@ export function RoleplayScreen({ onBack, mode }: Props) {
     sessionPhase,
     serverHealth,
     micPermissionGranted,
+    micLevelDb,
   } = useSessionStore();
 
   useEffect(() => {
@@ -213,12 +215,25 @@ export function RoleplayScreen({ onBack, mode }: Props) {
                   {started ? 'End voice roleplay' : 'Start voice roleplay'}
                 </Text>
               </Pressable>
-              <View style={s.heroPill}>
-                <Text style={s.heroPillText}>
+              <View style={[s.heroPill, isRecording && s.heroPillActive]}>
+                <View style={[s.heroPillDot, { backgroundColor: isRecording ? '#4ade80' : isConnected ? '#f59e0b' : '#475569' }]} />
+                <Text style={[s.heroPillText, isRecording && { color: '#4ade80' }]}>
                   {started ? (isRecording ? 'Mic live' : 'Connected') : 'Tap to begin'}
                 </Text>
               </View>
             </View>
+
+            {/* Mic level bar — always visible when session is active */}
+            {started ? (
+              <View style={s.micBar}>
+                <AudioWaveform isActive={isRecording} color={preset.accent} height={24} barCount={16} />
+                {isRecording && micLevelDb !== null ? (
+                  <Text style={s.micDbText}>
+                    {micLevelDb > -45 ? '🔊' : '🎙️'} {Math.round(micLevelDb)} dBFS
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           <ConversationPrepBrief
@@ -355,6 +370,9 @@ const s = StyleSheet.create({
   },
   primaryBtnText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -362,7 +380,19 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
+  heroPillActive: {
+    backgroundColor: 'rgba(74,222,128,0.1)',
+    borderColor: 'rgba(74,222,128,0.28)',
+  },
+  heroPillDot: { width: 6, height: 6, borderRadius: 3 },
   heroPillText: { color: '#cbd5e1', fontSize: 11, fontWeight: '800' },
+  micBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 4,
+  },
+  micDbText: { color: '#94a3b8', fontSize: 10, fontWeight: '600', minWidth: 72 },
   memoryCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,

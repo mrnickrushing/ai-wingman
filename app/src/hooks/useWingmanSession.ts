@@ -28,9 +28,11 @@ const STREAM_SAMPLE_RATE = 16000;
 const STREAM_CHANNELS = 1;
 
 // dBFS threshold below which we treat the chunk as silence and skip it.
-// Typical quiet room: -60 to -50 dBFS. AirPods and some iPhone mics report
-// speech slightly lower than the built-in mic, so keep this forgiving.
-const SILENCE_THRESHOLD_DBFS = -55;
+// AirPod mics and iOS 26 devices can report speech at lower dBFS than the
+// built-in mic. -65 keeps the gate open for quieter inputs while still
+// filtering dead air. The file-size fallback is the primary safety net when
+// metering returns NaN (iOS 26 bug).
+const SILENCE_THRESHOLD_DBFS = -65;
 
 type RecorderConstructorOptions = ConstructorParameters<typeof AudioModule.AudioRecorder>[0];
 

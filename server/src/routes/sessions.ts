@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { createSession, listSessionsByAccount, getSessionById, DbSession } from '../db/sessions';
+import { createSession, listSessionsByAccount, getSessionById, getSessionStats, DbSession } from '../db/sessions';
 import { verifyToken } from '../services/jwt';
 import { analyzeSession, SessionAnalysis } from '../services/claude';
 
@@ -86,6 +86,15 @@ router.post('/', async (req: Request, res: Response) => {
   });
 
   return res.json({ session: toClientSession(session) });
+});
+
+// ── GET /sessions/stats ─────────────────────────────────────────────────────
+
+router.get('/stats', async (req: Request, res: Response) => {
+  const accountId = requireAccountId(req, res);
+  if (!accountId) return;
+  const stats = await getSessionStats(accountId);
+  return res.json(stats);
 });
 
 // ── GET /sessions ───────────────────────────────────────────────────────────

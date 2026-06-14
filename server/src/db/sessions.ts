@@ -61,3 +61,40 @@ export async function getSessionById(id: string): Promise<DbSession | null> {
   );
   return rows[0] ?? null;
 }
+
+export async function getSessionStats(accountId: string): Promise<{
+  totalSessions: number;
+  bestScore: number;
+  streak: number;
+}> {
+  const { rows: agg } = await pool.query<{ total: string; best: string | null }>(
+    `SELECT COUNT(*)::text AS total, MAX(score)::text AS best
+     FROM sessions WHERE account_id = $1`,
+    [accountId]
+  );
+  const totalSessions = parseInt(agg[0]?.total ?? '0', 10);
+  const bestScore = parseInt(agg[0]?.best ?? '0', 10);
+
+  const { rows: dates } = await pool.query<{ d: string }>(
+    `SELECT DISTINCT DATE(created_at AT TIME ZONE 'UTC')::text AS d
+     FROM sessions WHERE account_id = $1 ORDER BY d DESC`,
+    [accountId]
+  );
+
+  let streak = 0;
+  if (dates.length > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    if (dates[0].d === today || dates[0].d === yesterday) {
+      streak = 1;
+      for (let i = 1; i < dates.length; i++) {
+        const prev = new Date(dates[i - 1].d).getTime();
+        const curr = new Date(dates[i].d).getTime();
+        if (Math.round((prev - curr) / 86_400_000) === 1) streak++;
+        else break;
+      }
+    }
+  }
+
+  return { totalSessions, bestScore, streak };
+}

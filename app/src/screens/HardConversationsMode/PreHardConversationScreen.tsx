@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { HardConversationScenario } from '../../types';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
+import { SessionPreflightCard } from '../../components/SessionPreflightCard';
 
 const SCENARIOS: { id: HardConversationScenario; label: string }[] = [
   { id: 'salary_negotiation', label: 'Salary Negotiation' },
@@ -60,6 +61,7 @@ export function PreHardConversationScreen({ onStart, onBack }: Props) {
                 { label: 'Goal', detail: hardConvoSetup.goal || 'Add your target outcome', ready: Boolean(hardConvoSetup.goal.trim()) },
               ]}
             />
+            <SessionPreflightCard />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>What are you walking into?</Text>

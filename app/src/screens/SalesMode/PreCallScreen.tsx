@@ -7,6 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
+import { SessionPreflightCard } from '../../components/SessionPreflightCard';
 
 const DEFAULT_OBJECTIONS = [
   '"Too expensive" → Ask: "What ROI would make this a no-brainer?"',
@@ -106,6 +107,7 @@ export function PreCallScreen({ onStart, onBack }: Props) {
               { label: 'Objections', detail: salesSetup.objectionLibrary ? 'Custom or default' : 'Default library will load', ready: Boolean(salesSetup.objectionLibrary) },
             ]}
           />
+          <SessionPreflightCard />
 
           {/* Step content */}
           <Animated.View style={[s.stepContent, {

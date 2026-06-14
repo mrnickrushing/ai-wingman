@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { SessionPrepChecklist } from '../../components/SessionPrepChecklist';
+import { SessionPreflightCard } from '../../components/SessionPreflightCard';
 
 const AUDIENCES = ['Investors', 'Customers', 'Internal', 'Press'];
 
@@ -52,6 +53,7 @@ export function PrePitchingScreen({ onStart, onBack }: Props) {
                 { label: 'Deck', detail: pitchingSetup.deck ? 'Outline captured' : 'Optional but useful', ready: Boolean(pitchingSetup.deck.trim()) },
               ]}
             />
+            <SessionPreflightCard />
 
             <View style={s.body}>
               <Text style={s.stepTitle}>What are you pitching?</Text>

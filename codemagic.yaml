@@ -15,15 +15,16 @@ workflows:
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
         EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
+        EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
+        EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
       node: 22
     cache:
       cache_paths:
         - $HOME/Library/Caches/CocoaPods
-        - $CM_BUILD_DIR/app/node_modules
+        - $CM_BUILD_DIR/node_modules
     scripts:
       - name: Install npm dependencies
         script: |
-          cd app
           npm install
       - name: Expo prebuild
         script: |
@@ -91,15 +92,16 @@ workflows:
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
         EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
+        EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
+        EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
       node: 22
     cache:
       cache_paths:
         - $HOME/Library/Caches/CocoaPods
-        - $CM_BUILD_DIR/app/node_modules
+        - $CM_BUILD_DIR/node_modules
     scripts:
       - name: Install npm dependencies
         script: |
-          cd app
           npm install
       - name: Expo prebuild
         script: |
@@ -124,6 +126,43 @@ workflows:
             | xcpretty
     artifacts:
       - app/ios/build/*.ipa
+    publishing:
+      email:
+        recipients:
+          - mrnickrushing@yahoo.com
+        notify:
+          success: true
+          failure: true
+
+  expo-ota-production:
+    name: Expo OTA — Production
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      groups:
+        - expo_credentials
+      vars:
+        EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
+        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 3252464813-d766karmag0gu0ul1tan5125a82nnjar.apps.googleusercontent.com
+        EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 3252464813-f3ki3imith7n3aomtnvknlismga84ba0.apps.googleusercontent.com
+        EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: pro
+        EXPO_PUBLIC_REVENUECAT_PACKAGE_ID: "$rc_monthly"
+      node: 22
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Publish Expo update
+        script: |
+          cd app
+          npx eas-cli update \
+            --branch production \
+            --platform ios \
+            --non-interactive \
+            --message "Codemagic OTA $CM_BUILD_ID"
     publishing:
       email:
         recipients:

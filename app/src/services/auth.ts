@@ -268,15 +268,11 @@ export async function markPremium(): Promise<LaunchSnapshot> {
       await writeLocalSnapshot(snapshot);
       return snapshot;
     }
+    throw new Error(result.error ?? 'Could not activate membership on the backend.');
   }
   const local = await readLocalSnapshot();
   if (!local.account) throw new Error('No active account.');
-  const next: LaunchSnapshot = {
-    ...local,
-    account: { ...local.account, premium: true, updatedAt: new Date().toISOString() },
-  };
-  await writeLocalSnapshot(next);
-  return next;
+  throw new Error('Sign in again before activating membership.');
 }
 
 export async function signOut(): Promise<LaunchSnapshot> {

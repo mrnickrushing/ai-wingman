@@ -104,7 +104,9 @@ const configureRecordingAudioMode = async (resetSession = false) => {
   }
   await setAudioModeAsync({
     allowsRecording: true,
+    allowsBackgroundRecording: true,
     playsInSilentMode: true,
+    shouldPlayInBackground: true,
     interruptionMode: 'doNotMix',
     shouldRouteThroughEarpiece: false,
   } as Parameters<typeof setAudioModeAsync>[0]);
@@ -286,6 +288,15 @@ export function useWingmanSession() {
           keepAudioSessionActive: true,
         });
         player.volume = 1.0;
+        try {
+          player.setActiveForLockScreen(true, {
+            title: 'AI Wingman',
+            artist: 'Live coaching',
+            albumTitle: 'Wingman',
+          });
+        } catch {
+          // Lock screen controls are a best-effort background playback upgrade.
+        }
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         await new Promise<void>((resolve) => {
@@ -302,6 +313,7 @@ export function useWingmanSession() {
       } finally {
         if (player) {
           try { player.remove(); } catch { /* noop */ }
+          try { player.clearLockScreenControls(); } catch { /* noop */ }
         }
         FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
       }

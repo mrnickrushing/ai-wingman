@@ -19,11 +19,11 @@ function modeLabel(mode?: ConversationMode | null): string {
   }
 }
 
-export function PrepPacketCard({ latestRecap, onResumeMode }: Props) {
-  const packet = useMemo(() => {
+export function PrepBriefCard({ latestRecap, onResumeMode }: Props) {
+  const brief = useMemo(() => {
     if (!latestRecap) {
       return {
-        title: 'Build your first prep packet',
+        title: 'Build your first prep brief',
         body: 'Run a session and Wingman will remember what mattered, what broke, and what to tighten next time.',
         next: 'Start a mode to create memory.',
       };
@@ -34,7 +34,7 @@ export function PrepPacketCard({ latestRecap, onResumeMode }: Props) {
       ?? latestRecap.highlights[0]
       ?? latestRecap.summary;
     return {
-      title: `${modeLabel(latestRecap.mode)} prep packet`,
+      title: `${modeLabel(latestRecap.mode)} prep brief`,
       body: latestRecap.summary,
       next: nextStep,
     };
@@ -44,8 +44,8 @@ export function PrepPacketCard({ latestRecap, onResumeMode }: Props) {
     <View style={s.card}>
       <View style={s.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={s.kicker}>PREP PACKET</Text>
-          <Text style={s.title}>{packet.title}</Text>
+          <Text style={s.kicker}>PREP BRIEF</Text>
+          <Text style={s.title}>{brief.title}</Text>
         </View>
         {latestRecap && onResumeMode ? (
           <TouchableOpacity onPress={() => onResumeMode(latestRecap.mode)} style={s.resumeBtn} activeOpacity={0.8}>
@@ -53,10 +53,10 @@ export function PrepPacketCard({ latestRecap, onResumeMode }: Props) {
           </TouchableOpacity>
         ) : null}
       </View>
-      <Text style={s.body}>{packet.body}</Text>
+      <Text style={s.body}>{brief.body}</Text>
       <View style={s.nextBlock}>
         <Text style={s.nextLabel}>Next move</Text>
-        <Text style={s.nextText}>{packet.next}</Text>
+        <Text style={s.nextText}>{brief.next}</Text>
       </View>
     </View>
   );

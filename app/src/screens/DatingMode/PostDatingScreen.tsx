@@ -38,6 +38,11 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
+  const fullTranscriptText = transcript
+    .filter((t) => t.isFinal)
+    .map((t) => t.text)
+    .join(' ')
+    .trim();
 
   useEffect(() => {
     const score = computeWingmanScore({
@@ -48,7 +53,6 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-    const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
     saveSession({
       mode: 'dating',
       title: datingSetup.name || 'Date',
@@ -57,7 +61,7 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
       coachingCount: coachingHistory.length,
       score,
       rating: lastRating,
-      transcriptText,
+      transcriptText: fullTranscriptText,
       coachingItems: coachingHistory.map((c) => c.text),
       context: {
         'Date name': datingSetup.name,
@@ -113,9 +117,9 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
 
   const transcriptSummary = transcript
     .filter((t) => t.isFinal)
-    .slice(-6)
     .map((t) => t.text)
-    .join(' ');
+    .join(' ')
+    .trim();
   const vibe = transcriptSummary.length > 180 ? '🔥 Hot' : transcriptSummary.length > 80 ? '✨ Warm' : '🌙 Quiet';
   const intentReady = Boolean(datingSetup.intent);
   const nameReady = Boolean(datingSetup.name);
@@ -170,9 +174,9 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
 
           {transcriptSummary.length > 0 && (
             <Animated.View style={[s.section, { opacity: fadeAnim }]}>
-              <Text style={s.sectionLabel}>TRANSCRIPT SUMMARY</Text>
+              <Text style={s.sectionLabel}>FULL TRANSCRIPT</Text>
               <View style={s.summaryCard}>
-                <Text style={s.summaryText} numberOfLines={6}>{transcriptSummary}</Text>
+                <Text style={s.summaryText} numberOfLines={12}>{transcriptSummary}</Text>
               </View>
             </Animated.View>
           )}
@@ -223,6 +227,51 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
               </View>
             ) : null}
           </Animated.View>
+
+          {(analysisLoading || analysis?.secondDatePrep) && (
+            <Animated.View style={[s.section, { opacity: fadeAnim }]}>
+              <Text style={s.sectionLabel}>SECOND DATE PREP</Text>
+              {analysisLoading ? (
+                <View style={s.analysisLoading}>
+                  <ActivityIndicator size="small" color="#ec4899" />
+                  <Text style={s.analysisLoadingText}>Building next-date prep...</Text>
+                </View>
+              ) : analysis?.secondDatePrep ? (
+                <View style={s.prepCard}>
+                  {analysis.secondDatePrep.nextDateIdea ? (
+                    <View style={s.nextDateIdea}>
+                      <Text style={s.nextDateLabel}>Next date idea</Text>
+                      <Text style={s.nextDateText}>{analysis.secondDatePrep.nextDateIdea}</Text>
+                    </View>
+                  ) : null}
+                  {(analysis.secondDatePrep.recommendations?.length ?? 0) > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>Do this next</Text>
+                      {analysis.secondDatePrep.recommendations.map((item, i) => (
+                        <Text key={i} style={s.analysisItem}>· {item}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {(analysis.secondDatePrep.conversationStarters?.length ?? 0) > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>Callbacks to use</Text>
+                      {analysis.secondDatePrep.conversationStarters.map((item, i) => (
+                        <Text key={i} style={s.analysisItem}>· {item}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {(analysis.secondDatePrep.remember?.length ?? 0) > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>Remember</Text>
+                      {analysis.secondDatePrep.remember.map((item, i) => (
+                        <Text key={i} style={s.analysisItem}>· {item}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : null}
+            </Animated.View>
+          )}
 
           {(analysisLoading || (analysis?.followUps && analysis.followUps.length > 0)) && (
             <Animated.View style={[s.section, { opacity: fadeAnim }]}>
@@ -345,6 +394,18 @@ const s = StyleSheet.create({
   analysisListHeader: { color: '#ec4899', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
   analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
   analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
+  prepCard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.18)',
+    borderRadius: 16, padding: 16, gap: 14,
+  },
+  nextDateIdea: {
+    backgroundColor: 'rgba(236,72,153,0.08)',
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.18)',
+    borderRadius: 12, padding: 13, gap: 5,
+  },
+  nextDateLabel: { color: '#ec4899', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  nextDateText: { color: '#f8fafc', fontSize: 14, lineHeight: 20, fontWeight: '700' },
 
   followCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',

@@ -22,6 +22,12 @@ export type SessionAnalysis = {
   improvements: string[];
   keyMoment: string;
   followUps: Array<{ timing: string; text: string }>;
+  secondDatePrep?: {
+    recommendations: string[];
+    conversationStarters: string[];
+    nextDateIdea: string;
+    remember: string[];
+  };
 };
 
 export type SavedSession = {

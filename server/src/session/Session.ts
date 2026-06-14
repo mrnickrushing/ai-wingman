@@ -24,8 +24,9 @@ const RESUMMARIZE_EVERY = 20;
 const MAX_CONTEXT_TOKENS = 80_000;
 const CHARS_PER_TOKEN = 4;
 const RECENT_TRANSCRIPT_TURNS = 10;
-const MIN_COACH_INTERVAL_MS = 3500;
-const MIN_NEW_WORDS_FOR_COACH = 6;
+const MIN_COACH_INTERVAL_MS = 2500;
+const MAX_COACH_SILENCE_MS = 18_000;
+const MIN_NEW_WORDS_FOR_COACH = 3;
 
 export class Session {
   readonly id: string;
@@ -36,6 +37,7 @@ export class Session {
   private coachedTranscript = '';
   private transcriptSinceCoach: string[] = [];
   private lastCoachAttemptAt = 0;
+  private lastTipAt = Date.now();
 
   // --- Rolling context state (persists for the session lifetime) ---
   private rollingSummary = '';
@@ -116,7 +118,12 @@ export class Session {
     if (!transcript.trim()) return;
     const newWords = this.transcriptSinceCoach.join(' ').split(/\s+/).filter(Boolean).length;
     const now = Date.now();
-    if (newWords < MIN_NEW_WORDS_FOR_COACH && now - this.lastCoachAttemptAt < MIN_COACH_INTERVAL_MS) {
+    const msSinceAttempt = now - this.lastCoachAttemptAt;
+    const msSinceTip = now - this.lastTipAt;
+    if (msSinceAttempt < MIN_COACH_INTERVAL_MS) {
+      return;
+    }
+    if (newWords < MIN_NEW_WORDS_FOR_COACH && msSinceTip < MAX_COACH_SILENCE_MS) {
       return;
     }
 
@@ -131,9 +138,10 @@ export class Session {
       };
 
       const coaching = await this.generateCoaching(transcript, onChunk);
-      this.transcriptSinceCoach = [];
 
       if (coaching && coaching !== 'HOLD') {
+        this.transcriptSinceCoach = [];
+        this.lastTipAt = Date.now();
         this.recordCoaching(coaching);
         // Send the full coaching text for the on-screen bubble. Audio for this
         // tip has already been streaming via enqueueTts as chunks arrived.
@@ -141,6 +149,8 @@ export class Session {
         // Refresh the rolling summary if we've crossed the window threshold.
         // Done after sending so it never delays the live tip.
         void this.maybeRollUpContext();
+      } else if (this.transcriptSinceCoach.length > RECENT_TRANSCRIPT_TURNS) {
+        this.transcriptSinceCoach = this.transcriptSinceCoach.slice(-RECENT_TRANSCRIPT_TURNS);
       }
     } catch (err) {
       const msg = (err as Error).message ?? 'Coaching failed';

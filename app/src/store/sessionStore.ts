@@ -202,7 +202,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setError: (error) => set({ error, lastErrorAt: error ? Date.now() : null }),
 
   addTranscript: (entry) =>
-    set((s) => ({ transcript: [...s.transcript.slice(-100), entry] })),
+    set((s) => ({ transcript: [...s.transcript, entry] })),
 
   updateLastTranscript: (text) =>
     set((s) => {

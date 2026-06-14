@@ -270,18 +270,24 @@ export function useWingmanSession() {
     if (isPlayingRef.current) return;
     isPlayingRef.current = true;
 
-    const { setWingmanSpeaking } = useSessionStore.getState();
+    const { setWingmanSpeaking, setError } = useSessionStore.getState();
     while (audioQueueRef.current.length > 0) {
       const b64 = audioQueueRef.current.shift()!;
       const uri = `${FileSystem.cacheDirectory}wm-coach-${nextId()}.mp3`;
       let player: AudioPlayer | null = null;
       try {
+        await configureRecordingAudioMode();
+        await setIsAudioActiveAsync(true);
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        player = createAudioPlayer({ uri }, { updateInterval: 100 });
+        player = createAudioPlayer({ uri }, {
+          updateInterval: 100,
+          keepAudioSessionActive: true,
+        });
         player.volume = 1.0;
         setWingmanSpeaking(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         await new Promise<void>((resolve) => {
           const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
             if (status.didJustFinish || status.error) {
@@ -291,8 +297,8 @@ export function useWingmanSession() {
           });
           player!.play();
         });
-      } catch {
-        // ignore playback errors — text coaching is still shown on screen
+      } catch (err) {
+        setError(`Coaching audio playback failed. ${describeError(err)}`);
       } finally {
         if (player) {
           try { player.remove(); } catch { /* noop */ }

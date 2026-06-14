@@ -4,7 +4,7 @@ import { ConversationTurn, HardConversationScenario } from '../types';
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const COACHING_MODEL = 'claude-sonnet-4-6';
-const COACHING_MAX_TOKENS = 80;
+const COACHING_MAX_TOKENS = 120;
 
 /**
  * Called as the coaching response streams in, once per sentence-boundary chunk
@@ -177,6 +177,8 @@ export async function generateSalesCoaching(
 const LIVE_RULES = `RULES:
 - Only respond when there is something genuinely useful to say. Silence is better than noise.
 - If the user has gone several turns without a tip, give one short context-aware nudge instead of staying silent.
+- Prefer a specific callback, follow-up question, or repair move based on the transcript.
+- Avoid generic advice when transcript context exists.
 - Maximum 12 words per coaching suggestion. Shorter is better.
 - No preamble, no labels — just the actionable suggestion.
 - Never repeat yourself. If you've already given a piece of advice, don't repeat it.
@@ -207,6 +209,9 @@ FOCUS:
 - Detect awkward silences → suggest a conversation re-opener
 - Read the emotional tone → flag positive or negative signals
 - Spot callback opportunities (things they mentioned earlier)
+- Ask follow-ups tied to the exact topic they just mentioned
+- Avoid generic openers like "ask how her day was" after conversation starts
+- If there are only fragments, suggest one simple grounding question
 - Suggest escalation cues when the energy is high
 - Alert when the user is over-talking (talk ratio)
 
@@ -335,6 +340,12 @@ export type SessionAnalysis = {
   improvements: string[];
   keyMoment: string;
   followUps: Array<{ timing: string; text: string }>;
+  secondDatePrep?: {
+    recommendations: string[];
+    conversationStarters: string[];
+    nextDateIdea: string;
+    remember: string[];
+  };
 };
 
 export async function analyzeSession(input: {
@@ -382,7 +393,7 @@ export async function analyzeSession(input: {
           content: `Analyze this completed ${modeLabel[mode] ?? 'conversation'} session.
 
 ${contextBlock ? `Context:\n${contextBlock}\n` : ''}
-Transcript (last portion):
+Transcript:
 ${transcriptText || '(no transcript captured)'}
 ${coachingBlock}
 
@@ -392,10 +403,17 @@ Return a JSON object with exactly these fields:
   "strengths": ["specific thing done well", "another strength"],
   "improvements": ["specific thing to work on", "another improvement"],
   "keyMoment": "1 sentence describing the most pivotal moment",
-  "followUps": [{ "timing": "timing label", "text": "action or message text" }]
+  "followUps": [{ "timing": "timing label", "text": "action or message text" }],
+  "secondDatePrep": {
+    "recommendations": ["specific recommendation for the next date"],
+    "conversationStarters": ["question or callback from this transcript"],
+    "nextDateIdea": "one date idea that fits what they discussed",
+    "remember": ["specific detail to remember from the first date"]
+  }
 }
 
 ${followUpInstructions[mode] ?? ''}
+For dating mode, fill secondDatePrep using the full transcript: callbacks, topics to revisit, what to avoid, and a next-date idea. For other modes, return empty arrays and an empty nextDateIdea.
 Be specific and reference what actually happened in the transcript. Strengths and improvements arrays should have 2-3 items each.`,
         },
       ],

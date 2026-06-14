@@ -245,7 +245,7 @@ export async function runWingmanPreflight(sampleMs = 1600): Promise<WingmanPrefl
 export function useWingmanSession() {
   const recordingRef = useRef<AudioRecorder | null>(null);
   const recordingProfileRef = useRef<RecorderProfile | null>(null);
-  // Peak metering (dBFS) tracked during each 1.5 s recording cycle.
+  // Peak metering (dBFS) tracked during each ~0.9 s recording cycle.
   // Reset when a new recorder starts; checked before sending to skip silence.
   const peakMeteringRef = useRef<number>(SILENCE_THRESHOLD_DBFS - 1);
   const meteringPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -254,7 +254,7 @@ export function useWingmanSession() {
   const isActiveRef = useRef(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards against overlapping capture cycles: a slow stop()/file-read can run
-  // past the 1.5s interval, and a second invocation racing the first would
+  // past the interval, and a second invocation racing the first would
   // orphan a native recorder (leak / double-record crash).
   const capturingRef = useRef(false);
   const connectWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -406,17 +406,15 @@ export function useWingmanSession() {
           clearTimeout(transcriptWatchdogRef.current);
           transcriptWatchdogRef.current = null;
         }
+        const entry: TranscriptEntry = {
+          id: nextId(),
+          text: event.text,
+          isFinal: event.isFinal,
+          timestamp: Date.now(),
+        };
+        store.upsertTranscript(entry);
         if (event.isFinal) {
-          const entry: TranscriptEntry = {
-            id: nextId(),
-            text: event.text,
-            isFinal: true,
-            timestamp: Date.now(),
-          };
-          store.addTranscript(entry);
           store.incrementWords(event.text.split(/\s+/).filter(Boolean).length);
-        } else {
-          store.updateLastTranscript(event.text);
         }
       } else if (event.type === 'coaching') {
         store.setSessionPhase('coaching');
@@ -572,8 +570,8 @@ export function useWingmanSession() {
 
     // First segment immediately
     await captureAndSend();
-    // Then every 1.5 seconds
-    chunkTimerRef.current = setInterval(captureAndSend, 1200);
+    // Then every ~0.9s so live transcription sees smaller chunks sooner.
+    chunkTimerRef.current = setInterval(captureAndSend, 900);
     return Boolean(recordingRef.current);
   }, []);
 
@@ -684,6 +682,7 @@ export function useWingmanSession() {
     audioQueueRef.current = [];
 
     wingmanClient.endSession();
+    await new Promise((resolve) => setTimeout(resolve, 900));
     wingmanClient.disconnect();
     const store = useSessionStore.getState();
     store.setRecording(false);

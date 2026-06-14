@@ -104,6 +104,7 @@ interface SessionStore {
   setError: (error: string | null) => void;
   addTranscript: (entry: TranscriptEntry) => void;
   updateLastTranscript: (text: string) => void;
+  upsertTranscript: (entry: TranscriptEntry) => void;
   addCoaching: (entry: CoachingEntry) => void;
   setCurrentCoaching: (text: string | null) => void;
   setLastTranscriptAt: (timestamp: number | null) => void;
@@ -227,6 +228,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         return { transcript: updated };
       }
       return {};
+    }),
+
+  upsertTranscript: (entry) =>
+    set((s) => {
+      const last = s.transcript[s.transcript.length - 1];
+      if (last && !last.isFinal) {
+        const updated = [...s.transcript];
+        updated[updated.length - 1] = entry;
+        return { transcript: updated };
+      }
+      return { transcript: [...s.transcript, entry] };
     }),
 
   addCoaching: (entry) =>

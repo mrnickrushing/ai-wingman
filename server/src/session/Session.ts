@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { transcribeChunk } from '../services/deepgram';
+import { DeepgramLiveTranscriber, transcribeChunk } from '../services/deepgram';
 import {
   generateSalesCoaching,
   generateDatingCoaching,
@@ -24,8 +24,8 @@ const RESUMMARIZE_EVERY = 20;
 const MAX_CONTEXT_TOKENS = 80_000;
 const CHARS_PER_TOKEN = 4;
 const RECENT_TRANSCRIPT_TURNS = 10;
-const MIN_COACH_INTERVAL_MS = 1800;
-const MAX_COACH_SILENCE_MS = 12_000;
+const MIN_COACH_INTERVAL_MS = 1200;
+const MAX_COACH_SILENCE_MS = 10_000;
 const MIN_NEW_WORDS_FOR_COACH = 2;
 
 export class Session {
@@ -38,6 +38,8 @@ export class Session {
   private transcriptSinceCoach: string[] = [];
   private lastCoachAttemptAt = 0;
   private lastTipAt = Date.now();
+  private liveTranscriber: DeepgramLiveTranscriber | null = null;
+  private transcriptionMode: 'live' | 'chunked' = 'live';
 
   // --- Rolling context state (persists for the session lifetime) ---
   private rollingSummary = '';
@@ -60,6 +62,25 @@ export class Session {
     private config: SessionConfig
   ) {
     this.id = id;
+    this.liveTranscriber = new DeepgramLiveTranscriber(
+      this.config.keywords ?? [],
+      ({ text, isFinal }) => {
+        if (!text.trim()) return;
+        this.wordCount += isFinal ? text.split(/\s+/).filter(Boolean).length : 0;
+        this.send({ type: 'transcript', text, isFinal });
+        if (isFinal) {
+          this.recordTranscript(text);
+          this.transcriptSinceCoach.push(text);
+          this.latestTranscript = this.buildRecentTranscriptWindow();
+          void this.maybeCoach();
+        }
+      },
+      (message) => {
+        console.warn(`[Session ${this.id}] Live transcription fallback: ${message}`);
+        this.transcriptionMode = 'chunked';
+        void this.liveTranscriber?.close();
+      }
+    );
   }
 
   /**
@@ -77,6 +98,12 @@ export class Session {
     }
     // Skip empty / near-silent segments that are too small to contain speech.
     if (buf.byteLength < 1024) return;
+
+    if (this.transcriptionMode === 'live' && this.liveTranscriber?.isHealthy) {
+      const sent = this.liveTranscriber.send(buf);
+      if (sent) return;
+      this.transcriptionMode = 'chunked';
+    }
 
     let text = '';
     try {
@@ -364,7 +391,14 @@ export class Session {
   }
 
   end(): void {
-    // No persistent upstream connection to close in the per-chunk model.
+    this.transcriptionMode = 'chunked';
     this.ttsQueue = [];
+    if (this.liveTranscriber) {
+      this.liveTranscriber.finalize();
+      void (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 650));
+        await this.liveTranscriber?.close();
+      })();
+    }
   }
 }

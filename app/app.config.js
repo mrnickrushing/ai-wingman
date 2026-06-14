@@ -1,8 +1,12 @@
 const baseConfig = require('./app.json');
 
 const DEFAULT_SERVER_URL = 'wss://wingman-server-production-5146.up.railway.app/ws';
-const projectId = process.env.EAS_PROJECT_ID;
-const hasProjectId = Boolean(projectId && projectId !== 'YOUR_EXPO_PROJECT_ID_HERE');
+const DEFAULT_EAS_PROJECT_ID = '0f5adf3f-ab58-451a-bf61-dddc1b58143b';
+const envProjectId = process.env.EAS_PROJECT_ID;
+const projectId = envProjectId && envProjectId !== 'YOUR_EXPO_PROJECT_ID_HERE'
+  ? envProjectId
+  : DEFAULT_EAS_PROJECT_ID;
+const hasProjectId = Boolean(projectId);
 const updatesUrl = process.env.EXPO_UPDATES_URL ?? (hasProjectId ? `https://u.expo.dev/${projectId}` : undefined);
 const updatesEnabled = Boolean(updatesUrl);
 

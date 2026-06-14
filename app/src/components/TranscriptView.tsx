@@ -47,12 +47,14 @@ function PulseDot({ delay }: { delay: number }) {
   const scale = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(scale, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
         Animated.timing(scale, { toValue: 0.6, duration: 500, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
 
   return (

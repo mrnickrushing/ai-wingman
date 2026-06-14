@@ -15,7 +15,7 @@ export type ChunkHandler = (chunk: string) => void;
 
 /**
  * Incremental sentence-boundary buffer. Tokens are appended via `push`; whenever
- * the buffer ends on `.`/`!`/`?` OR grows past ~40 chars, the accumulated text
+ * the buffer ends on `.`/`!`/`?` OR grows past ~28 chars, the accumulated text
  * is flushed as one chunk. `flush` emits any trailing remainder at end-of-stream.
  *
  * We chunk so each piece handed to TTS is a complete-ish thought — this is what
@@ -29,7 +29,7 @@ function createChunker(onChunk: ChunkHandler) {
     const trimmed = buffer.trim();
     if (!trimmed) return;
     const endsSentence = /[.!?]$/.test(trimmed);
-    if (endsSentence || trimmed.length >= 40) {
+    if (endsSentence || trimmed.length >= 28) {
       onChunk(trimmed);
       buffer = '';
     }

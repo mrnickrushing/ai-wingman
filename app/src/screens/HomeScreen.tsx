@@ -74,9 +74,10 @@ const MODES: Mode[] = [
 interface Props {
   onSelectMode: (modeId: string) => void;
   onOpenAccount: () => void;
+  onOpenHistory: () => void;
 }
 
-export function HomeScreen({ onSelectMode, onOpenAccount }: Props) {
+export function HomeScreen({ onSelectMode, onOpenAccount, onOpenHistory }: Props) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(MODES.map(() => new Animated.Value(0))).current;
   const [stats, setStats] = useState<PersistedStats>({
@@ -135,6 +136,9 @@ export function HomeScreen({ onSelectMode, onOpenAccount }: Props) {
               <View style={s.liveDot} />
               <Text style={s.liveText}>LIVE</Text>
             </View>
+            <TouchableOpacity onPress={onOpenHistory} style={s.accountBtn} hitSlop={8}>
+              <Text style={s.accountBtnText}>📋</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={onOpenAccount} style={s.accountBtn} hitSlop={8}>
               <Text style={s.accountBtnText}>⚙</Text>
             </TouchableOpacity>

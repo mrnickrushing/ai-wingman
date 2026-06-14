@@ -29,5 +29,23 @@ export async function initDb(): Promise<void> {
       ON accounts (apple_user_id) WHERE apple_user_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_google
       ON accounts (google_subject) WHERE google_subject IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id               TEXT        PRIMARY KEY,
+      account_id       TEXT        REFERENCES accounts(id) ON DELETE CASCADE,
+      mode             TEXT        NOT NULL,
+      title            TEXT        NOT NULL DEFAULT '',
+      duration_seconds INT         NOT NULL DEFAULT 0,
+      words_spoken     INT         NOT NULL DEFAULT 0,
+      coaching_count   INT         NOT NULL DEFAULT 0,
+      score            INT         NOT NULL DEFAULT 0,
+      rating           INT         NOT NULL DEFAULT 0,
+      transcript_text  TEXT        NOT NULL DEFAULT '',
+      coaching_json    TEXT        NOT NULL DEFAULT '[]',
+      analysis_json    TEXT,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_account
+      ON sessions (account_id, created_at DESC);
   `);
 }

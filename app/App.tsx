@@ -6,6 +6,8 @@ import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
+import { HistoryScreen } from './src/screens/HistoryScreen';
+import { useNotifications } from './src/hooks/useNotifications';
 import { PreCallScreen } from './src/screens/SalesMode/PreCallScreen';
 import { ActiveCallScreen } from './src/screens/SalesMode/ActiveCallScreen';
 import { PostCallScreen } from './src/screens/SalesMode/PostCallScreen';
@@ -23,7 +25,7 @@ import { ActiveHardConversationScreen } from './src/screens/HardConversationsMod
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 
 type Screen =
-  | 'home' | 'account'
+  | 'home' | 'account' | 'history'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
   | 'networking-precall' | 'networking-active' | 'networking-postcall'
@@ -117,6 +119,7 @@ function WingmanApp() {
   const [screen, setScreen] = useState<Screen>('home');
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
+  useNotifications();
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDED_KEY)
@@ -172,6 +175,7 @@ function WingmanApp() {
             else if (mode === 'hard_conversations') setScreen('hardconvo-precall');
           }}
           onOpenAccount={() => setScreen('account')}
+          onOpenHistory={() => setScreen('history')}
         />
       )}
 
@@ -183,6 +187,10 @@ function WingmanApp() {
             setUnlocked(false);
           }}
         />
+      )}
+
+      {screen === 'history' && (
+        <HistoryScreen onBack={() => setScreen('home')} />
       )}
 
       {/* Sales Mode */}

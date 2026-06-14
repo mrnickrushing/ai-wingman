@@ -7,11 +7,13 @@ import { SessionManager } from './session/SessionManager';
 import { ClientMessage } from './types';
 import { initDb } from './db/index';
 import authRouter from './routes/auth';
+import sessionsRouter from './routes/sessions';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/auth', authRouter);
+app.use('/sessions', sessionsRouter);
 
 const server = http.createServer(app);
 // Manage the upgrade ourselves (noServer) so we can log handshake attempts and

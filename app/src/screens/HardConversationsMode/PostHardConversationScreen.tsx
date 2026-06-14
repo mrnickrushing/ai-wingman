@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform,
+  SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
+import { saveSession, SessionAnalysis } from '../../services/sessionService';
+import { resetInactivityNudge } from '../../hooks/useNotifications';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -34,6 +36,8 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [finalNumber, setFinalNumber] = useState('');
   const [therapyNotes, setTherapyNotes] = useState('');
+  const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -48,6 +52,29 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
+
+    const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
+    saveSession({
+      mode: 'hard_conversations',
+      title: hardConvoSetup.situation || (hardConvoSetup.scenario ?? 'Conversation'),
+      durationSeconds: elapsedSeconds,
+      wordsSpoken: wordsSelf,
+      coachingCount: coachingHistory.length,
+      score,
+      rating: lastRating,
+      transcriptText,
+      coachingItems: coachingHistory.map((c) => c.text),
+      context: {
+        'Scenario': hardConvoSetup.scenario ?? '',
+        'Situation': hardConvoSetup.situation,
+        'Goal': hardConvoSetup.goal,
+      },
+    }).then((s) => {
+      setAnalysis(s?.analysis ?? null);
+      setAnalysisLoading(false);
+      resetInactivityNudge().catch(() => {});
+    });
+
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -193,14 +220,52 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
             )}
 
             <Animated.View style={[s.section, { opacity: fadeAnim }]}>
-              <Text style={s.sectionLabel}>LESSONS LEARNED</Text>
-              <View style={s.summaryCard}>
-                <Text style={s.summaryText}>
-                  {coachingHistory.length > 0
-                    ? 'What worked: you stayed in the conversation and used live cues. Next time, hold silence longer and let the other side fill it.'
-                    : 'Not enough signal captured this session — keep the conversation flowing next time to surface clearer lessons.'}
-                </Text>
-              </View>
+              <Text style={s.sectionLabel}>WINGMAN ANALYSIS</Text>
+              {analysisLoading ? (
+                <View style={s.analysisLoading}>
+                  <ActivityIndicator size="small" color="#8b5cf6" />
+                  <Text style={s.analysisLoadingText}>Analyzing your conversation...</Text>
+                </View>
+              ) : analysis ? (
+                <View style={s.analysisCard}>
+                  <Text style={s.analysisSummary}>{analysis.summary}</Text>
+                  {analysis.strengths.length > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>✓ What went well</Text>
+                      {analysis.strengths.map((s2, i) => (
+                        <Text key={i} style={s.analysisItem}>· {s2}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {analysis.improvements.length > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>↑ Next time</Text>
+                      {analysis.improvements.map((s2, i) => (
+                        <Text key={i} style={s.analysisItem}>· {s2}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {analysis.keyMoment ? (
+                    <Text style={s.analysisKeyMoment}>Key moment: {analysis.keyMoment}</Text>
+                  ) : null}
+                  {analysis.followUps && analysis.followUps.length > 0 && (
+                    <View style={s.analysisList}>
+                      <Text style={s.analysisListHeader}>→ Next steps</Text>
+                      {analysis.followUps.map((f, i) => (
+                        <Text key={i} style={s.analysisItem}>· [{f.timing}] {f.text}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={s.summaryCard}>
+                  <Text style={s.summaryText}>
+                    {coachingHistory.length > 0
+                      ? 'What worked: you stayed in the conversation and used live cues. Next time, hold silence longer and let the other side fill it.'
+                      : 'Not enough signal captured this session — keep the conversation flowing next time to surface clearer lessons.'}
+                  </Text>
+                </View>
+              )}
             </Animated.View>
 
             <Animated.View style={[s.actions, { opacity: fadeAnim }]}>
@@ -263,6 +328,19 @@ const s = StyleSheet.create({
 
   section: { gap: 12 },
   sectionLabel: { color: '#334155', fontSize: 10, fontWeight: '700', letterSpacing: 2 },
+
+  analysisLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16 },
+  analysisLoadingText: { color: '#475569', fontSize: 13 },
+  analysisCard: {
+    backgroundColor: 'rgba(139,92,246,0.06)',
+    borderWidth: 1, borderColor: 'rgba(139,92,246,0.15)',
+    borderRadius: 16, padding: 16, gap: 12,
+  },
+  analysisSummary: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  analysisList: { gap: 4 },
+  analysisListHeader: { color: '#8b5cf6', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
+  analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
   summaryCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',

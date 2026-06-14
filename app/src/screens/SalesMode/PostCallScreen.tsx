@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
+import { saveSession, SessionAnalysis } from '../../services/sessionService';
+import { resetInactivityNudge } from '../../hooks/useNotifications';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -23,6 +25,8 @@ interface Props {
 export function PostCallScreen({ onDone, onCallAgain }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating, recordSession } = useSessionStore();
   const [rating, setRating] = useState(0);
+  const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(true);
 
   useEffect(() => {
     const score = computeWingmanScore({
@@ -33,6 +37,30 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
+
+    const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
+    const title = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Sales call';
+    saveSession({
+      mode: 'sales',
+      title,
+      durationSeconds: elapsedSeconds,
+      wordsSpoken: wordsSelf,
+      coachingCount: coachingHistory.length,
+      score,
+      rating: 0,
+      transcriptText,
+      coachingItems: coachingHistory.map((c) => c.text),
+      context: {
+        'Prospect': salesSetup.prospectName,
+        'Company': salesSetup.company,
+        'Role': salesSetup.role,
+        'Call goal': salesSetup.callGoal,
+      },
+    }).then((s) => {
+      setAnalysis(s?.analysis ?? null);
+      setAnalysisLoading(false);
+      resetInactivityNudge().catch(() => {});
+    });
   }, []);
 
   // North Star metric: "Did Wingman help you get the outcome you wanted?"
@@ -154,6 +182,50 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
             </Animated.View>
           )}
 
+          {/* AI Analysis */}
+          <Animated.View style={[s.section, { opacity: fadeAnim }]}>
+            <Text style={s.sectionLabel}>WINGMAN ANALYSIS</Text>
+            {analysisLoading ? (
+              <View style={s.analysisLoading}>
+                <ActivityIndicator size="small" color="#6366f1" />
+                <Text style={s.analysisLoadingText}>Analyzing your session...</Text>
+              </View>
+            ) : analysis ? (
+              <View style={s.analysisCard}>
+                <Text style={s.analysisSummary}>{analysis.summary}</Text>
+                {analysis.strengths.length > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>✓ What worked</Text>
+                    {analysis.strengths.map((s2, i) => (
+                      <Text key={i} style={s.analysisItem}>· {s2}</Text>
+                    ))}
+                  </View>
+                )}
+                {analysis.improvements.length > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>↑ Next time</Text>
+                    {analysis.improvements.map((s2, i) => (
+                      <Text key={i} style={s.analysisItem}>· {s2}</Text>
+                    ))}
+                  </View>
+                )}
+                {analysis.keyMoment ? (
+                  <Text style={s.analysisKeyMoment}>Key moment: {analysis.keyMoment}</Text>
+                ) : null}
+              </View>
+            ) : null}
+            {analysis?.followUps && analysis.followUps.length > 0 && (
+              <View style={s.followUpList}>
+                {analysis.followUps.map((f, i) => (
+                  <View key={i} style={s.followCard}>
+                    <View style={s.timingPill}><Text style={s.timingText}>{f.timing}</Text></View>
+                    <Text style={s.followText}>{f.text}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Animated.View>
+
           {/* Rating */}
           <Animated.View style={[s.section, { opacity: fadeAnim }]}>
             <Text style={s.sectionLabel}>HOW'D IT GO?</Text>
@@ -271,6 +343,33 @@ const s = StyleSheet.create({
     backgroundColor: '#8b5cf6', marginTop: 6, flexShrink: 0,
   },
   coachingText: { flex: 1, color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+
+  analysisLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16 },
+  analysisLoadingText: { color: '#475569', fontSize: 13 },
+  analysisCard: {
+    backgroundColor: 'rgba(99,102,241,0.06)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.15)',
+    borderRadius: 16, padding: 16, gap: 12,
+  },
+  analysisSummary: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  analysisList: { gap: 4 },
+  analysisListHeader: { color: '#6366f1', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
+  analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
+  followUpList: { gap: 8 },
+  followCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12, padding: 14, gap: 8,
+  },
+  timingPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(99,102,241,0.15)',
+    borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  timingText: { color: '#6366f1', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  followText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
 
   starsRow: { flexDirection: 'row', gap: 8 },
   starBtn: { padding: 4 },

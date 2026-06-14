@@ -27,6 +27,31 @@ const RECENT_TRANSCRIPT_TURNS = 10;
 const MIN_COACH_INTERVAL_MS = 1200;
 const MAX_COACH_SILENCE_MS = 10_000;
 const MIN_NEW_WORDS_FOR_COACH = 2;
+const PCM_SAMPLE_RATE = 16000;
+const PCM_CHANNELS = 1;
+const PCM_BITS_PER_SAMPLE = 16;
+
+function wrapPcmInWav(pcm: Buffer): Buffer {
+  const byteRate = PCM_SAMPLE_RATE * PCM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
+  const blockAlign = PCM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
+  const header = Buffer.alloc(44);
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.byteLength, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(PCM_CHANNELS, 22);
+  header.writeUInt32LE(PCM_SAMPLE_RATE, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(PCM_BITS_PER_SAMPLE, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.byteLength, 40);
+
+  return Buffer.concat([header, pcm]);
+}
 
 export class Session {
   readonly id: string;
@@ -87,7 +112,7 @@ export class Session {
    * Receive a self-contained audio chunk (base64-encoded container file),
    * transcribe it, surface the transcript, and trigger coaching.
    */
-  async receiveAudio(base64Chunk: string): Promise<void> {
+  async receiveAudio(base64Chunk: string, mimeType?: string): Promise<void> {
     if (!base64Chunk) return;
 
     let buf: Buffer;
@@ -99,10 +124,32 @@ export class Session {
     // Skip empty / near-silent segments that are too small to contain speech.
     if (buf.byteLength < 1024) return;
 
-    if (this.transcriptionMode === 'live' && this.liveTranscriber?.isHealthy) {
-      const sent = this.liveTranscriber.send(buf);
-      if (sent) return;
-      this.transcriptionMode = 'chunked';
+    const isPcmStream = mimeType === 'audio/pcm';
+    if (isPcmStream) {
+      if (this.transcriptionMode === 'live' && this.liveTranscriber?.isHealthy) {
+        const sent = this.liveTranscriber.send(buf);
+        if (sent) return;
+        this.transcriptionMode = 'chunked';
+      }
+      const wav = wrapPcmInWav(buf);
+      let text = '';
+      try {
+        text = await transcribeChunk(wav, this.config.keywords ?? []);
+      } catch (err) {
+        const msg = (err as Error).message ?? 'Transcription failed';
+        console.error(`[Session ${this.id}] PCM transcription error:`, msg);
+        this.send({ type: 'error', message: `Transcription error: ${msg}` });
+        return;
+      }
+      if (!text) return;
+
+      this.wordCount += text.split(/\s+/).filter(Boolean).length;
+      this.send({ type: 'transcript', text, isFinal: true });
+      this.recordTranscript(text);
+      this.transcriptSinceCoach.push(text);
+      this.latestTranscript = this.buildRecentTranscriptWindow();
+      void this.maybeCoach();
+      return;
     }
 
     let text = '';

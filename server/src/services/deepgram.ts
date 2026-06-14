@@ -18,6 +18,9 @@ export class DeepgramLiveTranscriber {
     const options: LiveSchema = {
       model: 'nova-3',
       language: 'en-US',
+      encoding: 'linear16',
+      sample_rate: 16000,
+      channels: 1,
       smart_format: true,
       punctuate: true,
       filler_words: false,

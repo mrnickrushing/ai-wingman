@@ -131,6 +131,21 @@ const configureRecordingAudioMode = async (resetSession = false) => {
   } as Parameters<typeof setAudioModeAsync>[0]);
 };
 
+// Playback-only mode: uses AVAudioSessionCategoryPlayback so iOS correctly
+// routes audio to AirPods (or speaker) based on the user's selected output.
+// PlayAndRecord + DefaultToSpeaker forces the built-in speaker and blocks
+// Bluetooth A2DP output, which is why coaching audio never reaches AirPods.
+const configurePlaybackAudioMode = async () => {
+  await setAudioModeAsync({
+    allowsRecording: false,
+    allowsBackgroundRecording: false,
+    playsInSilentMode: true,
+    shouldPlayInBackground: true,
+    interruptionMode: 'duckOthers',
+    shouldRouteThroughEarpiece: false,
+  } as Parameters<typeof setAudioModeAsync>[0]);
+};
+
 const createPreparedRecorder = async (): Promise<{ recorder: AudioRecorder; profile: RecorderProfile }> => {
   const failures: string[] = [];
   const orderedProfiles = [
@@ -351,7 +366,7 @@ export function useWingmanSession() {
       const uri = `${FileSystem.cacheDirectory}wm-coach-${nextId()}.mp3`;
       let player: AudioPlayer | null = null;
       try {
-        await configureRecordingAudioMode();
+        await configurePlaybackAudioMode();
         await setIsAudioActiveAsync(true);
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
@@ -394,6 +409,8 @@ export function useWingmanSession() {
 
     setWingmanSpeaking(false);
     isPlayingRef.current = false;
+    // Restore recording mode so the mic keeps working after coaching plays.
+    configureRecordingAudioMode().catch(() => {});
   }, []);
 
   // Wire up WebSocket events. Actions are read via getState() so this effect

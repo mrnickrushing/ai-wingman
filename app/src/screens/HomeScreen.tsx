@@ -67,6 +67,11 @@ export function HomeScreen({
     return weak.length > 92 ? `${weak.slice(0, 92)}...` : weak;
   }, [recentRecaps]);
 
+  const resumeMode = recentRecaps[0]?.mode ?? null;
+  const resumeLabel = resumeMode
+    ? MODES.find((mode) => mode.id === resumeMode)?.label ?? 'Last mode'
+    : null;
+
   return (
     <View style={s.root}>
       <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
@@ -106,6 +111,19 @@ export function HomeScreen({
                 <Text style={s.secondaryActionText}>Playbooks</Text>
               </TouchableOpacity>
             </View>
+
+            {resumeMode ? (
+              <TouchableOpacity onPress={() => onSelectMode(resumeMode)} style={s.resumeCard} activeOpacity={0.82}>
+                <View style={s.resumeTop}>
+                  <Text style={s.resumeLabel}>Resume last mode</Text>
+                  <Text style={s.resumeAction}>Continue</Text>
+                </View>
+                <Text style={s.resumeTitle}>{resumeLabel}</Text>
+                <Text style={s.resumeBody} numberOfLines={2}>
+                  {nextFocus}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={s.metricsRow}>
@@ -257,6 +275,19 @@ const s = StyleSheet.create({
     paddingVertical: 14,
   },
   secondaryActionText: { color: '#e2e8f0', fontSize: 15, fontWeight: '900' },
+  resumeCard: {
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 14,
+    gap: 6,
+  },
+  resumeTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  resumeLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
+  resumeAction: { color: '#818cf8', fontSize: 12, fontWeight: '900' },
+  resumeTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
+  resumeBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
   metricsRow: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,

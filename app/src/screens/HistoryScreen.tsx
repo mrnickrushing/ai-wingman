@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet, Share,
   SafeAreaView, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { listSessions, SavedSession } from '../services/sessionService';
+import { ConversationMode } from '../types';
 
 const MODE_META: Record<string, { icon: string; label: string; accent: string }> = {
   sales: { icon: 'S', label: 'Sales', accent: '#6366f1' },
@@ -31,9 +32,10 @@ function formatDuration(seconds: number): string {
 
 interface Props {
   onBack: () => void;
+  onStartMode: (mode: ConversationMode) => void;
 }
 
-export function HistoryScreen({ onBack }: Props) {
+export function HistoryScreen({ onBack, onStartMode }: Props) {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -73,6 +75,24 @@ export function HistoryScreen({ onBack }: Props) {
     return acc;
   }, []);
 
+  const latestSession = sessions[0] ?? null;
+
+  const buildShareText = (session: SavedSession): string => {
+    const parts = [
+      `${session.title || MODE_META[session.mode]?.label || 'Session'} · ${session.score}`,
+      `Duration: ${formatDuration(session.durationSeconds)} · Tips: ${session.coachingCount}`,
+      session.analysis?.summary,
+      session.analysis?.strengths?.length ? `What worked: ${session.analysis.strengths.join('; ')}` : null,
+      session.analysis?.improvements?.length ? `Next time: ${session.analysis.improvements.join('; ')}` : null,
+      session.analysis?.followUps?.length ? `Follow-up: ${session.analysis.followUps[0].text}` : null,
+    ].filter(Boolean);
+    return parts.join('\n\n');
+  };
+
+  const shareSession = async (session: SavedSession) => {
+    await Share.share({ message: buildShareText(session) }).catch(() => {});
+  };
+
   return (
     <View style={st.root}>
       <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
@@ -105,6 +125,24 @@ export function HistoryScreen({ onBack }: Props) {
                 <Metric label="Avg score" value={dashboard.avgScore.toString()} />
                 <Metric label="Tips" value={dashboard.totalTips.toString()} />
               </View>
+              {latestSession ? (
+                <View style={st.quickActions}>
+                  <TouchableOpacity
+                    onPress={() => onStartMode(latestSession.mode as ConversationMode)}
+                    style={st.quickPrimary}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={st.quickPrimaryText}>Run again</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => shareSession(latestSession)}
+                    style={st.quickSecondary}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={st.quickSecondaryText}>Share last recap</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               <View style={st.insightCard}>
                 <Text style={st.insightLabel}>Current focus</Text>
                 <Text style={st.insightText}>
@@ -185,6 +223,22 @@ export function HistoryScreen({ onBack }: Props) {
                                 ))}
                               </View>
                             ) : null}
+                            <View style={st.cardActions}>
+                              <TouchableOpacity
+                                onPress={() => onStartMode(session.mode as ConversationMode)}
+                                style={[st.cardActionBtn, { borderColor: meta.accent }]}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={[st.cardActionText, { color: meta.accent }]}>Run again</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => shareSession(session)}
+                                style={st.cardActionBtn}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.cardActionText}>Share recap</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
                         ) : null}
 
@@ -257,6 +311,25 @@ const st = StyleSheet.create({
   },
   metricValue: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   metricLabel: { color: '#94a3b8', fontSize: 11, marginTop: 3 },
+  quickActions: { flexDirection: 'row', gap: 10 },
+  quickPrimary: {
+    flex: 1,
+    backgroundColor: '#6366f1',
+    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  quickPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  quickSecondary: {
+    flex: 1.2,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  quickSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '800' },
   insightCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 8,
@@ -309,4 +382,16 @@ const st = StyleSheet.create({
   },
   followTiming: { fontSize: 11, fontWeight: '900' },
   followText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
+  cardActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  cardActionBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  cardActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
 });

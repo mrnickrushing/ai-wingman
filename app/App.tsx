@@ -221,7 +221,10 @@ function WingmanApp() {
       )}
 
       {screen === 'history' && (
-        <HistoryScreen onBack={() => setScreen('home')} />
+        <HistoryScreen
+          onBack={() => setScreen('home')}
+          onStartMode={openMode}
+        />
       )}
 
       {screen === 'practice' && (

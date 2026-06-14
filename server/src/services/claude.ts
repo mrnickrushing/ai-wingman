@@ -160,6 +160,7 @@ export async function generateSalesCoaching(
 // modes cap suggestions at 12 words (vs. 15 for sales) per product spec.
 const LIVE_RULES = `RULES:
 - Only respond when there is something genuinely useful to say. Silence is better than noise.
+- If the user has gone several turns without a tip, give one short context-aware nudge instead of staying silent.
 - Maximum 12 words per coaching suggestion. Shorter is better.
 - No preamble, no labels — just the actionable suggestion.
 - Never repeat yourself. If you've already given a piece of advice, don't repeat it.

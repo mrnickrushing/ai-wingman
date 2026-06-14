@@ -17,6 +17,7 @@ import { SessionPreflightCard } from '../components/SessionPreflightCard';
 import { appendCustomPlaybook, type SavedPlaybook } from '../utils/playbookStorage';
 import { scheduleFollowUpReminder } from '../hooks/useNotifications';
 import { scheduleFollowUps } from '../utils/followUpScheduler';
+import { fetchMemoryBrief, type MemorySnapshot } from '../services/memory';
 
 type Mode = {
   id: ConversationMode;
@@ -40,9 +41,11 @@ type Props = {
 
 export function BriefsScreen({ onBack, onStartMode }: Props) {
   const [recentRecaps, setRecentRecaps] = useState<SessionRecap[]>([]);
+  const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
 
   useEffect(() => {
     loadSessionRecaps(8).then(setRecentRecaps);
+    fetchMemoryBrief().then(setMemorySnapshot).catch(() => setMemorySnapshot(null));
   }, []);
 
   const latestRecap = recentRecaps[0] ?? null;
@@ -68,13 +71,14 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
 
   const nextUp = useMemo(() => {
     if (!latestRecap) {
-      return 'Run a session and this page will keep the last prep brief, recap, and next move together.';
+      return memorySnapshot?.brief.nextMove
+        ?? 'Run a session and this page will keep the last prep brief, recap, and next move together.';
     }
     return latestRecap.followUps?.[0]?.text
       ?? latestRecap.improvements?.[0]
       ?? latestRecap.highlights[0]
       ?? latestRecap.summary;
-  }, [latestRecap]);
+  }, [latestRecap, memorySnapshot]);
 
   return (
     <View style={s.root}>
@@ -106,6 +110,41 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
             latestRecap={latestRecap}
             onResumeMode={latestRecap ? (mode) => onStartMode(mode) : undefined}
           />
+
+          {memorySnapshot ? (
+            <View style={s.memoryCard}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Conversation memory</Text>
+                <Text style={s.sectionAction}>Reusable context from prior sessions</Text>
+              </View>
+              <Text style={s.memorySummary}>{memorySnapshot.brief.summary}</Text>
+              <View style={s.memoryGrid}>
+                <MemoryGroup title="Interests" items={memorySnapshot.memory.interests} />
+                <MemoryGroup title="Personal details" items={memorySnapshot.memory.personalDetails} />
+                <MemoryGroup title="Callbacks" items={memorySnapshot.memory.callbackTopics} />
+              </View>
+              {memorySnapshot.followUps.length > 0 ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    const scheduled = await scheduleFollowUps(memorySnapshot.followUps, {
+                      title: memorySnapshot.brief.title,
+                      identifierPrefix: `wingman-memory-${memorySnapshot.brief.title.replace(/\s+/g, '-').toLowerCase()}`,
+                    });
+                    Alert.alert(
+                      scheduled > 0 ? 'Follow-ups scheduled' : 'No follow-ups',
+                      scheduled > 0
+                        ? `${scheduled} reminder${scheduled === 1 ? '' : 's'} set from memory.`
+                        : 'The stored memory does not have follow-up items to schedule.'
+                    );
+                  }}
+                  style={s.memoryAction}
+                  activeOpacity={0.82}
+                >
+                  <Text style={s.memoryActionText}>Schedule memory follow-ups</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
 
           {latestRecap ? (
             <TouchableOpacity
@@ -245,6 +284,21 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
   );
 }
 
+function MemoryGroup({ title, items }: { title: string; items: string[] }) {
+  return (
+    <View style={s.memoryGroup}>
+      <Text style={s.memoryGroupTitle}>{title}</Text>
+      {items.length > 0 ? (
+        items.slice(0, 3).map((item) => (
+          <Text key={item} style={s.memoryItem} numberOfLines={2}>{item}</Text>
+        ))
+      ) : (
+        <Text style={s.memoryEmpty}>Nothing saved yet.</Text>
+      )}
+    </View>
+  );
+}
+
 function Section({ title, action }: { title: string; action: string }) {
   return (
     <View style={s.sectionHeader}>
@@ -337,6 +391,37 @@ const s = StyleSheet.create({
   },
   queueMode: { color: '#818cf8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
   queueText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
+  memoryCard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 16,
+    gap: 12,
+  },
+  memorySummary: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
+  memoryGrid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  memoryGroup: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 120,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    padding: 10,
+    gap: 6,
+  },
+  memoryGroupTitle: { color: '#f8fafc', fontSize: 12, fontWeight: '900' },
+  memoryItem: { color: '#cbd5e1', fontSize: 12, lineHeight: 16 },
+  memoryEmpty: { color: '#64748b', fontSize: 12, lineHeight: 16 },
+  memoryAction: {
+    backgroundColor: 'rgba(99,102,241,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.24)',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  memoryActionText: { color: '#eef2ff', fontSize: 13, fontWeight: '900' },
   savePlaybookCard: {
     borderRadius: 8,
     backgroundColor: 'rgba(245,158,11,0.08)',

@@ -11,6 +11,8 @@ import { getMonthlyUsageSeconds } from './db/sessions';
 import authRouter from './routes/auth';
 import sessionsRouter from './routes/sessions';
 import textCoachRouter from './routes/textCoach';
+import memoryRouter from './routes/memory';
+import roleplayRouter from './routes/roleplay';
 import adminRouter from './routes/admin';
 
 const app = express();
@@ -19,6 +21,8 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/sessions', sessionsRouter);
 app.use('/coach', textCoachRouter);
+app.use('/memory', memoryRouter);
+app.use('/coach/roleplay', roleplayRouter);
 app.use('/admin', adminRouter);
 
 const server = http.createServer(app);

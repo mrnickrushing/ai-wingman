@@ -12,6 +12,7 @@ import { BriefsScreen } from './src/screens/BriefsScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
+import { RoleplayScreen } from './src/screens/RoleplayScreen';
 import { PlaybooksScreen } from './src/screens/PlaybooksScreen';
 import { TextCoachScreen } from './src/screens/TextCoachScreen';
 import { useNotifications } from './src/hooks/useNotifications';
@@ -30,6 +31,7 @@ import { PostPitchingScreen } from './src/screens/PitchingMode/PostPitchingScree
 import { PreHardConversationScreen } from './src/screens/HardConversationsMode/PreHardConversationScreen';
 import { ActiveHardConversationScreen } from './src/screens/HardConversationsMode/ActiveHardConversationScreen';
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
+import { ConversationMode } from './src/types';
 
 // Crash + error reporting. Inert unless EXPO_PUBLIC_SENTRY_DSN is set at build
 // time (and the matching plugin is added in app.config.js), so builds without a
@@ -45,6 +47,7 @@ if (SENTRY_DSN) {
 
 type Screen =
   | 'home' | 'account' | 'history' | 'practice' | 'playbooks' | 'briefs'
+  | 'roleplay'
   | 'messages'
   | 'sales-precall' | 'sales-active' | 'sales-postcall'
   | 'dating-precall' | 'dating-active' | 'dating-postcall'
@@ -161,6 +164,7 @@ function WingmanApp() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
+  const [roleplayMode, setRoleplayMode] = useState<ConversationMode>('sales');
   useNotifications();
 
   useEffect(() => {
@@ -281,6 +285,17 @@ function WingmanApp() {
             <PracticeScreen
               onBack={() => setScreen('home')}
               onStartMode={openMode}
+              onStartRoleplay={(mode) => {
+                setRoleplayMode(mode);
+                setScreen('roleplay');
+              }}
+            />
+          )}
+
+          {screen === 'roleplay' && (
+            <RoleplayScreen
+              onBack={() => setScreen('practice')}
+              mode={roleplayMode}
             />
           )}
 

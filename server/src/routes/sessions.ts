@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { createSession, listSessionsByAccount, getSessionById, getSessionStats, DbSession } from '../db/sessions';
+import { upsertAccountMemory } from '../db/accountMemory';
 import { verifyToken } from '../services/jwt';
 import { analyzeSession, SessionAnalysis } from '../services/claude';
 
@@ -85,6 +86,22 @@ router.post('/', async (req: Request, res: Response) => {
     coachingJson: JSON.stringify(coachingItems ?? []),
     analysisJson: analysis ? JSON.stringify(analysis) : null,
   });
+
+  if (accountId && analysis) {
+    await upsertAccountMemory({
+      accountId,
+      mode,
+      sessionId: session.id,
+      title: title ?? '',
+      summary: analysis.summary,
+      interests: analysis.memory?.interests ?? [],
+      personalDetails: analysis.memory?.personalDetails ?? [],
+      callbackTopics: analysis.memory?.callbackTopics ?? [],
+      followUps: analysis.followUps ?? [],
+    }).catch((err) => {
+      console.warn('[sessions] memory upsert failed:', (err as Error).message);
+    });
+  }
 
   return res.json({ session: toClientSession(session) });
 });

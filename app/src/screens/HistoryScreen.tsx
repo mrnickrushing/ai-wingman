@@ -37,6 +37,23 @@ function formatDuration(seconds: number): string {
   return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
 }
 
+function buildTimeline(transcriptText: string): Array<{ timestamp: string | null; speaker: string | null; body: string }> {
+  const lines = transcriptText.trim().split('\n').map((line) => line.trim()).filter(Boolean);
+  return lines.slice(0, 8).map((line) => {
+    const match = line.match(/^\[(\d{2}:\d{2}(?::\d{2})?)\]\s*(?:(You|Wingman|Coach):\s*)?(.*)$/i);
+    if (match) {
+      const [, timestamp, speaker, body] = match;
+      return { timestamp, speaker: speaker ?? null, body: body.trim() };
+    }
+    const speakerMatch = line.match(/^(You|Wingman|Coach):\s*(.*)$/i);
+    if (speakerMatch) {
+      const [, speaker, body] = speakerMatch;
+      return { timestamp: null, speaker, body: body.trim() };
+    }
+    return { timestamp: null, speaker: null, body: line };
+  }).filter((entry) => Boolean(entry.body));
+}
+
 interface Props {
   onBack: () => void;
   onStartMode: (mode: ConversationMode) => void;
@@ -548,6 +565,23 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                             {session.analysis.keyMoment ? (
                               <Text style={st.analysisKeyMoment}>Key moment: {session.analysis.keyMoment}</Text>
                             ) : null}
+                            {session.transcriptText ? (
+                              <View style={st.analysisSection}>
+                                <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Timeline</Text>
+                                <Text style={st.memorySummary}>Quick checkpoints from the conversation, in order.</Text>
+                                <View style={st.timelineList}>
+                                  {buildTimeline(session.transcriptText).map((item, index) => (
+                                    <View key={`${session.id}-timeline-${index}`} style={st.timelineItem}>
+                                      <Text style={st.timelineTime}>{item.timestamp ? `[${item.timestamp}]` : `#${index + 1}`}</Text>
+                                      <View style={st.timelineBody}>
+                                        {item.speaker ? <Text style={st.timelineSpeaker}>{item.speaker}</Text> : null}
+                                        <Text style={st.timelineText}>{item.body}</Text>
+                                      </View>
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            ) : null}
                             {session.analysis.memory ? (
                               <View style={st.analysisSection}>
                                 <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Memory</Text>
@@ -889,6 +923,20 @@ const st = StyleSheet.create({
   analysisSectionLabel: { fontSize: 11, fontWeight: '900' },
   analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
   analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic' },
+  timelineList: { gap: 8 },
+  timelineItem: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    padding: 10,
+  },
+  timelineTime: { color: '#818cf8', fontSize: 11, fontWeight: '900', minWidth: 48 },
+  timelineBody: { flex: 1, gap: 4 },
+  timelineSpeaker: { color: '#f8fafc', fontSize: 11, fontWeight: '900' },
+  timelineText: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
   memorySummary: { color: '#94a3b8', fontSize: 11, lineHeight: 16, marginBottom: 6 },
   transcriptCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',

@@ -69,5 +69,11 @@ export async function initDb(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_sessions_account
       ON sessions (account_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS account_memory (
+      account_id     TEXT        PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      memory_json    TEXT        NOT NULL DEFAULT '{}',
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }

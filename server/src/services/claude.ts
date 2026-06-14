@@ -312,8 +312,7 @@ export async function summarizeConversation(
         },
       ],
     });
-    const block = response.content[0];
-    const summary = block.type === 'text' ? block.text.trim() : '';
+    const summary = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined) ?? '';
     return summary || priorSummary;
   } catch {
     // On any failure, keep the prior summary; the Session will retain raw turns.
@@ -554,6 +553,131 @@ ${input.latestMessage.trim() || '(no latest message provided)'}`;
     const text = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined);
     if (!text) return null;
     return parseTextCoachSuggestion(text);
+  } catch {
+    return null;
+  }
+}
+
+export type RoleplayTurn = {
+  assistantReply: string;
+  coaching: string;
+  nextMove: string;
+  followUpQuestion: string;
+  intensity: 'low' | 'medium' | 'high';
+  memory: {
+    interests: string[];
+    personalDetails: string[];
+    callbackTopics: string[];
+  };
+};
+
+function parseRoleplayTurn(raw: string): RoleplayTurn | null {
+  try {
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+    const parsed = JSON.parse(cleaned) as Partial<RoleplayTurn>;
+    if (
+      typeof parsed.assistantReply !== 'string'
+      || typeof parsed.coaching !== 'string'
+      || typeof parsed.nextMove !== 'string'
+      || typeof parsed.followUpQuestion !== 'string'
+      || !['low', 'medium', 'high'].includes(parsed.intensity ?? '')
+      || typeof parsed.memory !== 'object'
+      || parsed.memory === null
+    ) {
+      return null;
+    }
+    return {
+      assistantReply: parsed.assistantReply.trim(),
+      coaching: parsed.coaching.trim(),
+      nextMove: parsed.nextMove.trim(),
+      followUpQuestion: parsed.followUpQuestion.trim(),
+      intensity: parsed.intensity ?? 'medium',
+      memory: {
+        interests: Array.isArray(parsed.memory.interests)
+          ? parsed.memory.interests.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean).slice(0, 6)
+          : [],
+        personalDetails: Array.isArray(parsed.memory.personalDetails)
+          ? parsed.memory.personalDetails.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean).slice(0, 6)
+          : [],
+        callbackTopics: Array.isArray(parsed.memory.callbackTopics)
+          ? parsed.memory.callbackTopics.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean).slice(0, 6)
+          : [],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateRoleplayTurn(input: {
+  mode: string;
+  scenario: string;
+  goal: string;
+  context: string;
+  memory: {
+    interests: string[];
+    personalDetails: string[];
+    callbackTopics: string[];
+  };
+  transcript: string;
+  userMessage: string;
+  turnCount: number;
+}): Promise<RoleplayTurn | null> {
+  const prompt = `You are playing the OTHER person in a realistic practice conversation. Stay in character.
+
+Return only valid JSON with this shape:
+{
+  "assistantReply": "what the other person says next",
+  "coaching": "brief tip to the user",
+  "nextMove": "what the user should do next",
+  "followUpQuestion": "a helpful follow-up prompt for practice",
+  "intensity": "low|medium|high",
+  "memory": {
+    "interests": ["specific interests learned"],
+    "personalDetails": ["specific personal details learned"],
+    "callbackTopics": ["topics to remember next time"]
+  }
+}
+
+Mode: ${input.mode}
+Scenario: ${input.scenario}
+Goal: ${input.goal || 'Not provided'}
+Context: ${input.context || 'Not provided'}
+Known memory:
+Interests: ${input.memory.interests.join('; ') || 'None yet'}
+Personal details: ${input.memory.personalDetails.join('; ') || 'None yet'}
+Callback topics: ${input.memory.callbackTopics.join('; ') || 'None yet'}
+
+Conversation so far:
+${input.transcript || '(none)'}
+
+User just said:
+${input.userMessage}
+
+Rules:
+- Keep it realistic and grounded in the scenario.
+- Ask only one follow-up question at a time.
+- Reflect the user's style and the mode appropriately.
+- Do not mention that you are an AI.
+- Prefer concrete details the user can reuse later.
+- If it is a dating scenario, surface interests and callback topics naturally.
+- If it is a sales or pitching scenario, surface objections, priorities, and next-step hooks.`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: 450,
+      system: 'You are a scenario roleplay partner and conversation coach. Output only valid JSON.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+    const text = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined);
+    if (!text) return null;
+    return parseRoleplayTurn(text);
   } catch {
     return null;
   }

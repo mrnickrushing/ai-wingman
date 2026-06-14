@@ -603,6 +603,20 @@ function Field({
   );
 }
 
+type GoogleConfig = {
+  androidClientId?: string;
+  iosClientId?: string;
+  webClientId?: string;
+  expoClientId?: string;
+};
+
+// When Google is NOT configured (all client IDs undefined), we must NOT call
+// `Google.useIdTokenAuthRequest` at all: the hook builds a native-backed auth
+// request (redirect URIs, PKCE/crypto via the TurboModule bridge) and passing
+// an empty/`as any` config can throw on that queue at first render — a launch
+// crash with no screen rendered, matching the Build-23 SIGABRT on
+// `com.meta.react.turbomodulemanager.queue`. The hook lives in a child that is
+// only mounted when configured; otherwise we render a static disabled button.
 function GoogleButton({
   loading,
   onToken,
@@ -611,50 +625,78 @@ function GoogleButton({
 }: {
   loading: boolean;
   onToken: (token: string) => void;
-  config: {
-    androidClientId?: string;
-    iosClientId?: string;
-    webClientId?: string;
-    expoClientId?: string;
-  };
+  config: GoogleConfig;
   enabled: boolean;
 }) {
-  const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
+  if (!enabled) {
+    return (
+      <>
+        <Pressable style={[s.googleButton, s.googleButtonDisabled]} disabled>
+          <View style={s.googleLogo}>
+            <Text style={s.googleLogoText}>G</Text>
+          </View>
+          <Text style={s.googleButtonText}>Continue with Google</Text>
+        </Pressable>
+        <Text style={s.helperText}>
+          Google sign-in is not configured for this build yet.
+        </Text>
+      </>
+    );
+  }
+
+  return <GoogleAuthButton loading={loading} onToken={onToken} config={config} />;
+}
+
+function GoogleAuthButton({
+  loading,
+  onToken,
+  config,
+}: {
+  loading: boolean;
+  onToken: (token: string) => void;
+  config: GoogleConfig;
+}) {
+  let request: ReturnType<typeof Google.useIdTokenAuthRequest>[0] = null;
+  let response: ReturnType<typeof Google.useIdTokenAuthRequest>[1] = null;
+  let promptGoogle: ReturnType<typeof Google.useIdTokenAuthRequest>[2] | null = null;
+  try {
+    [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
+  } catch {
+    // Building the auth request failed (bad config / native bridge); fall back
+    // to a disabled button instead of letting the throw reach the fatal handler.
+    request = null;
+  }
 
   useEffect(() => {
-    if (!enabled) return;
     if (response?.type !== 'success') return;
     const token =
       response.authentication?.idToken
       ?? (response.params as Record<string, string | undefined> | undefined)?.id_token;
     if (token) onToken(token);
-  }, [enabled, onToken, response]);
+  }, [onToken, response]);
 
   const handlePress = async () => {
-    if (!enabled || !request || loading) return;
-    await promptGoogle();
+    if (!request || !promptGoogle || loading) return;
+    try {
+      await promptGoogle();
+    } catch {
+      // user-cancelled or transient auth error — non-fatal
+    }
   };
 
   return (
-    <>
-      <Pressable
-        style={[s.googleButton, !enabled && s.googleButtonDisabled]}
-        onPress={handlePress}
-        disabled={!enabled || !request || loading}
-      >
-        <View style={s.googleLogo}>
-          <Text style={s.googleLogoText}>G</Text>
-        </View>
-        <Text style={s.googleButtonText}>
-          {loading ? 'Signing in…' : 'Continue with Google'}
-        </Text>
-      </Pressable>
-      {!enabled && (
-        <Text style={s.helperText}>
-          Google sign-in is not configured for this build yet.
-        </Text>
-      )}
-    </>
+    <Pressable
+      style={[s.googleButton, !request && s.googleButtonDisabled]}
+      onPress={handlePress}
+      disabled={!request || loading}
+    >
+      <View style={s.googleLogo}>
+        <Text style={s.googleLogoText}>G</Text>
+      </View>
+      <Text style={s.googleButtonText}>
+        {loading ? 'Signing in…' : 'Continue with Google'}
+      </Text>
+    </Pressable>
   );
 }
 

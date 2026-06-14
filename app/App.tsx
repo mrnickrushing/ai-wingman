@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
@@ -31,7 +31,88 @@ type Screen =
 
 const ONBOARDED_KEY = 'wingman:onboarded';
 
+// Catches render-time errors anywhere in the tree and shows a recoverable
+// fallback instead of letting the error bubble to the native fatal handler
+// (RCTFatal -> abort), which is what crashed Build 23 at launch. Paired with the
+// global JS error handler installed in index.js for errors outside render.
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[wingman] ErrorBoundary caught render error', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#050510',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <StatusBar style="light" />
+          <Text
+            style={{
+              color: '#f8fafc',
+              fontSize: 20,
+              fontWeight: '800',
+              textAlign: 'center',
+              marginBottom: 10,
+            }}
+          >
+            Something went wrong
+          </Text>
+          <Text
+            style={{
+              color: '#94a3b8',
+              fontSize: 14,
+              lineHeight: 20,
+              textAlign: 'center',
+              marginBottom: 24,
+            }}
+          >
+            The app hit an unexpected error. Tap below to try again.
+          </Text>
+          <Pressable
+            onPress={() => this.setState({ error: null })}
+            style={{
+              backgroundColor: '#6366f1',
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              borderRadius: 14,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>
+              Try again
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <WingmanApp />
+    </ErrorBoundary>
+  );
+}
+
+function WingmanApp() {
   const [screen, setScreen] = useState<Screen>('home');
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);

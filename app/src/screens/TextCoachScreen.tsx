@@ -345,7 +345,7 @@ const s = StyleSheet.create({
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   subtitle: { color: '#94a3b8', fontSize: 11, marginTop: 2, textAlign: 'center' },
   headerSpacer: { minWidth: 60 },
-  content: { paddingHorizontal: 18, paddingBottom: 42, gap: 16 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 16 },
   hero: {
     backgroundColor: 'rgba(99,102,241,0.12)',
     borderWidth: 1,

@@ -312,7 +312,7 @@ const s = StyleSheet.create({
   backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
-  content: { paddingHorizontal: 18, paddingBottom: 44, gap: 14 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 14 },
   profileBand: {
     flexDirection: 'row',
     alignItems: 'center',

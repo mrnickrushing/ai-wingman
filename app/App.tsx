@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -229,7 +229,6 @@ function WingmanApp() {
           onOpenAccount={() => setScreen('account')}
           onOpenHistory={() => setScreen('history')}
           onOpenPractice={() => setScreen('practice')}
-          onOpenPlaybooks={() => setScreen('playbooks')}
           onOpenMessages={() => setScreen('messages')}
         />
       )}
@@ -360,6 +359,106 @@ function WingmanApp() {
           onNewSession={() => setScreen('hardconvo-active')}
         />
       )}
+
+      {isHubScreen(screen) ? (
+        <BottomNav
+          current={screen}
+          onGoHome={() => setScreen('home')}
+          onOpenBriefs={() => setScreen('briefs')}
+          onOpenPractice={() => setScreen('practice')}
+          onOpenHistory={() => setScreen('history')}
+          onOpenPlaybooks={() => setScreen('playbooks')}
+          onOpenMessages={() => setScreen('messages')}
+        />
+      ) : null}
     </>
   );
 }
+
+function isHubScreen(screen: Screen) {
+  return ['home', 'briefs', 'practice', 'history', 'playbooks', 'messages'].includes(screen);
+}
+
+function BottomNav({
+  current,
+  onGoHome,
+  onOpenBriefs,
+  onOpenPractice,
+  onOpenHistory,
+  onOpenPlaybooks,
+  onOpenMessages,
+}: {
+  current: Screen;
+  onGoHome: () => void;
+  onOpenBriefs: () => void;
+  onOpenPractice: () => void;
+  onOpenHistory: () => void;
+  onOpenPlaybooks: () => void;
+  onOpenMessages: () => void;
+}) {
+  const items = [
+    { key: 'home', label: 'Home', icon: '⌂', onPress: onGoHome },
+    { key: 'briefs', label: 'Briefs', icon: '≋', onPress: onOpenBriefs },
+    { key: 'practice', label: 'Practice', icon: '▶', onPress: onOpenPractice },
+    { key: 'history', label: 'History', icon: '⌁', onPress: onOpenHistory },
+    { key: 'playbooks', label: 'Playbooks', icon: '▣', onPress: onOpenPlaybooks },
+    { key: 'messages', label: 'Text', icon: '✉', onPress: onOpenMessages },
+  ] as const;
+
+  return (
+    <View pointerEvents="box-none" style={navStyles.shell}>
+      <View style={navStyles.bar}>
+        {items.map((item) => {
+          const active = current === item.key;
+          return (
+            <Pressable key={item.key} onPress={item.onPress} style={[navStyles.item, active && navStyles.itemActive]}>
+              <Text style={[navStyles.icon, active && navStyles.iconActive]}>{item.icon}</Text>
+              <Text style={[navStyles.label, active && navStyles.labelActive]} numberOfLines={1}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const navStyles = StyleSheet.create({
+  shell: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 8,
+  },
+  bar: {
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: 'rgba(9, 9, 20, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 14,
+  },
+  item: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  itemActive: {
+    backgroundColor: 'rgba(99,102,241,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.28)',
+  },
+  icon: { color: '#94a3b8', fontSize: 16, fontWeight: '900' },
+  iconActive: { color: '#c7d2fe' },
+  label: { color: '#94a3b8', fontSize: 10, fontWeight: '800' },
+  labelActive: { color: '#e0e7ff' },
+});

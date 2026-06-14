@@ -352,7 +352,7 @@ const s = StyleSheet.create({
   backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
-  content: { paddingHorizontal: 18, paddingBottom: 42, gap: 12 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 12 },
   hero: {
     backgroundColor: 'rgba(139,92,246,0.11)',
     borderWidth: 1,

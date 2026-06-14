@@ -4,9 +4,10 @@ import {
   SafeAreaView, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { listSessions, SavedSession } from '../services/sessionService';
+import { listSessionsSnapshot, type SessionSnapshotSource, SavedSession } from '../services/sessionService';
 import { ConversationMode } from '../types';
 import { loadBookmarks, removeBookmark, saveBookmark, type SavedBookmark } from '../utils/bookmarks';
+import { scheduleFollowUpReminder } from '../hooks/useNotifications';
 
 const MODE_META: Record<string, { icon: string; label: string; accent: string }> = {
   sales: { icon: 'S', label: 'Sales', accent: '#6366f1' },
@@ -38,14 +39,16 @@ interface Props {
 
 export function HistoryScreen({ onBack, onStartMode }: Props) {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
+  const [sessionsSource, setSessionsSource] = useState<SessionSnapshotSource>('empty');
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [bookmarks, setBookmarks] = useState<SavedBookmark[]>([]);
 
   useEffect(() => {
-    listSessions().then((data) => {
+    listSessionsSnapshot().then(({ sessions: data, source }) => {
       setSessions(data);
+      setSessionsSource(source);
       setLoading(false);
     });
     loadBookmarks().then(setBookmarks);
@@ -69,6 +72,31 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
       ? sessions[0].score - sessions[sessions.length - 1].score
       : 0;
     return { total, avgScore, totalTips, best, topMode, improvement };
+  }, [sessions]);
+
+  const modeTrends = useMemo(() => {
+    const buckets = sessions.reduce<Record<string, SavedSession[]>>((acc, session) => {
+      acc[session.mode] = acc[session.mode] ?? [];
+      acc[session.mode].push(session);
+      return acc;
+    }, {});
+    return Object.entries(buckets)
+      .map(([mode, items]) => {
+        const avg = Math.round(items.reduce((sum, item) => sum + item.score, 0) / items.length);
+        const recent = items[0]?.score ?? 0;
+        const baseline = items[items.length - 1]?.score ?? recent;
+        return { mode, avg, count: items.length, delta: recent - baseline };
+      })
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 4);
+  }, [sessions]);
+
+  const sessionMomentum = useMemo(() => {
+    const recent = sessions.slice(0, 3);
+    const prior = sessions.slice(3, 6);
+    const recentAvg = recent.length ? Math.round(recent.reduce((sum, item) => sum + item.score, 0) / recent.length) : 0;
+    const priorAvg = prior.length ? Math.round(prior.reduce((sum, item) => sum + item.score, 0) / prior.length) : 0;
+    return { recentAvg, priorAvg, delta: recentAvg - priorAvg };
   }, [sessions]);
 
   const filteredSessions = useMemo(() => {
@@ -98,6 +126,7 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
   }, []);
 
   const latestSession = filteredSessions[0] ?? sessions[0] ?? null;
+  const latestFollowUp = latestSession?.analysis?.followUps?.[0] ?? null;
 
   const buildShareText = (session: SavedSession): string => {
     const parts = [
@@ -200,6 +229,9 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                   ? `${filteredSessions.length} matching session${filteredSessions.length === 1 ? '' : 's'}`
                   : 'Search titles, analysis, follow-ups, and transcript text.'}
               </Text>
+              {sessionsSource === 'cache' ? (
+                <Text style={st.cacheNotice}>Showing cached sessions until the backend is reachable again.</Text>
+              ) : null}
             </View>
 
             <View style={st.dashboard}>
@@ -245,7 +277,36 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                   <Text style={st.insightText}>{MODE_META[dashboard.topMode]?.label ?? dashboard.topMode}</Text>
                 </View>
               ) : null}
+              <View style={st.insightCard}>
+                <Text style={st.insightLabel}>Momentum</Text>
+                <Text style={st.insightText}>
+                  {sessionMomentum.priorAvg > 0
+                    ? `Latest three sessions average ${sessionMomentum.recentAvg}. ${sessionMomentum.delta >= 0 ? '+' : ''}${sessionMomentum.delta} versus the three before them.`
+                    : 'Run a few more sessions to see a trend line.'}
+                </Text>
+              </View>
             </View>
+
+            {modeTrends.length > 0 ? (
+              <View style={st.trendPanel}>
+                <View style={st.sectionTop}>
+                  <Text style={st.dashboardTitle}>Mode trends</Text>
+                  <Text style={st.sectionMeta}>Average score and momentum</Text>
+                </View>
+                <View style={st.trendList}>
+                  {modeTrends.map((trend) => (
+                    <View key={trend.mode} style={st.trendCard}>
+                      <Text style={st.trendMode}>{MODE_META[trend.mode]?.label ?? trend.mode}</Text>
+                      <Text style={st.trendScore}>Avg {trend.avg}</Text>
+                      <Text style={st.trendMeta}>
+                        {trend.count} session{trend.count === 1 ? '' : 's'} · {trend.delta >= 0 ? '+' : ''}
+                        {trend.delta} recent delta
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             {bookmarks.length > 0 ? (
               <View style={st.bookmarkPanel}>
@@ -279,6 +340,38 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                       </View>
                     </View>
                   ))}
+                </View>
+              </View>
+            ) : null}
+
+            {latestFollowUp ? (
+              <View style={st.followUpPanel}>
+                <View style={st.sectionTop}>
+                  <Text style={st.dashboardTitle}>Follow-up focus</Text>
+                  <Text style={st.sectionMeta}>{latestSession?.title || 'Latest session'}</Text>
+                </View>
+                <Text style={st.followUpText}>{latestFollowUp.text}</Text>
+                <View style={st.followUpActions}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await scheduleFollowUpReminder({
+                        title: 'Wingman follow-up',
+                        body: latestFollowUp.text,
+                        hours: 24,
+                      });
+                    }}
+                    style={st.followUpBtn}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={st.followUpBtnText}>Remind tomorrow</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => Share.share({ message: latestFollowUp.text }).catch(() => {})}
+                    style={st.followUpBtn}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={st.followUpBtnText}>Share follow-up</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : null}
@@ -427,7 +520,7 @@ const st = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 12 },
   emptyTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
   emptyBody: { color: '#94a3b8', fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  list: { paddingHorizontal: 18, paddingBottom: 42, gap: 10 },
+  list: { paddingHorizontal: 18, paddingBottom: 116, gap: 10 },
   searchCard: {
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
@@ -448,6 +541,7 @@ const st = StyleSheet.create({
     fontSize: 14,
   },
   searchHint: { color: '#64748b', fontSize: 11, lineHeight: 16 },
+  cacheNotice: { color: '#fbbf24', fontSize: 11, lineHeight: 16, fontWeight: '700' },
   dashboard: {
     backgroundColor: 'rgba(99,102,241,0.1)',
     borderWidth: 1,
@@ -459,6 +553,26 @@ const st = StyleSheet.create({
   dashboardTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   sectionTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionMeta: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  trendPanel: {
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 16,
+  },
+  trendList: { gap: 10 },
+  trendCard: {
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  trendMode: { color: '#f8fafc', fontSize: 13, fontWeight: '900' },
+  trendScore: { color: '#818cf8', fontSize: 13, fontWeight: '900' },
+  trendMeta: { color: '#94a3b8', fontSize: 11, lineHeight: 16 },
   bookmarkPanel: {
     gap: 10,
     backgroundColor: 'rgba(255,255,255,0.035)',
@@ -490,6 +604,25 @@ const st = StyleSheet.create({
     paddingVertical: 8,
   },
   bookmarkBtnText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
+  followUpPanel: {
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 16,
+  },
+  followUpText: { color: '#e2e8f0', fontSize: 13, lineHeight: 19 },
+  followUpActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  followUpBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.2)',
+    backgroundColor: 'rgba(129,140,248,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  followUpBtnText: { color: '#c7d2fe', fontSize: 11, fontWeight: '800' },
   metricRow: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,

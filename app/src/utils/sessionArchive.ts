@@ -51,6 +51,43 @@ export function buildHighlights(coachingHistory: CoachingEntry[]): string[] {
     .slice(0, 3);
 }
 
+function formatClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+export function buildConversationTranscript(
+  transcript: TranscriptEntry[],
+  coachingHistory: CoachingEntry[],
+  startedAt?: number | null,
+): string {
+  const events = [
+    ...transcript
+      .filter((entry) => entry.isFinal)
+      .map((entry) => ({
+        timestamp: entry.timestamp,
+        speaker: 'You',
+        text: entry.text.trim(),
+      })),
+    ...coachingHistory
+      .map((entry) => ({
+        timestamp: entry.timestamp,
+        speaker: 'Wingman',
+        text: entry.text.trim(),
+      })),
+  ]
+    .filter((entry) => Boolean(entry.text))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (events.length === 0) return '';
+  const base = startedAt ?? events[0].timestamp;
+  return events
+    .map((entry) => `[${formatClock(entry.timestamp - base)}] ${entry.speaker}: ${entry.text}`)
+    .join('\n');
+}
+
 export function createSessionRecap(input: {
   mode: ConversationMode;
   title?: string;

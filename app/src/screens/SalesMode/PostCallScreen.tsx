@@ -17,6 +17,7 @@ import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
 import {
   buildHighlights,
+  buildConversationTranscript,
   buildSessionSummary,
   createSessionRecap,
   saveSessionRecap,
@@ -49,7 +50,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
-    const transcriptText = transcript.filter((t) => t.isFinal).map((t) => t.text).join(' ');
+    const transcriptText = buildConversationTranscript(transcript, coachingHistory);
     const title = [salesSetup.prospectName, salesSetup.company].filter(Boolean).join(' · ') || 'Sales call';
     saveSession({
       mode: 'sales',

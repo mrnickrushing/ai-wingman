@@ -360,7 +360,7 @@ function WingmanApp() {
         />
       )}
 
-      {isHubScreen(screen) ? (
+      {shouldShowDock(screen) ? (
         <BottomNav
           current={screen}
           onGoHome={() => setScreen('home')}
@@ -375,8 +375,8 @@ function WingmanApp() {
   );
 }
 
-function isHubScreen(screen: Screen) {
-  return ['home', 'briefs', 'practice', 'history', 'playbooks', 'messages'].includes(screen);
+function shouldShowDock(screen: Screen) {
+  return !screen.endsWith('-active');
 }
 
 function BottomNav({
@@ -412,7 +412,9 @@ function BottomNav({
           const active = current === item.key;
           return (
             <Pressable key={item.key} onPress={item.onPress} style={[navStyles.item, active && navStyles.itemActive]}>
-              <Text style={[navStyles.icon, active && navStyles.iconActive]}>{item.icon}</Text>
+              <View style={[navStyles.iconBadge, active && navStyles.iconBadgeActive]}>
+                <Text style={[navStyles.icon, active && navStyles.iconActive]}>{item.icon}</Text>
+              </View>
               <Text style={[navStyles.label, active && navStyles.labelActive]} numberOfLines={1}>{item.label}</Text>
             </Pressable>
           );
@@ -427,38 +429,55 @@ const navStyles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 8,
+    bottom: 10,
+    zIndex: 50,
+    elevation: 24,
   },
   bar: {
     flexDirection: 'row',
     gap: 4,
-    backgroundColor: 'rgba(9, 9, 20, 0.96)',
+    backgroundColor: 'rgba(8, 8, 18, 0.98)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 18,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    borderColor: 'rgba(255,255,255,0.11)',
+    borderRadius: 22,
+    paddingHorizontal: 10,
+    paddingTop: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 14,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 18,
+    paddingBottom: 10,
   },
   item: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   itemActive: {
-    backgroundColor: 'rgba(99,102,241,0.16)',
+    backgroundColor: 'rgba(99,102,241,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.28)',
+    borderColor: 'rgba(129,140,248,0.32)',
+  },
+  iconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  iconBadgeActive: {
+    backgroundColor: 'rgba(129,140,248,0.2)',
+    borderColor: 'rgba(129,140,248,0.35)',
   },
   icon: { color: '#94a3b8', fontSize: 16, fontWeight: '900' },
-  iconActive: { color: '#c7d2fe' },
+  iconActive: { color: '#eef2ff' },
   label: { color: '#94a3b8', fontSize: 10, fontWeight: '800' },
-  labelActive: { color: '#e0e7ff' },
+  labelActive: { color: '#eef2ff' },
 });

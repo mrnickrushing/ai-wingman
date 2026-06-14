@@ -13,6 +13,7 @@ import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
 import {
   buildHighlights,
+  buildConversationTranscript,
   buildSessionSummary,
   createSessionRecap,
   saveSessionRecap,
@@ -31,7 +32,7 @@ interface Props {
 }
 
 export function PostPitchingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, pitchingSetup, lastRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, pitchingSetup, lastRating, recordSession } = useSessionStore();
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
 
@@ -56,7 +57,7 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
       coachingCount: coachingHistory.length,
       score,
       rating: lastRating,
-      transcriptText: '',
+      transcriptText: buildConversationTranscript(transcript, coachingHistory),
       coachingItems: coachingHistory.map((c) => c.text),
       context: {
         'Pitch title': pitchingSetup.title,
@@ -76,7 +77,7 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
         coachingTips: coachingHistory.length,
         wordsSelf,
         rating: lastRating,
-        summary: s?.analysis?.summary ?? buildSessionSummary([], coachingHistory),
+        summary: s?.analysis?.summary ?? buildSessionSummary(transcript, coachingHistory),
         highlights: buildHighlights(coachingHistory),
         strengths: s?.analysis?.strengths,
         improvements: s?.analysis?.improvements,

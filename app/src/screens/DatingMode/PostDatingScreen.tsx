@@ -13,6 +13,7 @@ import { saveSession, SessionAnalysis } from '../../services/sessionService';
 import { resetInactivityNudge } from '../../hooks/useNotifications';
 import {
   buildHighlights,
+  buildConversationTranscript,
   buildSessionSummary,
   createSessionRecap,
   saveSessionRecap,
@@ -39,11 +40,7 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
-  const fullTranscriptText = transcript
-    .filter((t) => t.isFinal)
-    .map((t) => t.text)
-    .join(' ')
-    .trim();
+  const fullTranscriptText = buildConversationTranscript(transcript, coachingHistory);
 
   useEffect(() => {
     const score = computeWingmanScore({

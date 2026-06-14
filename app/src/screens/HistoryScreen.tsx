@@ -116,6 +116,12 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
         session.analysis?.strengths.join(' '),
         session.analysis?.improvements.join(' '),
         session.analysis?.followUps.map((item) => item.text).join(' '),
+        session.analysis?.memory?.interests?.join(' '),
+        session.analysis?.memory?.personalDetails?.join(' '),
+        session.analysis?.memory?.callbackTopics?.join(' '),
+        session.analysis?.secondDatePrep?.recommendations?.join(' '),
+        session.analysis?.secondDatePrep?.conversationStarters?.join(' '),
+        session.analysis?.secondDatePrep?.remember?.join(' '),
         session.transcriptText,
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(q);
@@ -545,6 +551,13 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                             {session.analysis.memory ? (
                               <View style={st.analysisSection}>
                                 <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Memory</Text>
+                                <Text style={st.memorySummary}>
+                                  {[
+                                    session.analysis.memory.interests?.length ? `${session.analysis.memory.interests.length} interests` : null,
+                                    session.analysis.memory.personalDetails?.length ? `${session.analysis.memory.personalDetails.length} personal details` : null,
+                                    session.analysis.memory.callbackTopics?.length ? `${session.analysis.memory.callbackTopics.length} callback topics` : null,
+                                  ].filter(Boolean).join(' · ') || 'Memory saved from this conversation.'}
+                                </Text>
                                 {session.analysis.memory.interests?.length > 0 ? (
                                   <View style={st.followRow}>
                                     <Text style={st.followTiming}>Interests</Text>
@@ -876,6 +889,7 @@ const st = StyleSheet.create({
   analysisSectionLabel: { fontSize: 11, fontWeight: '900' },
   analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
   analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic' },
+  memorySummary: { color: '#94a3b8', fontSize: 11, lineHeight: 16, marginBottom: 6 },
   transcriptCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 8,

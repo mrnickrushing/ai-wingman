@@ -4,10 +4,12 @@ import { TranscriptEntry } from '../types';
 
 interface Props {
   entries: TranscriptEntry[];
+  searchTerm?: string;
 }
 
-export function TranscriptView({ entries }: Props) {
+export function TranscriptView({ entries, searchTerm = '' }: Props) {
   const scrollRef = useRef<ScrollView>(null);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -35,11 +37,26 @@ export function TranscriptView({ entries }: Props) {
         <View key={entry.id} style={[s.line, !entry.isFinal && s.lineInterim]}>
           <View style={[s.speaker, entry.isFinal ? s.speakerFinal : s.speakerInterim]} />
           <Text style={[s.lineText, !entry.isFinal && s.lineTextInterim]}>
-            {entry.text}
+            {renderText(entry.text, normalizedSearch)}
           </Text>
         </View>
       ))}
     </ScrollView>
+  );
+}
+
+function renderText(text: string, searchTerm: string) {
+  if (!searchTerm) return text;
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(searchTerm);
+  if (idx < 0) return text;
+  const end = idx + searchTerm.length;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <Text style={s.highlight}>{text.slice(idx, end)}</Text>
+      {text.slice(end)}
+    </>
   );
 }
 
@@ -82,6 +99,10 @@ const s = StyleSheet.create({
   },
   lineTextInterim: {
     color: '#475569', fontStyle: 'italic',
+  },
+  highlight: {
+    color: '#f8fafc',
+    backgroundColor: 'rgba(129,140,248,0.25)',
   },
   empty: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14,

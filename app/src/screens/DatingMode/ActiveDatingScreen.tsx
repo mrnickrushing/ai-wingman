@@ -105,6 +105,8 @@ export function ActiveDatingScreen({ onEnd }: Props) {
     await stop();
     await start(getSessionConfig('dating'));
   };
+  const handleReconnect = handleRetry;
+  const handleRestartMic = handleRetry;
 
   // Over-talking alert: words-per-minute relative to a balanced 120 wpm target.
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
@@ -170,7 +172,11 @@ export function ActiveDatingScreen({ onEnd }: Props) {
         )}
 
         <LiveSessionStatus />
-        <SessionTelemetry onRetry={handleRetry} />
+        <SessionTelemetry
+          onRetry={handleRetry}
+          onReconnect={handleReconnect}
+          onRestartMic={handleRestartMic}
+        />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>
             <Text style={s.prospectInitial}>

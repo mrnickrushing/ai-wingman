@@ -36,6 +36,7 @@ function toClientSession(s: DbSession) {
     score: s.score,
     rating: s.rating,
     analysis: s.analysis_json ? (JSON.parse(s.analysis_json) as SessionAnalysis) : null,
+    transcriptText: s.transcript_text,
     createdAt: s.created_at,
   };
 }

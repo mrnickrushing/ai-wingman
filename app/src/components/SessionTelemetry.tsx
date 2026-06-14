@@ -56,10 +56,12 @@ function freshnessLabel(timestamp: number | null): { label: string; color: strin
 
 type Props = {
   onRetry?: () => void;
+  onReconnect?: () => void;
+  onRestartMic?: () => void;
   compact?: boolean;
 };
 
-export function SessionTelemetry({ onRetry, compact = false }: Props) {
+export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact = false }: Props) {
   const {
     sessionPhase,
     serverHealth,
@@ -163,6 +165,26 @@ export function SessionTelemetry({ onRetry, compact = false }: Props) {
       )}
 
       {!error && lastErrorAt && compact ? <Text style={s.noteText}>Last error {agoLabel(lastErrorAt)}</Text> : null}
+
+      {(onRetry || onReconnect || onRestartMic) ? (
+        <View style={s.actionRow}>
+          {onRetry ? (
+            <Pressable onPress={onRetry} style={s.actionBtn}>
+              <Text style={s.actionText}>Retry</Text>
+            </Pressable>
+          ) : null}
+          {onReconnect ? (
+            <Pressable onPress={onReconnect} style={s.actionBtn}>
+              <Text style={s.actionText}>Reconnect</Text>
+            </Pressable>
+          ) : null}
+          {onRestartMic ? (
+            <Pressable onPress={onRestartMic} style={s.actionBtn}>
+              <Text style={s.actionText}>Restart mic</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -238,4 +260,16 @@ const s = StyleSheet.create({
   levelFill: { height: '100%', borderRadius: 999 },
   errorText: { color: '#fca5c5', fontSize: 12, lineHeight: 18 },
   noteText: { color: '#64748b', fontSize: 11 },
+  actionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  actionBtn: {
+    flexGrow: 1,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  actionText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
 });

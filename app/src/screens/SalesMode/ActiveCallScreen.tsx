@@ -88,6 +88,8 @@ export function ActiveCallScreen({ onEnd }: Props) {
     await stop();
     await start(getSessionConfig('sales'));
   };
+  const handleReconnect = handleRetry;
+  const handleRestartMic = handleRetry;
 
   // Speaking pace: words-per-minute relative to a 120 wpm target
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
@@ -151,7 +153,11 @@ export function ActiveCallScreen({ onEnd }: Props) {
         )}
 
         <LiveSessionStatus />
-        <SessionTelemetry onRetry={handleRetry} />
+        <SessionTelemetry
+          onRetry={handleRetry}
+          onReconnect={handleReconnect}
+          onRestartMic={handleRestartMic}
+        />
         {/* Prospect header */}
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>

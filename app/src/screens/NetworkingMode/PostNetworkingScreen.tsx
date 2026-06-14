@@ -10,6 +10,7 @@ function cleanText(raw: string): string {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
+import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
@@ -95,6 +96,8 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
   }, []);
 
   const eventLabel = networkingSetup.eventName || 'Networking event';
+  const eventReady = Boolean(networkingSetup.eventName && networkingSetup.attendees);
+  const contactMomentum = loggedContacts.length > 0 ? 'Captured' : 'Missing';
 
   const firstName = (full: string) => full.split(/\s+/)[0] || full;
 
@@ -116,6 +119,17 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
             elapsedSeconds={elapsedSeconds}
             wordsSelf={wordsSelf}
             rating={lastRating}
+          />
+
+          <SessionScorecard
+            title="Networking scorecard"
+            accent="#22d3ee"
+            subtitle="Contacts, follow-through, and event context."
+            metrics={[
+              { label: 'Event context', value: eventReady ? 'Ready' : 'Partial', detail: eventReady ? 'You captured event and attendee context.' : 'Add event and attendee context next time.', weight: eventReady ? 90 : 48 },
+              { label: 'Contacts', value: loggedContacts.length.toString(), detail: contactMomentum === 'Captured' ? 'Names were logged for follow-up.' : 'Log each contact to keep the loop alive.', weight: Math.max(24, Math.min(100, loggedContacts.length * 20 + 20)) },
+              { label: 'Follow-up', value: loggedContacts.length > 0 ? 'Planned' : 'Open', detail: loggedContacts.length > 0 ? 'You have names to message after the event.' : 'No contacts logged yet.', weight: loggedContacts.length > 0 ? 86 : 34 },
+            ]}
           />
 
           <View style={s.statsRow}>

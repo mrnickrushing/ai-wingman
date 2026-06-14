@@ -84,6 +84,8 @@ export function ActivePitchingScreen({ onEnd }: Props) {
     await stop();
     await start(getSessionConfig('pitching'));
   };
+  const handleReconnect = handleRetry;
+  const handleRestartMic = handleRetry;
 
   const pitchLabel = pitchingSetup.title || 'Active Pitch';
 
@@ -131,7 +133,11 @@ export function ActivePitchingScreen({ onEnd }: Props) {
         )}
 
         <LiveSessionStatus />
-        <SessionTelemetry onRetry={handleRetry} />
+        <SessionTelemetry
+          onRetry={handleRetry}
+          onReconnect={handleReconnect}
+          onRestartMic={handleRestartMic}
+        />
         {/* Prominent timer */}
         <Animated.View style={[s.timerHero, { opacity: headerAnim }]}>
           <Text style={s.timerHeroValue}>{formatTime(elapsedSeconds)}</Text>

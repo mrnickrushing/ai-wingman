@@ -114,6 +114,8 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
     await stop();
     await start(getSessionConfig('hard_conversations'));
   };
+  const handleReconnect = handleRetry;
+  const handleRestartMic = handleRetry;
 
   const intensity = deriveIntensity(currentCoaching);
   const tone = INTENSITY_STYLE[intensity];
@@ -168,7 +170,11 @@ export function ActiveHardConversationScreen({ onEnd }: Props) {
         )}
 
         <LiveSessionStatus />
-        <SessionTelemetry onRetry={handleRetry} />
+        <SessionTelemetry
+          onRetry={handleRetry}
+          onReconnect={handleReconnect}
+          onRestartMic={handleRestartMic}
+        />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={[s.prospectAvatar, { borderColor: tone.color + '59' }]}>
             <Text style={s.prospectInitial}>🔥</Text>

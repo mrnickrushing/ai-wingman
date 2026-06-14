@@ -10,6 +10,7 @@ function cleanText(raw: string): string {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
+import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
@@ -119,6 +120,7 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
   const wpm = minutes > 0 ? Math.round(wordsSelf / minutes) : 0;
   const wpmColor = wpm > 150 ? '#ec4899' : wpm > 120 ? '#f59e0b' : '#4ade80';
   const wpmLabel = wpm > 150 ? 'Fast pace — slow down a bit' : wpm > 120 ? 'Slightly quick — watch the pace' : 'Good speaking pace';
+  const prepReady = [salesSetup.prospectName, salesSetup.company, salesSetup.role, salesSetup.callGoal].every(Boolean);
 
   const stats = [
     { value: formatDuration(elapsedSeconds), label: 'Duration', icon: '⏱' },
@@ -151,6 +153,17 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
             elapsedSeconds={elapsedSeconds}
             wordsSelf={wordsSelf}
             rating={rating}
+          />
+
+          <SessionScorecard
+            title="Sales scorecard"
+            accent="#6366f1"
+            subtitle="A fast read on prep, pace, and next-step clarity."
+            metrics={[
+              { label: 'Prep', value: prepReady ? 'Ready' : 'Partial', detail: prepReady ? 'Your core call context is filled out.' : 'Fill the call goal and account details next time.', weight: prepReady ? 88 : 48 },
+              { label: 'Pace', value: `${wpm} wpm`, detail: wpmLabel, weight: Math.max(20, Math.min(100, 120 - Math.abs(wpm - 120))) },
+              { label: 'Next step', value: salesSetup.callGoal ? 'Defined' : 'Missing', detail: salesSetup.callGoal ? 'There is a concrete outcome to drive toward.' : 'Set a call goal before the next run.', weight: salesSetup.callGoal ? 90 : 38 },
+            ]}
           />
 
           {/* Stats */}

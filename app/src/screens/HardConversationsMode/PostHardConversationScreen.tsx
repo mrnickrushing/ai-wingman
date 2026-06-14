@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
+import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
@@ -123,6 +124,9 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
 
   const isSalary = hardConvoSetup.scenario === 'salary_negotiation';
   const isTherapy = hardConvoSetup.scenario === 'therapy';
+  const goalReady = Boolean(hardConvoSetup.goal);
+  const outcomeReady = Boolean(outcome);
+  const notesReady = Boolean(therapyNotes.trim() || finalNumber.trim());
 
   return (
     <View style={s.root}>
@@ -142,14 +146,25 @@ export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
               <Text style={s.prospectLabel}>{hardConvoSetup.situation || 'Session ended'}</Text>
             </Animated.View>
 
-            <WingmanScore
-              coachingHistory={coachingHistory}
-              elapsedSeconds={elapsedSeconds}
-              wordsSelf={wordsSelf}
-              rating={lastRating}
-            />
+          <WingmanScore
+            coachingHistory={coachingHistory}
+            elapsedSeconds={elapsedSeconds}
+            wordsSelf={wordsSelf}
+            rating={lastRating}
+          />
 
-            <View style={s.statsRow}>
+          <SessionScorecard
+            title="Conversation scorecard"
+            accent="#8b5cf6"
+            subtitle="Outcome, clarity, and follow-through."
+            metrics={[
+              { label: 'Goal', value: goalReady ? 'Set' : 'Missing', detail: goalReady ? 'You had a specific outcome to aim at.' : 'State the goal before the next hard talk.', weight: goalReady ? 90 : 42 },
+              { label: 'Outcome', value: outcomeReady ? (outcome === 'yes' ? 'Won' : outcome === 'partially' ? 'Partial' : 'Not yet') : 'Unrated', detail: outcomeReady ? 'You made a clear judgment about the result.' : 'Pick the result to anchor the recap.', weight: outcomeReady ? 84 : 34 },
+              { label: 'Notes', value: notesReady ? 'Captured' : 'Sparse', detail: notesReady ? 'You saved concrete follow-up details.' : 'Add salary/therapy notes to keep the next step grounded.', weight: notesReady ? 78 : 36 },
+            ]}
+          />
+
+          <View style={s.statsRow}>
               {stats.map((stat, i) => (
                 <Animated.View
                   key={i}

@@ -87,6 +87,8 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
     await stop();
     await start(getSessionConfig('networking'));
   };
+  const handleReconnect = handleRetry;
+  const handleRestartMic = handleRetry;
 
   const confirmLogContact = () => {
     const name = contactName.trim();
@@ -138,7 +140,11 @@ export function ActiveNetworkingScreen({ onEnd }: Props) {
         )}
 
         <LiveSessionStatus />
-        <SessionTelemetry onRetry={handleRetry} />
+        <SessionTelemetry
+          onRetry={handleRetry}
+          onReconnect={handleReconnect}
+          onRestartMic={handleRestartMic}
+        />
         <Animated.View style={[s.prospectBar, { opacity: headerAnim }]}>
           <View style={s.prospectAvatar}>
             <Text style={s.prospectInitial}>🤝</Text>

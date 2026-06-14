@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Share,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Share,
   SafeAreaView, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,6 +39,7 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     listSessions().then((data) => {
@@ -67,7 +68,25 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
     return { total, avgScore, totalTips, best, topMode, improvement };
   }, [sessions]);
 
-  const grouped = sessions.reduce<Array<{ label: string; items: SavedSession[] }>>((acc, session) => {
+  const filteredSessions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((session) => {
+      const haystack = [
+        session.title,
+        session.mode,
+        session.analysis?.summary,
+        session.analysis?.keyMoment,
+        session.analysis?.strengths.join(' '),
+        session.analysis?.improvements.join(' '),
+        session.analysis?.followUps.map((item) => item.text).join(' '),
+        session.transcriptText,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [search, sessions]);
+
+  const grouped = filteredSessions.reduce<Array<{ label: string; items: SavedSession[] }>>((acc, session) => {
     const label = formatDate(session.createdAt);
     const last = acc[acc.length - 1];
     if (last?.label === label) last.items.push(session);
@@ -75,7 +94,7 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
     return acc;
   }, []);
 
-  const latestSession = sessions[0] ?? null;
+  const latestSession = filteredSessions[0] ?? sessions[0] ?? null;
 
   const buildShareText = (session: SavedSession): string => {
     const parts = [
@@ -85,12 +104,40 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
       session.analysis?.strengths?.length ? `What worked: ${session.analysis.strengths.join('; ')}` : null,
       session.analysis?.improvements?.length ? `Next time: ${session.analysis.improvements.join('; ')}` : null,
       session.analysis?.followUps?.length ? `Follow-up: ${session.analysis.followUps[0].text}` : null,
+      session.transcriptText ? `Transcript: ${session.transcriptText.slice(0, 1200)}` : null,
     ].filter(Boolean);
     return parts.join('\n\n');
   };
 
   const shareSession = async (session: SavedSession) => {
     await Share.share({ message: buildShareText(session) }).catch(() => {});
+  };
+
+  const transcriptQuery = search.trim().toLowerCase();
+  const buildTranscriptExcerpt = (session: SavedSession) => {
+    const raw = session.transcriptText.trim();
+    if (!raw) return 'No transcript text captured for this session.';
+    const segments = raw.match(/[^.!?]+[.!?]*/g) ?? [raw];
+    if (!transcriptQuery) {
+      return segments.slice(0, 2).join(' ').slice(0, 240);
+    }
+    const hit = segments.find((segment) => segment.toLowerCase().includes(transcriptQuery));
+    return (hit ?? segments.slice(0, 2).join(' ')).slice(0, 260);
+  };
+
+  const renderHighlighted = (text: string) => {
+    if (!transcriptQuery) return text;
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(transcriptQuery);
+    if (idx < 0) return text;
+    const end = idx + transcriptQuery.length;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <Text style={st.searchHighlight}>{text.slice(idx, end)}</Text>
+        {text.slice(end)}
+      </>
+    );
   };
 
   return (
@@ -118,6 +165,25 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={st.list}>
+            <View style={st.searchCard}>
+              <Text style={st.searchLabel}>Search history</Text>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search sessions, transcript, advice..."
+                placeholderTextColor="#475569"
+                style={st.searchInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+              <Text style={st.searchHint}>
+                {search.trim()
+                  ? `${filteredSessions.length} matching session${filteredSessions.length === 1 ? '' : 's'}`
+                  : 'Search titles, analysis, follow-ups, and transcript text.'}
+              </Text>
+            </View>
+
             <View style={st.dashboard}>
               <Text style={st.dashboardTitle}>Progress dashboard</Text>
               <View style={st.metricRow}>
@@ -212,6 +278,10 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                             {session.analysis.keyMoment ? (
                               <Text style={st.analysisKeyMoment}>Key moment: {session.analysis.keyMoment}</Text>
                             ) : null}
+                            <View style={st.transcriptCard}>
+                              <Text style={st.transcriptLabel}>Transcript excerpt</Text>
+                              <Text style={st.transcriptText}>{renderHighlighted(buildTranscriptExcerpt(session))}</Text>
+                            </View>
                             {session.analysis.followUps.length > 0 ? (
                               <View style={st.analysisSection}>
                                 <Text style={[st.analysisSectionLabel, { color: meta.accent }]}>Next moves</Text>
@@ -237,6 +307,13 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                                 activeOpacity={0.8}
                               >
                                 <Text style={st.cardActionText}>Share recap</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => Share.share({ message: session.transcriptText || buildShareText(session) }).catch(() => {})}
+                                style={st.cardActionBtn}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={st.cardActionText}>Share transcript</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -290,6 +367,26 @@ const st = StyleSheet.create({
   emptyTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
   emptyBody: { color: '#94a3b8', fontSize: 14, lineHeight: 21, textAlign: 'center' },
   list: { paddingHorizontal: 18, paddingBottom: 42, gap: 10 },
+  searchCard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 14,
+    gap: 8,
+  },
+  searchLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 0.4 },
+  searchInput: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: '#f8fafc',
+    fontSize: 14,
+  },
+  searchHint: { color: '#64748b', fontSize: 11, lineHeight: 16 },
   dashboard: {
     backgroundColor: 'rgba(99,102,241,0.1)',
     borderWidth: 1,
@@ -374,6 +471,18 @@ const st = StyleSheet.create({
   analysisSectionLabel: { fontSize: 11, fontWeight: '900' },
   analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
   analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic' },
+  transcriptCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    padding: 10,
+    gap: 5,
+  },
+  transcriptLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  transcriptText: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
+  searchHighlight: {
+    color: '#f8fafc',
+    backgroundColor: 'rgba(129,140,248,0.25)',
+  },
   followRow: {
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderRadius: 8,

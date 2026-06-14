@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConversationMode } from '../types';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -14,6 +15,19 @@ type Playbook = {
   accent: string;
   apply: () => void;
 };
+
+type SavedPlaybook = {
+  id: string;
+  title: string;
+  mode: ConversationMode;
+  description: string;
+  goal: string;
+  notes: string;
+  pinned: boolean;
+  createdAt: string;
+};
+
+const CUSTOM_PLAYBOOK_KEY = 'wingman:customPlaybooks';
 
 type Props = {
   onBack: () => void;
@@ -28,6 +42,12 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     setPitchingSetup,
     setHardConvoSetup,
   } = useSessionStore();
+  const [customPlaybooks, setCustomPlaybooks] = useState<SavedPlaybook[]>([]);
+  const [customTitle, setCustomTitle] = useState('');
+  const [customDescription, setCustomDescription] = useState('');
+  const [customGoal, setCustomGoal] = useState('');
+  const [customNotes, setCustomNotes] = useState('');
+  const [customMode, setCustomMode] = useState<ConversationMode>('sales');
 
   const playbooks: Playbook[] = [
     {
@@ -91,10 +111,100 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     },
   ];
 
+  useEffect(() => {
+    AsyncStorage.getItem(CUSTOM_PLAYBOOK_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as SavedPlaybook[];
+        if (Array.isArray(parsed)) {
+          setCustomPlaybooks(parsed);
+        }
+      } catch {
+        // ignore malformed saved data
+      }
+    });
+  }, []);
+
+  const persistCustomPlaybooks = async (next: SavedPlaybook[]) => {
+    setCustomPlaybooks(next);
+    await AsyncStorage.setItem(CUSTOM_PLAYBOOK_KEY, JSON.stringify(next)).catch(() => {});
+  };
+
   const applyPlaybook = (playbook: Playbook) => {
     playbook.apply();
     onStartMode(playbook.mode);
   };
+
+  const saveCustomPlaybook = async (pinned = false) => {
+    const title = customTitle.trim();
+    if (!title) return;
+    const next: SavedPlaybook = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title,
+      mode: customMode,
+      description: customDescription.trim(),
+      goal: customGoal.trim(),
+      notes: customNotes.trim(),
+      pinned,
+      createdAt: new Date().toISOString(),
+    };
+    await persistCustomPlaybooks([next, ...customPlaybooks].slice(0, 12));
+    setCustomTitle('');
+    setCustomDescription('');
+    setCustomGoal('');
+    setCustomNotes('');
+  };
+
+  const togglePin = async (id: string) => {
+    const next = customPlaybooks.map((playbook) => (
+      playbook.id === id ? { ...playbook, pinned: !playbook.pinned } : playbook
+    ));
+    await persistCustomPlaybooks(next);
+  };
+
+  const applyCustomPlaybook = (playbook: SavedPlaybook) => {
+    switch (playbook.mode) {
+      case 'sales':
+        setSalesSetup({
+          prospectName: playbook.title,
+          company: playbook.description,
+          callGoal: playbook.goal,
+          objectionLibrary: playbook.notes,
+        });
+        break;
+      case 'dating':
+        setDatingSetup({
+          name: playbook.title,
+          intent: playbook.goal || playbook.description,
+          profileUrl: playbook.notes,
+        });
+        break;
+      case 'networking':
+        setNetworkingSetup({
+          eventName: playbook.title,
+          attendees: playbook.description || playbook.notes,
+        });
+        break;
+      case 'pitching':
+        setPitchingSetup({
+          title: playbook.title,
+          audience: playbook.description,
+          deck: [playbook.goal, playbook.notes].filter(Boolean).join('\n'),
+        });
+        break;
+      case 'hard_conversations':
+        setHardConvoSetup({
+          scenario: 'confrontation',
+          situation: playbook.title,
+          goal: playbook.goal || playbook.description,
+        });
+        break;
+    }
+    onStartMode(playbook.mode);
+  };
+
+  const pinnedPlaybooks = useMemo(() => customPlaybooks.filter((playbook) => playbook.pinned), [customPlaybooks]);
+  const unpinnedPlaybooks = useMemo(() => customPlaybooks.filter((playbook) => !playbook.pinned), [customPlaybooks]);
 
   return (
     <View style={s.root}>
@@ -115,6 +225,114 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
               Playbooks prefill context, goals, and coaching bias so you can start faster.
             </Text>
           </View>
+
+          <View style={s.customCard}>
+            <Text style={s.sectionLabel}>CUSTOM PLAYBOOK</Text>
+            <Text style={s.customTitle}>Save a reusable setup</Text>
+            <TextInput
+              value={customTitle}
+              onChangeText={setCustomTitle}
+              placeholder="Playbook name"
+              placeholderTextColor="#475569"
+              style={s.input}
+            />
+            <View style={s.modeRow}>
+              {playbooks.map((playbook) => {
+                const active = customMode === playbook.mode;
+                return (
+                  <TouchableOpacity
+                    key={playbook.mode}
+                    onPress={() => setCustomMode(playbook.mode)}
+                    style={[s.modeChip, active && s.modeChipActive]}
+                  >
+                    <Text style={[s.modeChipText, active && s.modeChipTextActive]}>{playbook.title}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput
+              value={customDescription}
+              onChangeText={setCustomDescription}
+              placeholder="Short description or audience"
+              placeholderTextColor="#475569"
+              style={s.input}
+            />
+            <TextInput
+              value={customGoal}
+              onChangeText={setCustomGoal}
+              placeholder="Goal or outcome"
+              placeholderTextColor="#475569"
+              style={s.input}
+            />
+            <TextInput
+              value={customNotes}
+              onChangeText={setCustomNotes}
+              placeholder="Notes, objections, or structure"
+              placeholderTextColor="#475569"
+              style={[s.input, s.inputMultiline]}
+              multiline
+            />
+            <View style={s.customActions}>
+              <TouchableOpacity
+                onPress={() => void saveCustomPlaybook(false)}
+                style={s.customSecondary}
+                activeOpacity={0.82}
+              >
+                <Text style={s.customSecondaryText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void saveCustomPlaybook(true)}
+                style={s.customPrimary}
+                activeOpacity={0.82}
+              >
+                <Text style={s.customPrimaryText}>Save & pin</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {pinnedPlaybooks.length > 0 ? (
+            <View style={s.sectionBlock}>
+              <Text style={s.sectionLabel}>PINNED</Text>
+              {pinnedPlaybooks.map((playbook) => (
+                <TouchableOpacity
+                  key={playbook.id}
+                  onPress={() => applyCustomPlaybook(playbook)}
+                  activeOpacity={0.82}
+                  style={s.savedCard}
+                >
+                  <View style={s.savedTop}>
+                    <Text style={s.savedTitle}>{playbook.title}</Text>
+                    <TouchableOpacity onPress={() => void togglePin(playbook.id)}>
+                      <Text style={s.savedPin}>Unpin</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={s.savedMeta}>{playbook.description || playbook.goal || 'Custom playbook'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
+          {unpinnedPlaybooks.length > 0 ? (
+            <View style={s.sectionBlock}>
+              <Text style={s.sectionLabel}>CUSTOM SAVED</Text>
+              {unpinnedPlaybooks.map((playbook) => (
+                <View key={playbook.id} style={s.savedCard}>
+                  <View style={s.savedTop}>
+                    <Text style={s.savedTitle}>{playbook.title}</Text>
+                    <TouchableOpacity onPress={() => void togglePin(playbook.id)}>
+                      <Text style={s.savedPin}>Pin</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={s.savedMeta}>{playbook.description || playbook.goal || 'Custom playbook'}</Text>
+                  <View style={s.savedActions}>
+                    <TouchableOpacity onPress={() => applyCustomPlaybook(playbook)} style={s.savedAction}>
+                      <Text style={s.savedActionText}>Use</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           {playbooks.map((playbook) => (
             <TouchableOpacity
@@ -163,6 +381,84 @@ const s = StyleSheet.create({
   },
   heroTitle: { color: '#f8fafc', fontSize: 24, fontWeight: '900', lineHeight: 30 },
   heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  sectionBlock: { gap: 10 },
+  sectionLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  customCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 16,
+    gap: 10,
+  },
+  customTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900' },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: '#f8fafc',
+    fontSize: 14,
+  },
+  inputMultiline: { minHeight: 88, textAlignVertical: 'top' },
+  modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  modeChipActive: {
+    backgroundColor: 'rgba(99,102,241,0.18)',
+    borderColor: 'rgba(99,102,241,0.45)',
+  },
+  modeChipText: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
+  modeChipTextActive: { color: '#f8fafc' },
+  customActions: { flexDirection: 'row', gap: 10 },
+  customSecondary: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  customSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '800' },
+  customPrimary: {
+    flex: 1,
+    borderRadius: 8,
+    backgroundColor: '#6366f1',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  customPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  savedCard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 14,
+    gap: 8,
+  },
+  savedTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  savedTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900', flex: 1 },
+  savedPin: { color: '#818cf8', fontSize: 12, fontWeight: '900' },
+  savedMeta: { color: '#94a3b8', fontSize: 12, lineHeight: 18 },
+  savedActions: { flexDirection: 'row', gap: 8 },
+  savedAction: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  savedActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
   card: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,

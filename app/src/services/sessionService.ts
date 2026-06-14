@@ -34,6 +34,7 @@ export type SavedSession = {
   score: number;
   rating: number;
   analysis: SessionAnalysis | null;
+  transcriptText: string;
   createdAt: string;
 };
 

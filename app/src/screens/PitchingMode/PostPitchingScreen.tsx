@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
+import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
@@ -104,6 +105,7 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
     : wpm > 130
     ? 'Slightly fast — add deliberate pauses'
     : 'Well-paced delivery';
+  const structureReady = Boolean(pitchingSetup.title && pitchingSetup.audience && pitchingSetup.deck);
 
   const stats = [
     { value: formatDuration(elapsedSeconds), label: 'Duration', icon: '⏱' },
@@ -130,6 +132,17 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
             elapsedSeconds={elapsedSeconds}
             wordsSelf={wordsSelf}
             rating={lastRating}
+          />
+
+          <SessionScorecard
+            title="Pitch scorecard"
+            accent="#f59e0b"
+            subtitle="Structure, pace, and audience clarity."
+            metrics={[
+              { label: 'Structure', value: structureReady ? 'Outlined' : 'Loose', detail: structureReady ? 'You had the full pitch framework in place.' : 'Add title, audience, and deck outline.', weight: structureReady ? 92 : 44 },
+              { label: 'Pace', value: `${wpm} wpm`, detail: paceLabel, weight: Math.max(20, Math.min(100, 120 - Math.abs(wpm - 120))) },
+              { label: 'Audience', value: pitchingSetup.audience ? 'Clear' : 'Missing', detail: pitchingSetup.audience ? 'You tailored the run to a specific audience.' : 'Define the audience before the next run.', weight: pitchingSetup.audience ? 86 : 36 },
+            ]}
           />
 
           <View style={s.statsRow}>

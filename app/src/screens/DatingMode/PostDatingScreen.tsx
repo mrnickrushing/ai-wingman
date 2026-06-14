@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
+import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
 import { saveSession, SessionAnalysis } from '../../services/sessionService';
@@ -115,6 +116,10 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
     .slice(-6)
     .map((t) => t.text)
     .join(' ');
+  const vibe = transcriptSummary.length > 180 ? '🔥 Hot' : transcriptSummary.length > 80 ? '✨ Warm' : '🌙 Quiet';
+  const intentReady = Boolean(datingSetup.intent);
+  const nameReady = Boolean(datingSetup.name);
+  const momentumWeight = transcriptSummary.length > 180 ? 88 : transcriptSummary.length > 80 ? 68 : 42;
 
   return (
     <View style={s.root}>
@@ -134,6 +139,17 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
             elapsedSeconds={elapsedSeconds}
             wordsSelf={wordsSelf}
             rating={lastRating}
+          />
+
+          <SessionScorecard
+            title="Date scorecard"
+            accent="#ec4899"
+            subtitle="Intent, momentum, and conversation texture."
+            metrics={[
+              { label: 'Intent', value: intentReady ? 'Clear' : 'Soft', detail: intentReady ? 'You had a stated reason to be there.' : 'State the outcome you want before starting.', weight: intentReady ? 88 : 46 },
+              { label: 'Momentum', value: vibe.replace('🔥 ', '').replace('❄️ ', '').replace('✨ ', ''), detail: transcriptSummary ? 'Conversation produced enough material for review.' : 'Capture more dialogue next time.', weight: momentumWeight },
+              { label: 'Profile', value: nameReady ? 'Named' : 'Unnamed', detail: nameReady ? 'The session had a defined person/context.' : 'Add a name so the recap stays grounded.', weight: nameReady ? 82 : 40 },
+            ]}
           />
 
           <View style={s.statsRow}>

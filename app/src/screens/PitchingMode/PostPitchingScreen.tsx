@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Animated,
+  SafeAreaView, ScrollView, Animated, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { computeWingmanScore } from '../../utils/scoring';
 import { recordSessionStats } from '../../utils/statsStorage';
+import { saveSession, SessionAnalysis } from '../../services/sessionService';
+import { resetInactivityNudge } from '../../hooks/useNotifications';
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);
@@ -22,6 +24,8 @@ interface Props {
 
 export function PostPitchingScreen({ onNewSession, onHome }: Props) {
   const { elapsedSeconds, wordsSelf, coachingHistory, pitchingSetup, lastRating, recordSession } = useSessionStore();
+  const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -36,6 +40,27 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
     });
     recordSession(score);
     recordSessionStats(score);
+
+    saveSession({
+      mode: 'pitching',
+      title: pitchingSetup.title || 'Pitch',
+      durationSeconds: elapsedSeconds,
+      wordsSpoken: wordsSelf,
+      coachingCount: coachingHistory.length,
+      score,
+      rating: lastRating,
+      transcriptText: '',
+      coachingItems: coachingHistory.map((c) => c.text),
+      context: {
+        'Pitch title': pitchingSetup.title,
+        'Audience': pitchingSetup.audience,
+        'Key points': pitchingSetup.deck,
+      },
+    }).then((s) => {
+      setAnalysis(s?.analysis ?? null);
+      setAnalysisLoading(false);
+      resetInactivityNudge().catch(() => {});
+    });
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -63,11 +88,6 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
     { value: wpm.toString(), label: 'Words/min', icon: '🎙' },
   ];
 
-  const improvements = [
-    'Open with the single sharpest line of your deck.',
-    'Pause after each key metric so it lands.',
-    'Pre-stage answers for your two hardest likely questions.',
-  ];
 
   return (
     <View style={s.root}>
@@ -133,26 +153,47 @@ export function PostPitchingScreen({ onNewSession, onHome }: Props) {
           )}
 
           <Animated.View style={[s.section, { opacity: fadeAnim }]}>
-            <Text style={s.sectionLabel}>WEAK POINTS VS. DECK</Text>
-            <View style={s.summaryCard}>
-              <Text style={s.summaryText}>
-                {pitchingSetup.deck.trim()
-                  ? 'Sections moved fast relative to your outline — make sure each deck point got airtime, especially traction and the ask.'
-                  : 'No deck provided, so weak-point analysis is limited. Add your structure next time for section-by-section feedback.'}
-              </Text>
-            </View>
-          </Animated.View>
-
-          <Animated.View style={[s.section, { opacity: fadeAnim }]}>
-            <Text style={s.sectionLabel}>SUGGESTED IMPROVEMENTS</Text>
-            <View style={s.coachingList}>
-              {improvements.map((imp, i) => (
-                <View key={i} style={s.improveItem}>
-                  <Text style={s.improveNum}>{i + 1}</Text>
-                  <Text style={s.improveText}>{imp}</Text>
-                </View>
-              ))}
-            </View>
+            <Text style={s.sectionLabel}>WINGMAN ANALYSIS</Text>
+            {analysisLoading ? (
+              <View style={s.analysisLoading}>
+                <ActivityIndicator size="small" color="#f59e0b" />
+                <Text style={s.analysisLoadingText}>Analyzing your pitch...</Text>
+              </View>
+            ) : analysis ? (
+              <View style={s.analysisCard}>
+                <Text style={s.analysisSummary}>{analysis.summary}</Text>
+                {analysis.strengths.length > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>✓ What landed</Text>
+                    {analysis.strengths.map((s2, i) => (
+                      <Text key={i} style={s.analysisItem}>· {s2}</Text>
+                    ))}
+                  </View>
+                )}
+                {analysis.improvements.length > 0 && (
+                  <View style={s.analysisList}>
+                    <Text style={s.analysisListHeader}>↑ Improvements</Text>
+                    {analysis.improvements.map((s2, i) => (
+                      <View key={i} style={s.improveItem}>
+                        <Text style={s.improveNum}>{i + 1}</Text>
+                        <Text style={s.improveText}>{s2}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {analysis.keyMoment ? (
+                  <Text style={s.analysisKeyMoment}>Key moment: {analysis.keyMoment}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={s.summaryCard}>
+                <Text style={s.summaryText}>
+                  {pitchingSetup.deck.trim()
+                    ? 'Sections moved fast relative to your outline — make sure each deck point got airtime, especially traction and the ask.'
+                    : 'No deck provided, so weak-point analysis is limited. Add your structure next time for section-by-section feedback.'}
+                </Text>
+              </View>
+            )}
           </Animated.View>
 
           <Animated.View style={[s.actions, { opacity: fadeAnim }]}>
@@ -228,6 +269,19 @@ const s = StyleSheet.create({
 
   section: { gap: 12 },
   sectionLabel: { color: '#334155', fontSize: 10, fontWeight: '700', letterSpacing: 2 },
+
+  analysisLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16 },
+  analysisLoadingText: { color: '#475569', fontSize: 13 },
+  analysisCard: {
+    backgroundColor: 'rgba(245,158,11,0.06)',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)',
+    borderRadius: 16, padding: 16, gap: 12,
+  },
+  analysisSummary: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  analysisList: { gap: 4 },
+  analysisListHeader: { color: '#f59e0b', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  analysisItem: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
+  analysisKeyMoment: { color: '#64748b', fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
   summaryCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',

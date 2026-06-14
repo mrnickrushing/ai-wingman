@@ -312,6 +312,88 @@ export function getHardConversationPrompt(scenario: HardConversationScenario): s
   }
 }
 
+export type SessionAnalysis = {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  keyMoment: string;
+  followUps: Array<{ timing: string; text: string }>;
+};
+
+export async function analyzeSession(input: {
+  mode: string;
+  transcriptText: string;
+  coachingItems: string[];
+  context: Record<string, string>;
+}): Promise<SessionAnalysis | null> {
+  const { mode, transcriptText, coachingItems, context } = input;
+  if (!transcriptText.trim() && coachingItems.length === 0) return null;
+
+  const contextBlock = Object.entries(context)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+
+  const coachingBlock = coachingItems.length > 0
+    ? `\nLive coaching given:\n${coachingItems.map((c) => `- ${c}`).join('\n')}`
+    : '';
+
+  const modeLabel: Record<string, string> = {
+    sales: 'sales call',
+    dating: 'date',
+    networking: 'networking event',
+    pitching: 'pitch / presentation',
+    hard_conversations: 'difficult conversation',
+  };
+
+  const followUpInstructions: Record<string, string> = {
+    sales: 'Provide 1-2 follow-up actions with the prospect (e.g. "Send proposal", "Schedule demo").',
+    dating: 'Provide 1-2 follow-up messages to send the date, with suggested timing (e.g. "Text tonight", "Wait 2 days").',
+    networking: 'Provide 1-2 LinkedIn/email follow-up actions for key contacts met.',
+    pitching: 'Provide 1-2 post-pitch follow-up steps (e.g. "Send deck", "Schedule Q&A call").',
+    hard_conversations: 'Provide 1-2 concrete next steps based on the conversation outcome.',
+  };
+
+  try {
+    const response = await anthropic.messages.create({
+      model: COACHING_MODEL,
+      max_tokens: 500,
+      system: 'You are an expert communication coach. Analyze a completed session and return a JSON object. Output ONLY valid JSON — no markdown, no explanation.',
+      messages: [
+        {
+          role: 'user',
+          content: `Analyze this completed ${modeLabel[mode] ?? 'conversation'} session.
+
+${contextBlock ? `Context:\n${contextBlock}\n` : ''}
+Transcript (last portion):
+${transcriptText || '(no transcript captured)'}
+${coachingBlock}
+
+Return a JSON object with exactly these fields:
+{
+  "summary": "2-3 sentences on how the session went overall",
+  "strengths": ["specific thing done well", "another strength"],
+  "improvements": ["specific thing to work on", "another improvement"],
+  "keyMoment": "1 sentence describing the most pivotal moment",
+  "followUps": [{ "timing": "timing label", "text": "action or message text" }]
+}
+
+${followUpInstructions[mode] ?? ''}
+Be specific and reference what actually happened in the transcript. Strengths and improvements arrays should have 2-3 items each.`,
+        },
+      ],
+    });
+
+    const block = response.content[0];
+    if (block.type !== 'text') return null;
+
+    const raw = block.text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+    return JSON.parse(raw) as SessionAnalysis;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateHardConversationCoaching(
   latestTranscript: string,
   scenario: HardConversationScenario,

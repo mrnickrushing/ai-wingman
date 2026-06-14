@@ -195,11 +195,13 @@ export function useWingmanSession() {
       // permission request threw — proceed; recorder calls below are guarded
     }
     try {
+      // allowsBluetoothA2DP routes coaching audio to AirPods/BT headphones when connected (iOS).
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
         interruptionMode: 'doNotMix',
-      });
+        ...(Platform.OS === 'ios' ? { allowsBluetoothA2DP: true } : {}),
+      } as Parameters<typeof setAudioModeAsync>[0]);
     } catch {
       // audio mode config failed — recording may still work
     }

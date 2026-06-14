@@ -16,7 +16,7 @@ const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
  * - `smart_format` + `punctuate` give cleaner, better-segmented text.
  * - `filler_words: false` strips "um/uh" disfluencies so the transcript handed
  *   to Claude is tighter and the coach reasons over content, not noise.
- * - `keywords` boosts mode-specific jargon (e.g. "anchor", "counter-offer")
+ * - `keyterm` boosts mode-specific jargon (e.g. "anchor", "counter-offer")
  *   so domain terms survive a noisy room.
  *
  * NOTE: `endpointing`, `utterance_end_ms`, `interim_results`, and
@@ -37,7 +37,7 @@ export async function transcribeChunk(
     punctuate: true,
     // Drop "um/uh"-style fillers from the returned transcript.
     filler_words: false,
-    ...(keywords.length > 0 ? { keywords } : {}),
+    ...(keywords.length > 0 ? { keyterm: keywords } : {}),
   });
 
   if (error) {

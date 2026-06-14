@@ -29,7 +29,7 @@ import {
   signInWithGoogle,
 } from '../services/auth';
 
-WebBrowser.maybeCompleteAuthSession();
+try { WebBrowser.maybeCompleteAuthSession(); } catch { /* no-op on platforms that don't support this */ }
 
 const INTRO_CARDS = [
   {

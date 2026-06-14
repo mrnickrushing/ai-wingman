@@ -128,7 +128,13 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
             {speaking && <SpeakingDots />}
           </View>
           {onDismiss && (
-            <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                onDismiss();
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Text style={s.dismiss}>✕</Text>
             </TouchableOpacity>
           )}

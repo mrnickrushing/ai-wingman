@@ -42,12 +42,14 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
   }, []);
 
   const refreshHealth = async () => {
+    useSessionStore.getState().setServerHealth('checking');
     const result = await checkWingmanServerHealth();
     setHealth({
       label: result.ok ? 'Online' : 'Offline',
       detail: result.message || `HTTP ${result.status || '-'}`,
       color: result.ok ? '#4ade80' : '#f43f5e',
     });
+    useSessionStore.getState().setServerHealth(result.ok ? 'online' : 'offline');
   };
 
   useEffect(() => {

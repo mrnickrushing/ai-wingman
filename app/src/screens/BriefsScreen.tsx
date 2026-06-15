@@ -21,17 +21,18 @@ import { fetchMemoryBrief, type MemorySnapshot } from '../services/memory';
 
 type Mode = {
   id: ConversationMode;
+  icon: string;
   label: string;
   accent: string;
   description: string;
 };
 
 const MODES: Mode[] = [
-  { id: 'sales', label: 'Sales', accent: '#6366f1', description: 'Objections, closes, and follow-up.' },
-  { id: 'dating', label: 'Dating', accent: '#ec4899', description: 'Momentum, presence, and next steps.' },
-  { id: 'networking', label: 'Networking', accent: '#22d3ee', description: 'Rooms, intros, and useful follow-up.' },
-  { id: 'pitching', label: 'Pitching', accent: '#f59e0b', description: 'Delivery, proof, and Q&A.' },
-  { id: 'hard_conversations', label: 'Hard Talk', accent: '#8b5cf6', description: 'Boundaries, calm, and clarity.' },
+  { id: 'sales',              icon: '🤝', label: 'Sales',      accent: '#6366f1', description: 'Objections, closes, and follow-up.' },
+  { id: 'dating',             icon: '✨', label: 'Dating',     accent: '#ec4899', description: 'Momentum, presence, and next steps.' },
+  { id: 'networking',         icon: '💬', label: 'Networking', accent: '#22d3ee', description: 'Rooms, intros, and useful follow-up.' },
+  { id: 'pitching',           icon: '🚀', label: 'Pitching',   accent: '#f59e0b', description: 'Delivery, proof, and Q&A.' },
+  { id: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  accent: '#8b5cf6', description: 'Boundaries, calm, and clarity.' },
 ];
 
 type Props = {
@@ -241,11 +242,11 @@ export function BriefsScreen({ onBack, onStartMode }: Props) {
               <TouchableOpacity
                 key={mode.id}
                 onPress={() => onStartMode(mode.id)}
-                style={s.modeCard}
+                style={[s.modeCard, { borderTopColor: mode.accent, borderTopWidth: 2 }]}
                 activeOpacity={0.82}
               >
-                <View style={[s.modeChip, { borderColor: mode.accent, backgroundColor: `${mode.accent}20` }]}>
-                  <Text style={[s.modeChipText, { color: mode.accent }]}>{mode.label.slice(0, 1)}</Text>
+                <View style={[s.modeIconWrap, { borderColor: `${mode.accent}44`, backgroundColor: `${mode.accent}15` }]}>
+                  <Text style={s.modeIconEmoji}>{mode.icon}</Text>
                 </View>
                 <Text style={s.modeTitle}>{mode.label}</Text>
                 <Text style={s.modeBody}>{mode.description}</Text>
@@ -445,22 +446,22 @@ const s = StyleSheet.create({
   modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   modeCard: {
     width: '48.5%',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(255,255,255,0.035)',
     padding: 14,
     gap: 8,
   },
-  modeChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  modeIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeChipText: { fontSize: 14, fontWeight: '900' },
+  modeIconEmoji: { fontSize: 20 },
   modeTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
   modeBody: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
   emptyCard: {

@@ -14,7 +14,7 @@ workflows:
         XCODE_SCHEME: AIWingman
         APPLE_TEAM_ID: PH4AKDQ4Q7
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
-        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 98129298079-b90mce85ibkjtttl3e5ovhbhi0shs0cn.apps.googleusercontent.com
+        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 734907398246-e232dsef4fbfuc6kc6tsictqurgl28vn.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: 98129298079-p7q7vlrrj4s5t68r2a0qigqtd1p8guqj.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID: 98129298079-aj8fdiufoqpv90f9r8l724rnsroujesi.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 98129298079-vebr1dn59m28d9775pl2l0dhogb4a4rb.apps.googleusercontent.com
@@ -109,7 +109,7 @@ workflows:
         XCODE_SCHEME: AIWingman
         APPLE_TEAM_ID: PH4AKDQ4Q7
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
-        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 98129298079-b90mce85ibkjtttl3e5ovhbhi0shs0cn.apps.googleusercontent.com
+        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 734907398246-e232dsef4fbfuc6kc6tsictqurgl28vn.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: 98129298079-p7q7vlrrj4s5t68r2a0qigqtd1p8guqj.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID: 98129298079-aj8fdiufoqpv90f9r8l724rnsroujesi.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 98129298079-vebr1dn59m28d9775pl2l0dhogb4a4rb.apps.googleusercontent.com
@@ -168,7 +168,7 @@ workflows:
         - appstore_credentials
       vars:
         EXPO_PUBLIC_SERVER_URL: wss://wingman-server-production-5146.up.railway.app/ws
-        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 98129298079-b90mce85ibkjtttl3e5ovhbhi0shs0cn.apps.googleusercontent.com
+        EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 734907398246-e232dsef4fbfuc6kc6tsictqurgl28vn.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: 98129298079-p7q7vlrrj4s5t68r2a0qigqtd1p8guqj.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID: 98129298079-aj8fdiufoqpv90f9r8l724rnsroujesi.apps.googleusercontent.com
         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 98129298079-vebr1dn59m28d9775pl2l0dhogb4a4rb.apps.googleusercontent.com

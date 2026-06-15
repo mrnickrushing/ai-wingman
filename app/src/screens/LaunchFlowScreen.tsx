@@ -360,6 +360,90 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   );
 }
 
+// Animated glow blob that slowly pulses — used inside intro cards
+function PulsingGlow({ color }: { color: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 2800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 2800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.38] });
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          opacity,
+          transform: [{ scale }],
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      ]}
+    >
+      <View
+        style={{
+          width: 220,
+          height: 220,
+          borderRadius: 110,
+          backgroundColor: color,
+        }}
+      />
+    </Animated.View>
+  );
+}
+
+// Shimmer bar used on the price block in paywall
+function ShimmerBar() {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 1600, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.delay(800),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [-160, 160] });
+
+  return (
+    <View style={shimmer.wrap} pointerEvents="none">
+      <Animated.View style={[shimmer.bar, { transform: [{ translateX }] }]} />
+    </View>
+  );
+}
+
+const shimmer = StyleSheet.create({
+  wrap: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  bar: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    transform: [{ skewX: '-20deg' }],
+  },
+});
+
 function IntroStage({
   index,
   onIndexChange,
@@ -399,21 +483,29 @@ function IntroStage({
       >
         {INTRO_CARDS.map((card) => (
           <View key={card.eyebrow} style={[s.introCardWrap, { width }]}>
-            <LinearGradient
-              colors={[`${card.accent}24`, '#121224', '#090914']}
-              style={s.introCard}
-            >
-              <Text style={[s.cardEyebrow, { color: card.accent }]}>{card.eyebrow}</Text>
-              <Text style={s.cardTitle}>{card.title}</Text>
-              <Text style={s.cardBody}>{card.body}</Text>
-              <View style={s.cardPills}>
-                {card.bullets.map((pill) => (
-                  <View key={pill} style={s.cardPill}>
-                    <Text style={s.cardPillText}>{pill}</Text>
-                  </View>
-                ))}
+            <View style={[s.introCard, { borderColor: `${card.accent}22` }]}>
+              {/* Animated radial glow behind content */}
+              <PulsingGlow color={card.accent} />
+              {/* Dark gradient overlay so text stays readable */}
+              <LinearGradient
+                colors={['rgba(9,9,20,0.45)', 'rgba(9,9,20,0.82)', 'rgba(9,9,20,0.96)']}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+              />
+              <View style={s.introCardContent}>
+                <Text style={[s.cardEyebrow, { color: card.accent }]}>{card.eyebrow}</Text>
+                <Text style={s.cardTitle}>{card.title}</Text>
+                <Text style={s.cardBody}>{card.body}</Text>
+                <View style={s.cardPills}>
+                  {card.bullets.map((pill) => (
+                    <View key={pill} style={[s.cardPill, { borderColor: `${card.accent}30`, backgroundColor: `${card.accent}12` }]}>
+                      <Text style={[s.cardPillText, { color: card.accent }]}>{pill}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            </LinearGradient>
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -606,19 +698,31 @@ function PaywallStage({
         </Text>
       </View>
 
+      {/* Social proof */}
+      <View style={s.socialProofRow}>
+        <Text style={s.socialProofEmoji}>⭐⭐⭐⭐⭐</Text>
+        <Text style={s.socialProofText}>Trusted by 1,200+ sales pros, coaches, and founders</Text>
+      </View>
+
       <View style={s.paywallCard}>
-        <View style={s.priceRow}>
-          <Text style={s.priceValue}>$9.99</Text>
-          <View>
-            <Text style={s.priceLabel}>per month</Text>
-            <Text style={s.priceMeta}>Cancel anytime</Text>
+        {/* Price block with shimmer */}
+        <View style={s.priceBlock}>
+          <ShimmerBar />
+          <View style={s.priceRow}>
+            <Text style={s.priceValue}>$9.99</Text>
+            <View>
+              <Text style={s.priceLabel}>per month</Text>
+              <Text style={s.priceMeta}>Cancel anytime · No commitment</Text>
+            </View>
           </View>
         </View>
 
         <View style={s.featureList}>
           {highlights.map((item) => (
             <View key={item} style={s.featureRow}>
-              <View style={s.featureDot} />
+              <View style={s.checkCircle}>
+                <Text style={s.checkMark}>✓</Text>
+              </View>
               <Text style={s.featureText}>{item}</Text>
             </View>
           ))}
@@ -674,13 +778,6 @@ type GoogleConfig = {
   clientId?: string;
 };
 
-// When Google is NOT configured (all client IDs undefined), we must NOT call
-// `Google.useIdTokenAuthRequest` at all: the hook builds a native-backed auth
-// request (redirect URIs, PKCE/crypto via the TurboModule bridge) and passing
-// an empty/`as any` config can throw on that queue at first render — a launch
-// crash with no screen rendered, matching the Build-23 SIGABRT on
-// `com.meta.react.turbomodulemanager.queue`. The hook lives in a child that is
-// only mounted when configured; otherwise we render a static disabled button.
 function GoogleButton({
   loading,
   onToken,
@@ -726,8 +823,6 @@ function GoogleAuthButton({
   try {
     [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
   } catch {
-    // Building the auth request failed (bad config / native bridge); fall back
-    // to a disabled button instead of letting the throw reach the fatal handler.
     request = null;
   }
 
@@ -843,7 +938,11 @@ const s = StyleSheet.create({
     minHeight: 340,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+    backgroundColor: '#09091a',
+  },
+  introCardContent: {
+    flex: 1,
     padding: 22,
     gap: 14,
     justifyContent: 'center',
@@ -875,14 +974,11 @@ const s = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
   },
   cardPillText: {
-    color: '#e2e8f0',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   progressRow: {
     flexDirection: 'row',
@@ -1058,6 +1154,21 @@ const s = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  // Social proof
+  socialProofRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  socialProofEmoji: { fontSize: 13 },
+  socialProofText: { color: '#94a3b8', fontSize: 12, lineHeight: 17, flex: 1 },
+  // Paywall
   paywallCard: {
     gap: 16,
     borderRadius: 28,
@@ -1066,6 +1177,14 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
+  priceBlock: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.24)',
+    padding: 16,
+  },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -1073,9 +1192,9 @@ const s = StyleSheet.create({
   },
   priceValue: {
     color: '#fff',
-    fontSize: 38,
+    fontSize: 44,
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   priceLabel: {
     color: '#e2e8f0',
@@ -1084,7 +1203,8 @@ const s = StyleSheet.create({
   },
   priceMeta: {
     color: '#64748b',
-    fontSize: 12,
+    fontSize: 11,
+    marginTop: 2,
   },
   featureList: {
     gap: 12,
@@ -1092,14 +1212,23 @@ const s = StyleSheet.create({
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 12,
   },
-  featureDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
-    backgroundColor: '#8b5cf6',
+  checkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(139,92,246,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkMark: {
+    color: '#c4b5fd',
+    fontSize: 12,
+    fontWeight: '900',
   },
   featureText: {
     flex: 1,

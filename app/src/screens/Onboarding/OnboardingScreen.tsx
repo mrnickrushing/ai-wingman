@@ -24,21 +24,21 @@ const SLIDES: Slide[] = [
     title: 'Your AI in your ear',
     body: 'AI Wingman listens to your conversation and whispers live coaching through your AirPods. Completely invisible. Insanely effective.',
     gradient: ['#0c0c22', '#050510'],
-    orbColor: 'rgba(99,102,241,0.1)',
+    orbColor: 'rgba(99,102,241,0.14)',
   },
   {
     emoji: '⚔️',
     title: 'Choose your battlefield',
     body: 'Dates. Sales calls. Pitches. Hard conversations. Pick a mode and Wingman tailors every suggestion to the moment.',
     gradient: ['#0d0a1a', '#050510'],
-    orbColor: 'rgba(236,72,153,0.08)',
+    orbColor: 'rgba(236,72,153,0.12)',
   },
   {
     emoji: '🤫',
     title: 'Go invisible',
     body: "Put your phone in your pocket. Wear your AirPods. Let Wingman do the work. Nobody knows it's there.",
     gradient: ['#050c14', '#050510'],
-    orbColor: 'rgba(34,211,238,0.06)',
+    orbColor: 'rgba(34,211,238,0.09)',
   },
 ];
 
@@ -130,6 +130,13 @@ export function OnboardingScreen({ onComplete }: Props) {
                 )}
               </View>
 
+              {/* Bottom fade to ensure content reads over gradient */}
+              <LinearGradient
+                colors={['transparent', 'rgba(5,5,16,0.85)']}
+                style={s.bottomFade}
+                pointerEvents="none"
+              />
+
               {i < 2 && (
                 <TouchableOpacity style={s.skip} onPress={() => goToSlide(2)} activeOpacity={0.7}>
                   <Text style={s.skipText}>Skip →</Text>
@@ -147,10 +154,10 @@ export function OnboardingScreen({ onComplete }: Props) {
                 style={[
                   s.dot,
                   {
-                    width: dotAnims[i].interpolate({ inputRange: [0, 1], outputRange: [6, 20] }),
+                    width: dotAnims[i].interpolate({ inputRange: [0, 1], outputRange: [6, 22] }),
                     backgroundColor: dotAnims[i].interpolate({
                       inputRange: [0, 1],
-                      outputRange: ['rgba(255,255,255,0.15)', '#6366f1'],
+                      outputRange: ['rgba(255,255,255,0.2)', '#6366f1'],
                     }),
                   },
                 ]}
@@ -181,19 +188,27 @@ const s = StyleSheet.create({
 
   slide: { width: SCREEN_WIDTH, flex: 1 },
   orb: {
-    position: 'absolute', top: -80, alignSelf: 'center',
-    width: 300, height: 300, borderRadius: 150,
+    position: 'absolute', top: -200, alignSelf: 'center',
+    width: 500, height: 500, borderRadius: 250,
+  },
+  bottomFade: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 220,
   },
   content: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 32, gap: 16,
+    paddingHorizontal: 32, gap: 18,
   },
-  emoji: { fontSize: 80 },
+  emoji: {
+    fontSize: 96,
+    textShadowColor: 'rgba(255,255,255,0.25)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
   title: {
-    fontSize: 32, fontWeight: '900', color: '#f1f5f9',
-    letterSpacing: -1, textAlign: 'center',
+    fontSize: 34, fontWeight: '900', color: '#f1f5f9',
+    letterSpacing: -1.5, textAlign: 'center',
   },
-  body: { fontSize: 16, color: '#64748b', lineHeight: 24, textAlign: 'center' },
+  body: { fontSize: 16, color: '#94a3b8', lineHeight: 25, textAlign: 'center' },
 
   chipRow: {
     flexDirection: 'row', gap: 10, flexWrap: 'wrap',
@@ -202,29 +217,37 @@ const s = StyleSheet.create({
   chip: {
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1,
   },
-  chipSales: { backgroundColor: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.4)' },
-  chipDating: { backgroundColor: 'rgba(236,72,153,0.15)', borderColor: 'rgba(236,72,153,0.4)' },
-  chipHard: { backgroundColor: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.4)' },
+  chipSales: { backgroundColor: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.6)' },
+  chipDating: { backgroundColor: 'rgba(236,72,153,0.15)', borderColor: 'rgba(236,72,153,0.6)' },
+  chipHard: { backgroundColor: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.6)' },
   chipText: { fontSize: 13, fontWeight: '700' },
-  chipTextSales: { color: '#6366f1' },
-  chipTextDating: { color: '#ec4899' },
-  chipTextHard: { color: '#8b5cf6' },
+  chipTextSales: { color: '#818cf8' },
+  chipTextDating: { color: '#f472b6' },
+  chipTextHard: { color: '#a78bfa' },
 
   stepsRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     flexWrap: 'wrap', justifyContent: 'center', marginTop: 24,
   },
-  stepText: { color: '#475569', fontSize: 13 },
-  stepArrow: { color: '#334155', fontSize: 13 },
+  stepText: { color: '#64748b', fontSize: 14, fontWeight: '600' },
+  stepArrow: { color: '#475569', fontSize: 14 },
 
   skip: { position: 'absolute', top: 12, right: 22 },
-  skipText: { color: '#334155', fontSize: 13, fontWeight: '600' },
+  skipText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
 
   bottom: { paddingBottom: 48, paddingHorizontal: 24, gap: 24 },
   dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   dot: { height: 6, borderRadius: 3 },
 
-  ctaWrap: { borderRadius: 16, overflow: 'hidden' },
+  ctaWrap: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.85,
+    shadowRadius: 22,
+    elevation: 14,
+  },
   ctaGrad: { paddingVertical: 18, alignItems: 'center' },
   ctaText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 });

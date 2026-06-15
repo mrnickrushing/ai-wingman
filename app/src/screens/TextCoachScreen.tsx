@@ -21,8 +21,13 @@ type Template = {
   tone: string;
   goal: string;
   length: 'short' | 'balanced' | 'warm' | 'direct';
-  thread: string;
-  latestMessage: string;
+  messages: ThreadMessage[];
+};
+
+type ThreadMessage = {
+  id: string;
+  sender: 'them' | 'you';
+  text: string;
 };
 
 const TEMPLATES: Template[] = [
@@ -30,37 +35,49 @@ const TEMPLATES: Template[] = [
     label: 'Flirty',
     relationship: 'Dating',
     tone: 'Playful',
-    goal: 'Keep the conversation fun and move it forward.',
+    goal: 'Keep the conversation fun and move it toward a real plan.',
     length: 'balanced',
-    thread: 'Them: We should grab drinks sometime.\nYou: For sure, that sounds fun.\nThem: What kind of place do you like?',
-    latestMessage: 'What kind of place do you like?',
+    messages: [
+      { id: 'flirty-1', sender: 'them', text: 'We should grab drinks sometime.' },
+      { id: 'flirty-2', sender: 'you', text: 'For sure, that sounds fun.' },
+      { id: 'flirty-3', sender: 'them', text: 'What kind of place do you like?' },
+    ],
   },
   {
     label: 'Follow-up',
     relationship: 'Networking',
     tone: 'Professional',
-    goal: 'Turn the chat into a concrete follow-up.',
+    goal: 'Turn the conversation into a concrete next step.',
     length: 'balanced',
-    thread: 'Them: Great meeting you today. Let\'s stay in touch.\nYou: Likewise, really enjoyed talking.\nThem: Send me your info when you get a chance.',
-    latestMessage: 'Send me your info when you get a chance.',
+    messages: [
+      { id: 'follow-1', sender: 'them', text: 'Great meeting you today. Let’s stay in touch.' },
+      { id: 'follow-2', sender: 'you', text: 'Likewise, really enjoyed talking.' },
+      { id: 'follow-3', sender: 'them', text: 'Send me your info when you get a chance.' },
+    ],
   },
   {
     label: 'Polite decline',
     relationship: 'Friend / coworker',
     tone: 'Warm',
-    goal: 'Say no without sounding cold.',
+    goal: 'Say no clearly without sounding cold or defensive.',
     length: 'short',
-    thread: 'Them: Can you jump on a call tonight?\nYou: I\'m tied up later.\nThem: It would only take a minute.',
-    latestMessage: 'It would only take a minute.',
+    messages: [
+      { id: 'decline-1', sender: 'them', text: 'Can you jump on a call tonight?' },
+      { id: 'decline-2', sender: 'you', text: 'I’m tied up later.' },
+      { id: 'decline-3', sender: 'them', text: 'It would only take a minute.' },
+    ],
   },
   {
     label: 'Sales follow-up',
     relationship: 'Lead',
     tone: 'Direct',
-    goal: 'Move the deal to a clear next step.',
+    goal: 'Move the deal toward a specific next step.',
     length: 'balanced',
-    thread: 'Them: Thanks for the demo. We need to think about it.\nYou: Totally understand.\nThem: I\'ll circle back next week.',
-    latestMessage: 'I\'ll circle back next week.',
+    messages: [
+      { id: 'sales-1', sender: 'them', text: 'Thanks for the demo. We need to think about it.' },
+      { id: 'sales-2', sender: 'you', text: 'Totally understand.' },
+      { id: 'sales-3', sender: 'them', text: 'I’ll circle back next week.' },
+    ],
   },
 ];
 
@@ -84,43 +101,88 @@ type Props = {
   onBack: () => void;
 };
 
+function buildThread(messages: ThreadMessage[]) {
+  return messages
+    .map((message) => `${message.sender === 'them' ? 'Them' : 'You'}: ${message.text.trim()}`)
+    .join('\n');
+}
+
+function getLatestMessage(messages: ThreadMessage[]) {
+  const latestIncoming = [...messages].reverse().find((message) => message.sender === 'them' && message.text.trim());
+  return latestIncoming?.text.trim() ?? messages.at(-1)?.text.trim() ?? '';
+}
+
+function messageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function TextCoachScreen({ onBack }: Props) {
   const [relationship, setRelationship] = useState('Dating');
   const [tone, setTone] = useState<(typeof TONES)[number]>('Warm');
-  const [goal, setGoal] = useState('Draft a response that sounds natural.');
-  const [thread, setThread] = useState('');
-  const [latestMessage, setLatestMessage] = useState('');
+  const [goal, setGoal] = useState('Draft a response that sounds natural and actually gets sent.');
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  const [composer, setComposer] = useState('');
+  const [composerSender, setComposerSender] = useState<'them' | 'you'>('them');
   const [length, setLength] = useState<'short' | 'balanced' | 'warm' | 'direct'>('balanced');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<TextCoachSuggestion | null>(null);
 
+  const activeToneColor = TONE_COLORS[tone] ?? '#6366f1';
+  const thread = useMemo(() => buildThread(messages), [messages]);
+  const latestMessage = useMemo(() => getLatestMessage(messages), [messages]);
+
   const toneHint = useMemo(() => {
     switch (tone) {
-      case 'Playful': return 'Keep it light and human.';
-      case 'Direct': return 'Cut filler and get to the point.';
-      case 'Professional': return 'Polished, concise, and grounded.';
-      case 'Confident': return 'Clear, calm, and self-assured.';
-      default: return 'Friendly, natural, and easy to send.';
+      case 'Playful':
+        return 'Keep it flirty, alive, and easy to respond to.';
+      case 'Direct':
+        return 'Trim filler and land the point cleanly.';
+      case 'Professional':
+        return 'Sound polished, calm, and useful.';
+      case 'Confident':
+        return 'Lead the exchange without sounding try-hard.';
+      default:
+        return 'Friendly, natural, and worth replying to.';
     }
   }, [tone]);
-
-  const activeToneColor = TONE_COLORS[tone] ?? '#6366f1';
 
   const applyTemplate = (template: Template) => {
     setRelationship(template.relationship);
     setTone(template.tone as (typeof TONES)[number]);
     setGoal(template.goal);
     setLength(template.length);
-    setThread(template.thread);
-    setLatestMessage(template.latestMessage);
+    setMessages(template.messages);
+    setComposer('');
+    setComposerSender('them');
+    setSuggestion(null);
+    setError(null);
+  };
+
+  const addMessage = () => {
+    const text = composer.trim();
+    if (!text) return;
+    setMessages((current) => [...current, { id: messageId(), sender: composerSender, text }]);
+    setComposer('');
+    setSuggestion(null);
+    setError(null);
+  };
+
+  const removeMessage = (id: string) => {
+    setMessages((current) => current.filter((message) => message.id !== id));
+    setSuggestion(null);
+  };
+
+  const clearThread = () => {
+    setMessages([]);
+    setComposer('');
     setSuggestion(null);
     setError(null);
   };
 
   const handleGenerate = async () => {
-    if (!thread.trim() && !latestMessage.trim()) {
-      setError('Paste the thread or the latest message first.');
+    if (!messages.length) {
+      setError('Build the text thread first.');
       return;
     }
     setLoading(true);
@@ -152,9 +214,8 @@ export function TextCoachScreen({ onBack }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#0a0a1c', '#050510']} style={StyleSheet.absoluteFill} />
-      {/* Ambient tone-color glow */}
-      <View style={[s.ambientGlow, { backgroundColor: activeToneColor + '18' }]} pointerEvents="none" />
+      <LinearGradient colors={['#060612', '#03030a']} style={StyleSheet.absoluteFill} />
+      <View style={[s.ambientGlow, { backgroundColor: `${activeToneColor}16` }]} pointerEvents="none" />
 
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
@@ -163,29 +224,29 @@ export function TextCoachScreen({ onBack }: Props) {
           </Pressable>
           <View style={s.headerTitleWrap}>
             <Text style={s.title}>Text Coach</Text>
-            <Text style={s.subtitle}>Paste the thread. Claude writes the reply.</Text>
+            <Text style={s.subtitle}>Build the thread like iMessage. Claude handles the reply.</Text>
           </View>
           <View style={s.headerSpacer} />
         </View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.flex}>
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-            {/* Hero */}
             <LinearGradient
-              colors={[activeToneColor + '22', activeToneColor + '08']}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={[s.hero, { borderColor: activeToneColor + '35' }]}
+              colors={[`${activeToneColor}22`, 'rgba(8,8,18,0.96)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[s.hero, { borderColor: `${activeToneColor}30` }]}
             >
               <View style={s.heroTop}>
-                <View style={[s.liveBadge, { backgroundColor: activeToneColor + '18', borderColor: activeToneColor + '40' }]}>
+                <View style={[s.liveBadge, { backgroundColor: `${activeToneColor}18`, borderColor: `${activeToneColor}40` }]}>
                   <View style={[s.liveDot, { backgroundColor: activeToneColor }]} />
-                  <Text style={[s.liveText, { color: activeToneColor }]}>READY</Text>
+                  <Text style={[s.liveText, { color: activeToneColor }]}>TEXT READY</Text>
                 </View>
                 <Text style={s.heroMeta}>{toneHint}</Text>
               </View>
-              <Text style={s.heroTitle}>Reply fast without sounding robotic.</Text>
+              <Text style={s.heroTitle}>Make the thread feel real before you draft the reply.</Text>
               <Text style={s.heroBody}>
-                Choose the relationship, paste the thread, and get a reply that fits the moment.
+                Add each text as a bubble, keep the tone dialed in, then have Claude write something worth sending.
               </Text>
               <View style={s.templateRow}>
                 {TEMPLATES.map((template) => (
@@ -196,11 +257,109 @@ export function TextCoachScreen({ onBack }: Props) {
               </View>
             </LinearGradient>
 
-            <Section title="Conversation context">
-              <Field label="Relationship" value={relationship} onChangeText={setRelationship} placeholder="Dating, coworker, lead..." accentColor={activeToneColor} />
-              <Field label="Goal" value={goal} onChangeText={setGoal} placeholder="Set a date, keep it warm, close the loop..." multiline accentColor={activeToneColor} />
-              <Field label="Latest message" value={latestMessage} onChangeText={setLatestMessage} placeholder="Paste the last text you received" multiline accentColor={activeToneColor} />
-              <Field label="Thread" value={thread} onChangeText={setThread} placeholder="Paste the thread for fuller context" multiline large accentColor={activeToneColor} />
+            <Section title="Thread setup">
+              <Field
+                label="Relationship"
+                value={relationship}
+                onChangeText={setRelationship}
+                placeholder="Dating, lead, friend, coworker..."
+                accentColor={activeToneColor}
+              />
+              <Field
+                label="Goal"
+                value={goal}
+                onChangeText={setGoal}
+                placeholder="Keep momentum, set a time, say no warmly..."
+                multiline
+                accentColor={activeToneColor}
+              />
+            </Section>
+
+            <Section title="Conversation thread">
+              <View style={s.threadShell}>
+                <View style={s.threadHeader}>
+                  <View>
+                    <Text style={s.threadName}>{relationship || 'Conversation'}</Text>
+                    <Text style={s.threadMeta}>{messages.length ? `${messages.length} message${messages.length === 1 ? '' : 's'}` : 'Start the thread below'}</Text>
+                  </View>
+                  {messages.length ? (
+                    <Pressable onPress={clearThread} style={s.clearBtn}>
+                      <Text style={s.clearBtnText}>Clear</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+
+                <View style={s.imessageSurface}>
+                  {messages.length ? (
+                    messages.map((message) => (
+                      <Pressable
+                        key={message.id}
+                        onLongPress={() => removeMessage(message.id)}
+                        style={[
+                          s.bubbleRow,
+                          message.sender === 'you' ? s.bubbleRowRight : s.bubbleRowLeft,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            s.bubble,
+                            message.sender === 'you'
+                              ? [s.bubbleOutgoing, { backgroundColor: activeToneColor }]
+                              : s.bubbleIncoming,
+                          ]}
+                        >
+                          <Text style={[s.bubbleText, message.sender === 'you' && s.bubbleTextOutgoing]}>
+                            {message.text}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <View style={s.emptyThread}>
+                      <Text style={s.emptyThreadTitle}>No messages yet</Text>
+                      <Text style={s.emptyThreadBody}>Use the composer below to add the thread one bubble at a time.</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={s.composerPanel}>
+                  <View style={s.senderRow}>
+                    <Pressable
+                      onPress={() => setComposerSender('them')}
+                      style={[s.senderChip, composerSender === 'them' && s.senderChipActive]}
+                    >
+                      <Text style={[s.senderChipText, composerSender === 'them' && s.senderChipTextActive]}>Them</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setComposerSender('you')}
+                      style={[s.senderChip, composerSender === 'you' && s.senderChipOutgoing]}
+                    >
+                      <Text style={[s.senderChipText, composerSender === 'you' && s.senderChipTextOutgoing]}>You</Text>
+                    </Pressable>
+                  </View>
+                  <View style={s.composerRow}>
+                    <TextInput
+                      value={composer}
+                      onChangeText={setComposer}
+                      placeholder={composerSender === 'them' ? 'Add their latest message…' : 'Add your draft or reply…'}
+                      placeholderTextColor="#7b879c"
+                      style={s.composerInput}
+                      multiline
+                      textAlignVertical="top"
+                      autoCapitalize="sentences"
+                      autoCorrect
+                    />
+                    <Pressable
+                      onPress={addMessage}
+                      disabled={!composer.trim()}
+                      style={[s.sendBtn, { backgroundColor: composer.trim() ? activeToneColor : 'rgba(255,255,255,0.08)' }]}
+                    >
+                      <Text style={s.sendBtnText}>Add</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={s.composerHint}>Long-press any bubble to remove it.</Text>
+                </View>
+              </View>
             </Section>
 
             <Section title="Tone and length">
@@ -211,7 +370,7 @@ export function TextCoachScreen({ onBack }: Props) {
                     <Pressable
                       key={chip}
                       onPress={() => setTone(chip)}
-                      style={[s.chip, tone === chip && { backgroundColor: chipColor + '22', borderColor: chipColor + '50' }]}
+                      style={[s.chip, tone === chip && { backgroundColor: `${chipColor}20`, borderColor: `${chipColor}55` }]}
                     >
                       <Text style={[s.chipText, tone === chip && { color: chipColor }]}>{chip}</Text>
                     </Pressable>
@@ -231,8 +390,12 @@ export function TextCoachScreen({ onBack }: Props) {
               </View>
             </Section>
 
-            <Pressable onPress={handleGenerate} disabled={loading} style={[s.primaryBtn, { backgroundColor: activeToneColor }, loading && s.primaryBtnDisabled]}>
-              <Text style={s.primaryBtnText}>{loading ? 'Drafting reply...' : 'Draft reply'}</Text>
+            <Pressable
+              onPress={handleGenerate}
+              disabled={loading}
+              style={[s.primaryBtn, { backgroundColor: activeToneColor }, loading && s.primaryBtnDisabled]}
+            >
+              <Text style={s.primaryBtnText}>{loading ? 'Drafting reply…' : 'Draft reply from this thread'}</Text>
             </Pressable>
 
             {error ? (
@@ -245,10 +408,13 @@ export function TextCoachScreen({ onBack }: Props) {
             {suggestion ? (
               <>
                 <Section title="Best reply">
-                  <View style={[s.replyCard, { borderColor: activeToneColor + '30', backgroundColor: activeToneColor + '10' }]}>
+                  <View style={[s.replyCard, { borderColor: `${activeToneColor}30`, backgroundColor: `${activeToneColor}10` }]}>
                     <Text style={s.replyText}>{suggestion.bestReply}</Text>
                     <View style={s.replyActions}>
-                      <Pressable onPress={() => shareReply(suggestion.bestReply)} style={[s.replyAction, { backgroundColor: activeToneColor + '18', borderColor: activeToneColor + '30', borderWidth: 1, borderRadius: 999 }]}>
+                      <Pressable
+                        onPress={() => shareReply(suggestion.bestReply)}
+                        style={[s.replyAction, { backgroundColor: `${activeToneColor}18`, borderColor: `${activeToneColor}30` }]}
+                      >
                         <Text style={[s.replyActionText, { color: activeToneColor }]}>Share</Text>
                       </Pressable>
                     </View>
@@ -311,7 +477,6 @@ function Field({
   onChangeText,
   placeholder,
   multiline,
-  large,
   accentColor,
 }: {
   label: string;
@@ -319,7 +484,6 @@ function Field({
   onChangeText: (text: string) => void;
   placeholder: string;
   multiline?: boolean;
-  large?: boolean;
   accentColor?: string;
 }) {
   const [focused, setFocused] = useState(false);
@@ -335,8 +499,7 @@ function Field({
         style={[
           s.input,
           multiline && s.inputMultiline,
-          large && s.inputLarge,
-          focused && accentColor && { borderColor: accentColor + '55', backgroundColor: accentColor + '08' },
+          focused && accentColor && { borderColor: `${accentColor}55`, backgroundColor: `${accentColor}08` },
         ]}
         textAlignVertical={multiline ? 'top' : 'center'}
         autoCapitalize="sentences"
@@ -362,8 +525,12 @@ const s = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
   ambientGlow: {
-    position: 'absolute', width: 320, height: 320, borderRadius: 160,
-    top: -80, right: -80,
+    position: 'absolute',
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    top: -90,
+    right: -100,
   },
   header: {
     flexDirection: 'row',
@@ -383,7 +550,7 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingBottom: 116, gap: 16 },
   hero: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 16,
     gap: 10,
   },
@@ -418,7 +585,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
   },
@@ -428,14 +595,129 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     color: '#f8fafc',
     fontSize: 14,
   },
   inputMultiline: { minHeight: 92 },
-  inputLarge: { minHeight: 158 },
+  threadShell: { gap: 12 },
+  threadHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  threadName: { color: '#f8fafc', fontSize: 16, fontWeight: '900' },
+  threadMeta: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  clearBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  clearBtnText: { color: '#cbd5e1', fontSize: 11, fontWeight: '800' },
+  imessageSurface: {
+    backgroundColor: '#020208',
+    borderRadius: 22,
+    padding: 14,
+    minHeight: 280,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    gap: 10,
+  },
+  bubbleRow: {
+    width: '100%',
+    flexDirection: 'row',
+  },
+  bubbleRowLeft: { justifyContent: 'flex-start' },
+  bubbleRowRight: { justifyContent: 'flex-end' },
+  bubble: {
+    maxWidth: '82%',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  bubbleIncoming: {
+    backgroundColor: '#2b2b30',
+    borderTopLeftRadius: 8,
+  },
+  bubbleOutgoing: {
+    borderTopRightRadius: 8,
+  },
+  bubbleText: { color: '#f8fafc', fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  bubbleTextOutgoing: { color: '#ffffff' },
+  emptyThread: {
+    flex: 1,
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  emptyThreadTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900' },
+  emptyThreadBody: { color: '#94a3b8', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  composerPanel: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+  },
+  senderRow: { flexDirection: 'row', gap: 8 },
+  senderChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  senderChipActive: {
+    backgroundColor: '#3a3a42',
+    borderColor: '#52525b',
+  },
+  senderChipOutgoing: {
+    backgroundColor: '#0a84ff',
+    borderColor: '#4da2ff',
+  },
+  senderChipText: { color: '#cbd5e1', fontSize: 12, fontWeight: '800' },
+  senderChipTextActive: { color: '#f8fafc' },
+  senderChipTextOutgoing: { color: '#ffffff' },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 54,
+    maxHeight: 130,
+    borderRadius: 18,
+    backgroundColor: '#11111a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    color: '#f8fafc',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  sendBtn: {
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  sendBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
+  composerHint: { color: '#94a3b8', fontSize: 11 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingHorizontal: 12,
@@ -452,14 +734,14 @@ const s = StyleSheet.create({
   chipText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
   chipTextActive: { color: '#f8fafc' },
   primaryBtn: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
   },
   primaryBtnDisabled: { opacity: 0.72 },
   primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   errorCard: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     backgroundColor: 'rgba(239,68,68,0.1)',
     borderWidth: 1,
@@ -470,7 +752,7 @@ const s = StyleSheet.create({
   errorText: { color: '#fecaca', fontSize: 13, lineHeight: 19 },
   replyCard: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     gap: 10,
   },
@@ -479,6 +761,8 @@ const s = StyleSheet.create({
   replyAction: {
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 999,
   },
   replyActionText: { fontSize: 12, fontWeight: '800' },
   alternateList: { gap: 10 },
@@ -486,7 +770,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 13,
     gap: 8,
   },
@@ -507,7 +791,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     gap: 4,
   },

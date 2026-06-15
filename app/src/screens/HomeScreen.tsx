@@ -51,13 +51,13 @@ function PulsingOrb({ color = '#6366f1' }: { color?: string }) {
         Animated.timing(anim, {
           toValue: 1,
           duration: 3000,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(anim, {
           toValue: 0,
           duration: 3000,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ])
@@ -71,7 +71,13 @@ function PulsingOrb({ color = '#6366f1' }: { color?: string }) {
     <Animated.View
       pointerEvents="none"
       style={[
-        StyleSheet.absoluteFillObject,
+        {
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+        },
         {
           alignItems: 'center',
           justifyContent: 'center',

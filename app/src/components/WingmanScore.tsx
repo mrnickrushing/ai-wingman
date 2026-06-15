@@ -73,8 +73,8 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
       // Gentle alive pulse after entry
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.03, duration: 1200, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.03, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ])
       ).start();
     });

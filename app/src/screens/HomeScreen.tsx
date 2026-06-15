@@ -14,18 +14,18 @@ import { fetchStatsSnapshot, type SessionSnapshotSource } from '../services/sess
 
 type Mode = {
   id: ConversationMode;
-  icon: string;
+  abbr: string;
   label: string;
   subtitle: string;
   accent: string;
 };
 
 const MODES: Mode[] = [
-  { id: 'sales', icon: 'S', label: 'Sales', subtitle: 'Objections and closes', accent: '#6366f1' },
-  { id: 'dating', icon: 'D', label: 'Dating', subtitle: 'Presence and momentum', accent: '#ec4899' },
-  { id: 'networking', icon: 'N', label: 'Networking', subtitle: 'Rooms and follow-ups', accent: '#22d3ee' },
-  { id: 'pitching', icon: 'P', label: 'Pitching', subtitle: 'Delivery and Q&A', accent: '#f59e0b' },
-  { id: 'hard_conversations', icon: 'H', label: 'Hard Talk', subtitle: 'Calm, clear, direct', accent: '#8b5cf6' },
+  { id: 'sales', abbr: 'SL', label: 'Sales', subtitle: 'Objections and closes', accent: '#6366f1' },
+  { id: 'dating', abbr: 'DT', label: 'Dating', subtitle: 'Presence and momentum', accent: '#ec4899' },
+  { id: 'networking', abbr: 'NW', label: 'Networking', subtitle: 'Rooms and follow-ups', accent: '#22d3ee' },
+  { id: 'pitching', abbr: 'PT', label: 'Pitching', subtitle: 'Delivery and Q&A', accent: '#f59e0b' },
+  { id: 'hard_conversations', abbr: 'HT', label: 'Hard Talk', subtitle: 'Calm, clear, direct', accent: '#8b5cf6' },
 ];
 
 interface Props {
@@ -78,33 +78,28 @@ export function HomeScreen({
             <Text style={s.brand}>AI Wingman</Text>
             <Text style={s.tagline}>Live coaching for high-stakes conversations</Text>
           </View>
-          <View style={s.headerActions}>
-            <TouchableOpacity onPress={onOpenHistory} style={s.iconButton} hitSlop={8}>
-              <Text style={s.iconButtonText}>H</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onOpenAccount} style={s.iconButton} hitSlop={8}>
-              <Text style={s.iconButtonText}>A</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={onOpenAccount} style={s.accountBtn} hitSlop={8}>
+            <Text style={s.accountBtnText}>Settings</Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          {/* Status / hero panel */}
           <View style={s.commandPanel}>
             <View style={s.statusRow}>
               <View style={s.liveBadge}>
                 <View style={s.liveDot} />
                 <Text style={s.liveText}>READY</Text>
               </View>
-              <Text style={s.statusCopy}>Mic, transcript, and server checks run before every session.</Text>
+              {statsSource === 'cache' ? (
+                <View style={s.cacheBadge}>
+                  <Text style={s.cacheBadgeText}>Offline cache</Text>
+                </View>
+              ) : null}
             </View>
-            {statsSource === 'cache' ? (
-              <View style={s.cacheBadge}>
-                <Text style={s.cacheBadgeText}>Offline cache active</Text>
-              </View>
-            ) : null}
-            <Text style={s.heroTitle}>Choose the room you need to win.</Text>
+            <Text style={s.heroTitle}>Choose the room{`\n`}you need to win.</Text>
             <Text style={s.heroBody}>
-              The home screen stays focused. Open a page for briefs, text coaching, history, or playbooks.
+              Pick a mode below to start a live coached session.
             </Text>
             <View style={s.commandActions}>
               <TouchableOpacity onPress={onOpenPractice} style={s.primaryAction} activeOpacity={0.82}>
@@ -119,31 +114,36 @@ export function HomeScreen({
             </View>
           </View>
 
+          {/* Stats row */}
           <View style={s.metricsRow}>
             <Metric label="Sessions" value={stats.sessions.toString()} />
             <Metric label="Best" value={stats.bestScore > 0 ? stats.bestScore.toString() : '--'} />
-            <Metric label="Streak" value={stats.streak > 0 ? `${stats.streak}d` : '--'} />
+            <Metric
+              label="Streak"
+              value={stats.streak > 0 ? `${stats.streak}d` : '--'}
+              highlight={stats.streak >= 3}
+            />
           </View>
 
-          <View style={s.dockHint}>
-            <Text style={s.dockHintTitle}>Pages live in the bottom dock.</Text>
-            <Text style={s.dockHintBody}>Open Briefs, Text Coach, History, or Playbooks from the bar at the bottom.</Text>
+          {/* Mode grid */}
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Modes</Text>
+            <Text style={s.sectionAction}>Tap to start a live session</Text>
           </View>
-
-          <SectionTitle title="Modes" action="Start live coaching" />
           <View style={s.modeGrid}>
             {MODES.map((mode) => (
               <TouchableOpacity
                 key={mode.id}
-                style={s.modeTile}
+                style={[s.modeTile, { borderTopColor: mode.accent }]}
                 activeOpacity={0.78}
                 onPress={() => onSelectMode(mode.id)}
               >
-                <View style={[s.modeIcon, { borderColor: mode.accent, backgroundColor: `${mode.accent}20` }]}>
-                  <Text style={[s.modeIconText, { color: mode.accent }]}>{mode.icon}</Text>
+                <View style={[s.modeIcon, { borderColor: `${mode.accent}55`, backgroundColor: `${mode.accent}18` }]}>
+                  <Text style={[s.modeIconText, { color: mode.accent }]}>{mode.abbr}</Text>
                 </View>
                 <Text style={s.modeLabel}>{mode.label}</Text>
                 <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
+                <Text style={[s.modeStart, { color: mode.accent }]}>Start ›</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -153,20 +153,11 @@ export function HomeScreen({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <View style={s.metric}>
-      <Text style={s.metricValue}>{value}</Text>
+    <View style={[s.metric, highlight && s.metricHighlight]}>
+      <Text style={[s.metricValue, highlight && s.metricValueHighlight]}>{value}</Text>
       <Text style={s.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SectionTitle({ title, action }: { title: string; action: string }) {
-  return (
-    <View style={s.sectionHeader}>
-      <Text style={s.sectionTitle}>{title}</Text>
-      <Text style={s.sectionAction}>{action}</Text>
     </View>
   );
 }
@@ -183,61 +174,58 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   brand: { color: '#f8fafc', fontSize: 24, fontWeight: '900' },
-  tagline: { color: '#94a3b8', fontSize: 12, marginTop: 3 },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  tagline: { color: '#64748b', fontSize: 11, marginTop: 3 },
+  accountBtn: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'rgba(255,255,255,0.09)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  iconButtonText: { color: '#cbd5e1', fontSize: 13, fontWeight: '900' },
-  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 18 },
+  accountBtnText: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
+  content: { paddingHorizontal: 18, paddingBottom: 120, gap: 16 },
+
+  // Hero / command panel
   commandPanel: {
-    borderRadius: 8,
-    padding: 18,
-    backgroundColor: 'rgba(99,102,241,0.12)',
+    borderRadius: 12,
+    padding: 20,
+    backgroundColor: 'rgba(99,102,241,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
+    borderColor: 'rgba(129,140,248,0.20)',
     gap: 14,
   },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(74,222,128,0.12)',
+    backgroundColor: 'rgba(74,222,128,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(74,222,128,0.28)',
+    borderColor: 'rgba(74,222,128,0.26)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
   liveText: { color: '#4ade80', fontSize: 10, fontWeight: '900' },
-  statusCopy: { color: '#94a3b8', fontSize: 11, flex: 1, lineHeight: 16 },
   cacheBadge: {
-    alignSelf: 'flex-start',
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.12)',
+    backgroundColor: 'rgba(251,191,36,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.26)',
+    borderColor: 'rgba(251,191,36,0.24)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   cacheBadgeText: { color: '#fbbf24', fontSize: 10, fontWeight: '900' },
-  heroTitle: { color: '#f8fafc', fontSize: 26, fontWeight: '900', lineHeight: 31 },
-  heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  heroTitle: { color: '#f8fafc', fontSize: 28, fontWeight: '900', lineHeight: 34 },
+  heroBody: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
   commandActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   primaryAction: {
     minWidth: 104,
     flexGrow: 1,
     backgroundColor: '#6366f1',
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 14,
   },
@@ -245,59 +233,62 @@ const s = StyleSheet.create({
   secondaryAction: {
     minWidth: 104,
     flexGrow: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.09)',
+    borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 14,
   },
-  secondaryActionText: { color: '#e2e8f0', fontSize: 14, fontWeight: '900' },
+  secondaryActionText: { color: '#cbd5e1', fontSize: 14, fontWeight: '800' },
+
+  // Metrics
   metricsRow: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.035)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  metricValue: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
+  metricHighlight: {
+    backgroundColor: 'rgba(99,102,241,0.12)',
+    borderColor: 'rgba(129,140,248,0.28)',
+  },
+  metricValue: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
+  metricValueHighlight: { color: '#818cf8' },
   metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
-  sectionHeader: { gap: 2, marginTop: 4 },
+
+  // Section header
+  sectionHeader: { gap: 2 },
   sectionTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   sectionAction: { color: '#64748b', fontSize: 12 },
-  dockHint: {
-    borderRadius: 8,
-    padding: 14,
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  dockHintTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
-  dockHintBody: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
+
+  // Mode grid
   modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   modeTile: {
     width: '48.5%',
-    minHeight: 132,
-    backgroundColor: 'rgba(255,255,255,0.035)',
+    minHeight: 140,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: 2.5,
+    borderRadius: 10,
     padding: 14,
     gap: 8,
   },
   modeIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeIconText: { fontSize: 14, fontWeight: '900' },
+  modeIconText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
   modeLabel: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
-  modeSub: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
+  modeSub: { color: '#94a3b8', fontSize: 12, lineHeight: 17, flex: 1 },
+  modeStart: { fontSize: 12, fontWeight: '900', marginTop: 2 },
 });

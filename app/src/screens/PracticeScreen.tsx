@@ -30,6 +30,13 @@ const SCENARIOS: PracticeScenario[] = [
     accent: '#ec4899',
   },
   {
+    mode: 'networking',
+    label: 'Room Entry',
+    prompt: 'Rehearse your intro, follow-up questions, and graceful exits.',
+    outcome: 'Goal: leave with one strong connection',
+    accent: '#22d3ee',
+  },
+  {
     mode: 'pitching',
     label: 'Investor Q&A',
     prompt: 'Rehearse crisp answers around traction, market, team, and the ask.',
@@ -65,17 +72,21 @@ export function PracticeScreen({ onBack, onStartMode, onStartRoleplay }: Props) 
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          {/* Main hero — voice roleplay */}
           <View style={s.roleplayHero}>
-            <LinearGradient colors={['rgba(139,92,246,0.24)', 'rgba(99,102,241,0.10)']} style={StyleSheet.absoluteFill} />
+            <LinearGradient
+              colors={['rgba(139,92,246,0.22)', 'rgba(99,102,241,0.08)']}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={s.roleplayHeroInner}>
-              <Text style={s.roleplayLabel}>PRACTICE WITH CLAUDE</Text>
-              <Text style={s.roleplayHeroTitle}>Full voice roleplay, no typing.</Text>
+              <Text style={s.roleplayEyebrow}>VOICE ROLEPLAY</Text>
+              <Text style={s.roleplayHeroTitle}>Practice with Claude before the real thing.</Text>
               <Text style={s.roleplayHeroBody}>
-                Claude speaks through your AirPods while you answer naturally. Use it for sales, dating, networking, or hard conversations.
+                Claude plays the other side — live and in your ear. Use it for sales objections, date pacing, networking intros, or hard conversations.
               </Text>
               <View style={s.roleplayHeroActions}>
                 <TouchableOpacity onPress={() => onStartRoleplay('sales')} style={s.roleplayHeroPrimary} activeOpacity={0.82}>
-                  <Text style={s.roleplayHeroPrimaryText}>Voice roleplay</Text>
+                  <Text style={s.roleplayHeroPrimaryText}>Start roleplay</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => onStartMode('sales')} style={s.roleplayHeroSecondary} activeOpacity={0.82}>
                   <Text style={s.roleplayHeroSecondaryText}>Quick practice</Text>
@@ -84,19 +95,33 @@ export function PracticeScreen({ onBack, onStartMode, onStartRoleplay }: Props) 
             </View>
           </View>
 
-          <View style={s.hero}>
-            <Text style={s.heroTitle}>Rehearse before the real moment.</Text>
-            <Text style={s.heroBody}>
-              Pick a scenario, start a coached session, or run Claude through a live roleplay.
-            </Text>
-            <View style={s.heroActions}>
-              <TouchableOpacity onPress={() => onStartRoleplay('sales')} style={s.heroActionPrimary} activeOpacity={0.82}>
-                <Text style={s.heroActionPrimaryText}>Roleplay</Text>
+          {/* Roleplay mode picker */}
+          <View style={s.roleplayCard}>
+            <Text style={s.roleplayLabel}>CHOOSE ROLEPLAY MODE</Text>
+            <Text style={s.roleplayTitle}>Pick the conversation type.</Text>
+            <View style={s.roleplayRow}>
+              <TouchableOpacity onPress={() => onStartRoleplay('sales')} style={s.roleplayBtn} activeOpacity={0.82}>
+                <Text style={s.roleplayBtnText}>Sales</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartMode('sales')} style={s.heroActionSecondary} activeOpacity={0.82}>
-                <Text style={s.heroActionSecondaryText}>Quick practice</Text>
+              <TouchableOpacity onPress={() => onStartRoleplay('dating')} style={s.roleplayBtn} activeOpacity={0.82}>
+                <Text style={s.roleplayBtnText}>Dating</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onStartRoleplay('networking')} style={s.roleplayBtn} activeOpacity={0.82}>
+                <Text style={s.roleplayBtnText}>Networking</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onStartRoleplay('pitching')} style={s.roleplayBtn} activeOpacity={0.82}>
+                <Text style={s.roleplayBtnText}>Pitching</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onStartRoleplay('hard_conversations')} style={s.roleplayBtn} activeOpacity={0.82}>
+                <Text style={s.roleplayBtnText}>Hard talk</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Scenario drills */}
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Scenario drills</Text>
+            <Text style={s.sectionSub}>Quick coached sessions by situation</Text>
           </View>
 
           {SCENARIOS.map((scenario) => (
@@ -107,32 +132,14 @@ export function PracticeScreen({ onBack, onStartMode, onStartRoleplay }: Props) 
               style={[s.card, { borderLeftColor: scenario.accent }]}
             >
               <View style={s.cardTop}>
+                <View style={[s.cardDot, { backgroundColor: scenario.accent }]} />
                 <Text style={s.cardTitle}>{scenario.label}</Text>
-                <Text style={[s.cardAction, { color: scenario.accent }]}>Start</Text>
+                <Text style={[s.cardAction, { color: scenario.accent }]}>Start ›</Text>
               </View>
               <Text style={s.cardPrompt}>{scenario.prompt}</Text>
               <Text style={s.cardOutcome}>{scenario.outcome}</Text>
             </TouchableOpacity>
           ))}
-
-          <View style={s.roleplayCard}>
-            <Text style={s.roleplayLabel}>ROLEPLAY</Text>
-            <Text style={s.roleplayTitle}>Claude can play the other side.</Text>
-            <Text style={s.roleplayBody}>
-              Use it to rehearse sales objections, date pacing, networking intros, or hard conversations before the real thing.
-            </Text>
-            <View style={s.roleplayRow}>
-              <TouchableOpacity onPress={() => onStartRoleplay('dating')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Dating</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('networking')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Networking</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('hard_conversations')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Hard talk</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -154,105 +161,90 @@ const s = StyleSheet.create({
   backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
-  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 12 },
+  content: { paddingHorizontal: 18, paddingBottom: 120, gap: 12 },
+
+  // Roleplay hero
   roleplayHero: {
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.28)',
+    borderColor: 'rgba(139,92,246,0.26)',
   },
   roleplayHeroInner: {
-    padding: 18,
+    padding: 20,
     gap: 10,
   },
-  roleplayHeroTitle: { color: '#f8fafc', fontSize: 25, fontWeight: '900', lineHeight: 31 },
-  roleplayHeroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  roleplayEyebrow: {
+    color: '#a78bfa',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+  },
+  roleplayHeroTitle: { color: '#f8fafc', fontSize: 24, fontWeight: '900', lineHeight: 30 },
+  roleplayHeroBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 20 },
   roleplayHeroActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 4 },
   roleplayHeroPrimary: {
     minWidth: 128,
     flexGrow: 1,
     backgroundColor: '#8b5cf6',
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 13,
   },
-  roleplayHeroPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  roleplayHeroPrimaryText: { color: '#fff', fontSize: 14, fontWeight: '900' },
   roleplayHeroSecondary: {
     minWidth: 128,
     flexGrow: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 13,
   },
-  roleplayHeroSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '900' },
-  hero: {
-    backgroundColor: 'rgba(99,102,241,0.11)',
+  roleplayHeroSecondaryText: { color: '#e2e8f0', fontSize: 14, fontWeight: '800' },
+
+  // Roleplay mode card
+  roleplayCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
-    borderRadius: 8,
-    padding: 18,
-    gap: 8,
-    marginBottom: 4,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
   },
-  heroTitle: { color: '#f8fafc', fontSize: 24, fontWeight: '900', lineHeight: 30 },
-  heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
-  heroActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 4 },
-  heroActionPrimary: {
-    minWidth: 110,
-    flexGrow: 1,
-    backgroundColor: '#6366f1',
-    borderRadius: 8,
-    alignItems: 'center',
-    paddingVertical: 13,
-  },
-  heroActionPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '900' },
-  heroActionSecondary: {
-    minWidth: 110,
-    flexGrow: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  roleplayLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  roleplayTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
+  roleplayRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  roleplayBtn: {
+    backgroundColor: 'rgba(129,140,248,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    alignItems: 'center',
-    paddingVertical: 13,
+    borderColor: 'rgba(129,140,248,0.20)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  heroActionSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '900' },
+  roleplayBtnText: { color: '#e0e7ff', fontSize: 12, fontWeight: '900' },
+
+  // Section
+  sectionHeader: { gap: 2, marginTop: 4 },
+  sectionTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
+  sectionSub: { color: '#64748b', fontSize: 12 },
+
+  // Scenario cards
   card: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     borderLeftWidth: 3,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 16,
-    gap: 9,
+    gap: 8,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  cardTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900', flex: 1 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardDot: { width: 7, height: 7, borderRadius: 4 },
+  cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900', flex: 1 },
   cardAction: { fontSize: 13, fontWeight: '900' },
-  cardPrompt: { color: '#cbd5e1', fontSize: 14, lineHeight: 20 },
+  cardPrompt: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
   cardOutcome: { color: '#64748b', fontSize: 12, lineHeight: 17 },
-  roleplayCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
-    padding: 16,
-    gap: 10,
-  },
-  roleplayLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  roleplayTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900' },
-  roleplayBody: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
-  roleplayRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  roleplayBtn: {
-    backgroundColor: 'rgba(129,140,248,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.2)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  roleplayBtnText: { color: '#e0e7ff', fontSize: 11, fontWeight: '900' },
 });

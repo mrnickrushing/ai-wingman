@@ -397,17 +397,17 @@ function WingmanApp() {
         </View>
 
         {shouldShowDock(screen) ? (
-        <BottomNav
-          current={screen}
-          onGoHome={() => setScreen('home')}
-          onOpenBriefs={() => setScreen('briefs')}
-          onOpenPractice={() => setScreen('practice')}
-          onOpenHistory={() => setScreen('history')}
-          onOpenPlaybooks={() => setScreen('playbooks')}
-          onOpenMessages={() => setScreen('messages')}
-          bottomInset={16}
-        />
-      ) : null}
+          <BottomNav
+            current={screen}
+            onGoHome={() => setScreen('home')}
+            onOpenBriefs={() => setScreen('briefs')}
+            onOpenPractice={() => setScreen('practice')}
+            onOpenHistory={() => setScreen('history')}
+            onOpenPlaybooks={() => setScreen('playbooks')}
+            onOpenMessages={() => setScreen('messages')}
+            bottomInset={16}
+          />
+        ) : null}
       </View>
     </>
   );
@@ -416,6 +416,13 @@ function WingmanApp() {
 function shouldShowDock(_screen: Screen) {
   return true;
 }
+
+type NavItem = {
+  readonly key: Screen;
+  readonly label: string;
+  readonly icon: string;
+  readonly onPress: () => void;
+};
 
 function BottomNav({
   current,
@@ -436,12 +443,12 @@ function BottomNav({
   onOpenMessages: () => void;
   bottomInset: number;
 }) {
-  const items = [
+  const items: readonly NavItem[] = [
     { key: 'home', label: 'Home', icon: '⌂', onPress: onGoHome },
     { key: 'briefs', label: 'Briefs', icon: '≋', onPress: onOpenBriefs },
-    { key: 'practice', label: 'Practice', icon: '▶', onPress: onOpenPractice },
-    { key: 'history', label: 'History', icon: '⌁', onPress: onOpenHistory },
-    { key: 'playbooks', label: 'Playbooks', icon: '▣', onPress: onOpenPlaybooks },
+    { key: 'practice', label: 'Practice', icon: '▷', onPress: onOpenPractice },
+    { key: 'history', label: 'History', icon: '◷', onPress: onOpenHistory },
+    { key: 'playbooks', label: 'Books', icon: '▣', onPress: onOpenPlaybooks },
     { key: 'messages', label: 'Text', icon: '✉', onPress: onOpenMessages },
   ] as const;
 
@@ -451,11 +458,14 @@ function BottomNav({
         {items.map((item) => {
           const active = current === item.key;
           return (
-            <Pressable key={item.key} onPress={item.onPress} style={[navStyles.item, active && navStyles.itemActive]}>
+            <Pressable key={item.key} onPress={item.onPress} style={navStyles.item}>
+              {active ? <View style={navStyles.activeIndicator} /> : null}
               <View style={[navStyles.iconBadge, active && navStyles.iconBadgeActive]}>
                 <Text style={[navStyles.icon, active && navStyles.iconActive]}>{item.icon}</Text>
               </View>
-              <Text style={[navStyles.label, active && navStyles.labelActive]} numberOfLines={1}>{item.label}</Text>
+              <Text style={[navStyles.label, active && navStyles.labelActive]} numberOfLines={1}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -474,18 +484,18 @@ const navStyles = StyleSheet.create({
   },
   bar: {
     flexDirection: 'row',
-    gap: 4,
-    backgroundColor: 'rgba(8, 8, 18, 0.98)',
+    gap: 2,
+    backgroundColor: 'rgba(6, 6, 16, 0.97)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
-    borderRadius: 24,
-    paddingHorizontal: 10,
-    paddingTop: 10,
+    borderColor: 'rgba(129,140,248,0.18)',
+    borderRadius: 26,
+    paddingHorizontal: 8,
+    paddingTop: 8,
     paddingBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.36,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: '#6366f1',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 22,
   },
   item: {
@@ -493,32 +503,33 @@ const navStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
-    borderRadius: 18,
+    paddingVertical: 6,
+    borderRadius: 20,
+    position: 'relative',
   },
-  itemActive: {
-    backgroundColor: 'rgba(99,102,241,0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.32)',
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: '25%',
+    right: '25%',
+    height: 2.5,
+    borderRadius: 999,
+    backgroundColor: '#818cf8',
   },
   iconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   iconBadgeActive: {
-    backgroundColor: 'rgba(129,140,248,0.2)',
-    borderColor: 'rgba(129,140,248,0.35)',
+    backgroundColor: 'rgba(99,102,241,0.18)',
   },
-  icon: { color: '#94a3b8', fontSize: 16, fontWeight: '900' },
-  iconActive: { color: '#eef2ff' },
-  label: { color: '#94a3b8', fontSize: 10, fontWeight: '800' },
-  labelActive: { color: '#eef2ff' },
+  icon: { color: '#64748b', fontSize: 17, fontWeight: '900' },
+  iconActive: { color: '#c7d2fe' },
+  label: { color: '#64748b', fontSize: 10, fontWeight: '700' },
+  labelActive: { color: '#c7d2fe', fontWeight: '900' },
 });
 
 const shellStyles = StyleSheet.create({

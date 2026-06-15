@@ -41,6 +41,79 @@ function computeXP(sessions: number) {
   return { level, xpInLevel, xpProgress, totalXP };
 }
 
+// ─── PulsingOrb ─────────────────────────────────────────────────────────────
+function PulsingOrb({ color = '#6366f1' }: { color?: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sine),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sine),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [anim]);
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.28] });
+  const scale   = anim.interpolate({ inputRange: [0, 1], outputRange: [0.9,  1.1]  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity,
+          transform: [{ scale }],
+        },
+      ]}
+    >
+      <View
+        style={{
+          width: 260,
+          height: 260,
+          borderRadius: 130,
+          backgroundColor: color,
+        }}
+      />
+    </Animated.View>
+  );
+}
+
+// ─── AnimatedCounter ─────────────────────────────────────────────────────────
+function AnimatedCounter({ value, style }: { value: number; style?: object }) {
+  const anim   = useRef(new Animated.Value(0)).current;
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: value,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
+    return () => anim.removeListener(id);
+  }, [value, anim]);
+
+  return <Text style={style}>{display}</Text>;
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
   onSelectMode: (modeId: string) => void;
   onOpenBriefs: () => void;
@@ -50,6 +123,7 @@ interface Props {
   onOpenMessages: () => void;
 }
 
+// ─── HomeScreen ──────────────────────────────────────────────────────────────
 export function HomeScreen({
   onSelectMode,
   onOpenBriefs,
@@ -66,8 +140,7 @@ export function HomeScreen({
   });
   const [statsSource, setStatsSource] = useState<SessionSnapshotSource>('empty');
 
-  // XP bar animation
-  const xpAnim = useRef(new Animated.Value(0)).current;
+  const xpAnim      = useRef(new Animated.Value(0)).current;
   const prevSessions = useRef(0);
 
   useEffect(() => {
@@ -85,7 +158,6 @@ export function HomeScreen({
     });
   }, []);
 
-  // Animate XP bar whenever sessions change
   useEffect(() => {
     if (stats.sessions === prevSessions.current) return;
     prevSessions.current = stats.sessions;
@@ -102,34 +174,42 @@ export function HomeScreen({
   const { level, xpInLevel } = computeXP(stats.sessions);
   const xpBarWidth = xpAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
+  const isNewUser = stats.sessions === 0;
+
   return (
     <View style={s.root}>
       <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
 
+      {/* Ambient background orb */}
+      <View pointerEvents="none" style={s.ambientOrb} />
+
       <SafeAreaView style={s.safe}>
+        {/* Header */}
         <View style={s.header}>
           <View>
             <Text style={s.brand}>AI Wingman</Text>
             <Text style={s.tagline}>Live coaching for high-stakes conversations</Text>
           </View>
           <TouchableOpacity onPress={onOpenAccount} style={s.accountBtn} hitSlop={8}>
-            <Text style={s.accountBtnText}>Settings</Text>
+            <Text style={s.accountBtnText}>Account</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          {/* Status / hero panel */}
+
+          {/* ── Hero / Command Panel ── */}
           <View style={s.commandPanel}>
+            <PulsingOrb color="#6366f1" />
             <View style={s.statusRow}>
               <View style={s.liveBadge}>
                 <View style={s.liveDot} />
                 <Text style={s.liveText}>READY</Text>
               </View>
-              {statsSource === 'cache' ? (
+              {statsSource === 'cache' && (
                 <View style={s.cacheBadge}>
                   <Text style={s.cacheBadgeText}>Offline cache</Text>
                 </View>
-              ) : null}
+              )}
             </View>
             <Text style={s.heroTitle}>Choose the room{`\n`}you need to win.</Text>
             <Text style={s.heroBody}>
@@ -148,19 +228,43 @@ export function HomeScreen({
             </View>
           </View>
 
-          {/* Stats row */}
+          {/* ── Stats Row ── */}
           <View style={s.metricsRow}>
-            <Metric label="Sessions" value={stats.sessions.toString()} />
-            <Metric label="Best" value={stats.bestScore > 0 ? stats.bestScore.toString() : '--'} />
-            <Metric
+            <MetricCard label="Sessions" value={stats.sessions} animated />
+            <MetricCard
+              label="Best"
+              rawValue={stats.bestScore > 0 ? stats.bestScore.toString() : '--'}
+              value={stats.bestScore}
+              animated={stats.bestScore > 0}
+            />
+            <MetricCard
               label="Streak"
-              value={stats.streak > 0 ? `${stats.streak}d` : '--'}
+              rawValue={stats.streak > 0 ? `${stats.streak}d` : '--'}
+              value={stats.streak}
               highlight={stats.streak >= 3}
               fire={stats.streak >= 3}
+              animated={false}
             />
           </View>
 
-          {/* XP / Level bar */}
+          {/* ── Mission 1 card (new users only) ── */}
+          {isNewUser && (
+            <View style={s.missionCard}>
+              <View style={s.missionHeader}>
+                <View style={s.missionBadge}>
+                  <Text style={s.missionBadgeText}>MISSION 1</Text>
+                </View>
+                <Text style={s.missionTitle}>Get Started</Text>
+              </View>
+              <View style={s.missionSteps}>
+                <MissionStep index={1} text="Run a live session" done={false} />
+                <MissionStep index={2} text="Complete 3 sessions" done={false} />
+                <MissionStep index={3} text="Hit your first 80+ score" done={false} />
+              </View>
+            </View>
+          )}
+
+          {/* ── XP / Level Bar ── */}
           <View style={s.xpCard}>
             <View style={s.xpRow}>
               <View style={s.levelBadge}>
@@ -171,17 +275,16 @@ export function HomeScreen({
             </View>
             <View style={s.xpTrack}>
               <Animated.View style={[s.xpFill, { width: xpBarWidth }]} />
-              {/* Trailing glow dot on XP bar */}
               <Animated.View style={[s.xpGlowDot, { left: xpBarWidth }]} />
             </View>
             <Text style={s.xpHint}>
-              {stats.sessions === 0
+              {isNewUser
                 ? 'Complete sessions to earn XP and level up your coaching profile.'
                 : `${XP_PER_LEVEL - xpInLevel} XP to reach Level ${level + 1}`}
             </Text>
           </View>
 
-          {/* Mode grid */}
+          {/* ── Mode Grid ── */}
           <View style={s.sectionHeader}>
             <Text style={s.sectionTitle}>Modes</Text>
             <Text style={s.sectionAction}>Tap to start a live session</Text>
@@ -190,225 +293,345 @@ export function HomeScreen({
             {MODES.map((mode) => (
               <TouchableOpacity
                 key={mode.id}
-                style={[s.modeTile, { borderTopColor: mode.accent }]}
                 activeOpacity={0.78}
                 onPress={() => onSelectMode(mode.id)}
+                style={s.modeTileWrapper}
               >
-                <View style={[s.modeIcon, { borderColor: `${mode.accent}55`, backgroundColor: `${mode.accent}18` }]}>
-                  <Text style={s.modeIconEmoji}>{mode.icon}</Text>
+                <View style={s.modeTile}>
+                  {/* Top accent bar */}
+                  <View style={[s.modeTileAccentBar, { backgroundColor: mode.accent }]} />
+                  {/* Gradient wash top-to-transparent */}
+                  <LinearGradient
+                    colors={[`${mode.accent}28`, 'transparent']}
+                    style={s.modeTileGradient}
+                  />
+                  <View style={s.modeTileContent}>
+                    <View
+                      style={[
+                        s.modeIcon,
+                        { borderColor: `${mode.accent}55`, backgroundColor: `${mode.accent}18` },
+                      ]}
+                    >
+                      <Text style={s.modeIconEmoji}>{mode.icon}</Text>
+                    </View>
+                    <Text style={s.modeLabel}>{mode.label}</Text>
+                    <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
+                    <Text style={[s.modeStart, { color: mode.accent }]}>Start ›</Text>
+                  </View>
                 </View>
-                <Text style={s.modeLabel}>{mode.label}</Text>
-                <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
-                <Text style={[s.modeStart, { color: mode.accent }]}>Start ›</Text>
               </TouchableOpacity>
             ))}
           </View>
+
+          <View style={{ height: 32 }} />
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-function Metric({
+// ─── MetricCard ───────────────────────────────────────────────────────────────
+function MetricCard({
   label,
   value,
+  rawValue,
   highlight,
   fire,
+  animated,
 }: {
   label: string;
-  value: string;
+  value: number;
+  rawValue?: string;
   highlight?: boolean;
   fire?: boolean;
+  animated: boolean;
 }) {
+  const displayRaw = rawValue ?? value.toString();
   return (
     <View style={[s.metric, highlight && s.metricHighlight]}>
-      <Text style={[s.metricValue, highlight && s.metricValueHighlight]}>
-        {fire ? '🔥 ' : ''}{value}
-      </Text>
+      {animated && value > 0 ? (
+        <AnimatedCounter value={value} style={[s.metricValue, highlight && s.metricValueHighlight]} />
+      ) : (
+        <Text style={[s.metricValue, highlight && s.metricValueHighlight]}>
+          {fire ? '🔥 ' : ''}{displayRaw}
+        </Text>
+      )}
       <Text style={s.metricLabel}>{label}</Text>
     </View>
   );
 }
 
+// ─── MissionStep ─────────────────────────────────────────────────────────────
+function MissionStep({ index, text, done }: { index: number; text: string; done: boolean }) {
+  return (
+    <View style={s.missionStep}>
+      <View style={[s.missionStepDot, done && s.missionStepDotDone]}>
+        {done ? (
+          <Text style={s.missionStepCheck}>✓</Text>
+        ) : (
+          <Text style={s.missionStepNum}>{index}</Text>
+        )}
+      </View>
+      <Text style={[s.missionStepText, done && s.missionStepTextDone]}>{text}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
+
+  ambientOrb: {
+    position: 'absolute',
+    top: -120,
+    right: -100,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: '#6366f118',
+  },
+
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  brand: { color: '#f8fafc', fontSize: 24, fontWeight: '900' },
-  tagline: { color: '#64748b', fontSize: 11, marginTop: 3 },
+  brand: { fontSize: 22, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.5 },
+  tagline: { fontSize: 12, fontWeight: '400', color: '#64748b', marginTop: 2 },
   accountBtn: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    borderRadius: 999,
+    backgroundColor: '#1e293b',
+    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  accountBtnText: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
-  content: { paddingHorizontal: 18, paddingBottom: 120, gap: 16 },
-
-  // Hero / command panel
-  commandPanel: {
-    borderRadius: 12,
-    padding: 20,
-    backgroundColor: 'rgba(99,102,241,0.10)',
+    paddingVertical: 7,
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.20)',
-    gap: 14,
+    borderColor: '#334155',
   },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  accountBtnText: { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
+
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
+
+  commandPanel: {
+    backgroundColor: '#0f172a',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(74,222,128,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(74,222,128,0.26)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
-  liveText: { color: '#4ade80', fontSize: 10, fontWeight: '900' },
-  cacheBadge: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.24)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  cacheBadgeText: { color: '#fbbf24', fontSize: 10, fontWeight: '900' },
-  heroTitle: { color: '#f8fafc', fontSize: 28, fontWeight: '900', lineHeight: 34 },
-  heroBody: { color: '#94a3b8', fontSize: 13, lineHeight: 20 },
-  commandActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  primaryAction: {
-    minWidth: 104,
-    flexGrow: 1,
-    backgroundColor: '#6366f1',
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  primaryActionText: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  secondaryAction: {
-    minWidth: 104,
-    flexGrow: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  secondaryActionText: { color: '#cbd5e1', fontSize: 14, fontWeight: '800' },
-
-  // Metrics
-  metricsRow: { flexDirection: 'row', gap: 10 },
-  metric: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  metricHighlight: {
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    borderColor: 'rgba(129,140,248,0.28)',
-  },
-  metricValue: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
-  metricValueHighlight: { color: '#818cf8' },
-  metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
-
-  // XP Level bar
-  xpCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.18)',
-    borderRadius: 10,
-    padding: 14,
-    gap: 10,
-  },
-  xpRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  levelBadge: {
-    backgroundColor: 'rgba(99,102,241,0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.45)',
-    borderRadius: 8,
+    gap: 5,
+    backgroundColor: '#052e16',
+    borderRadius: 99,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#166534',
   },
-  levelText: { color: '#c7d2fe', fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
-  xpLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '800', flex: 1 },
-  xpCount: { color: '#818cf8', fontSize: 11, fontWeight: '900' },
-  xpTrack: {
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    overflow: 'visible',
-    position: 'relative',
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
+  liveText: { fontSize: 11, fontWeight: '700', color: '#4ade80', letterSpacing: 1 },
+  cacheBadge: {
+    backgroundColor: '#1c1917',
+    borderRadius: 99,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#44403c',
   },
-  xpFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: '100%',
-    borderRadius: 999,
+  cacheBadgeText: { fontSize: 11, fontWeight: '700', color: '#a8a29e' },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#f1f5f9',
+    lineHeight: 34,
+    letterSpacing: -0.6,
+    marginBottom: 10,
+  },
+  heroBody: { fontSize: 14, fontWeight: '400', color: '#64748b', lineHeight: 20, marginBottom: 20 },
+  commandActions: { flexDirection: 'row', gap: 10 },
+  primaryAction: {
+    flex: 1,
     backgroundColor: '#6366f1',
-  },
-  xpGlowDot: {
-    position: 'absolute',
-    top: -2,
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    marginLeft: -5,
-    backgroundColor: '#818cf8',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  xpHint: { color: '#475569', fontSize: 11, lineHeight: 16 },
-
-  // Section header
-  sectionHeader: { gap: 2 },
-  sectionTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
-  sectionAction: { color: '#64748b', fontSize: 12 },
-
-  // Mode grid
-  modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  modeTile: {
-    width: '48.5%',
-    minHeight: 140,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderTopWidth: 2.5,
-    borderRadius: 10,
-    padding: 14,
-    gap: 8,
-  },
-  modeIcon: {
-    width: 40,
-    height: 40,
     borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  primaryActionText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  secondaryAction: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
     borderWidth: 1,
+    borderColor: '#334155',
+  },
+  secondaryActionText: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
+
+  metricsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  metric: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  metricHighlight: { backgroundColor: '#1a0e2e', borderColor: '#7c3aed44' },
+  metricValue: { fontSize: 22, fontWeight: '800', color: '#f1f5f9', letterSpacing: -0.5 },
+  metricValueHighlight: { color: '#a78bfa' },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#475569',
+    marginTop: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+
+  missionCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  missionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  missionBadge: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#4338ca55',
+  },
+  missionBadgeText: { fontSize: 10, fontWeight: '700', color: '#818cf8', letterSpacing: 1.2 },
+  missionTitle: { fontSize: 15, fontWeight: '800', color: '#e2e8f0' },
+  missionSteps: { gap: 10 },
+  missionStep: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  missionStepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#1e293b',
+    borderWidth: 1.5,
+    borderColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  missionStepDotDone: { backgroundColor: '#052e16', borderColor: '#166534' },
+  missionStepNum: { fontSize: 11, fontWeight: '700', color: '#64748b' },
+  missionStepCheck: { fontSize: 12, fontWeight: '700', color: '#4ade80' },
+  missionStepText: { fontSize: 14, fontWeight: '400', color: '#94a3b8' },
+  missionStepTextDone: { color: '#475569', textDecorationLine: 'line-through' },
+
+  xpCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  xpRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  levelBadge: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#4338ca55',
+  },
+  levelText: { fontSize: 11, fontWeight: '700', color: '#818cf8', letterSpacing: 0.8 },
+  xpLabel: { flex: 1, fontSize: 13, fontWeight: '800', color: '#94a3b8' },
+  xpCount: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  xpTrack: {
+    height: 6,
+    backgroundColor: '#1e293b',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 10,
+    position: 'relative',
+  },
+  xpFill: {
+    height: '100%',
+    backgroundColor: '#6366f1',
+    borderRadius: 3,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  xpGlowDot: {
+    position: 'absolute',
+    top: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#818cf8',
+    marginLeft: -6,
+    shadowColor: '#818cf8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+  },
+  xpHint: { fontSize: 12, fontWeight: '400', color: '#475569', lineHeight: 17 },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#e2e8f0', letterSpacing: -0.3 },
+  sectionAction: { fontSize: 12, fontWeight: '400', color: '#475569' },
+
+  modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  modeTileWrapper: { width: '47.5%' },
+  modeTile: {
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    position: 'relative',
+  },
+  modeTileAccentBar: { height: 2.5, width: '100%' },
+  modeTileGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 70,
+  },
+  modeTileContent: { padding: 14 },
+  modeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
   modeIconEmoji: { fontSize: 20 },
-  modeLabel: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
-  modeSub: { color: '#94a3b8', fontSize: 12, lineHeight: 17, flex: 1 },
-  modeStart: { fontSize: 12, fontWeight: '900', marginTop: 2 },
+  modeLabel: { fontSize: 15, fontWeight: '800', color: '#e2e8f0', marginBottom: 4, letterSpacing: -0.2 },
+  modeSub: { fontSize: 12, fontWeight: '400', color: '#64748b', lineHeight: 16, marginBottom: 10 },
+  modeStart: { fontSize: 13, fontWeight: '700' },
 });

@@ -8,7 +8,7 @@ interface Props {
   height?: number;
 }
 
-export function AudioWaveform({ isActive, color = '#6366f1', barCount = 18, height = 40 }: Props) {
+export function AudioWaveform({ isActive, color = '#6366f1', barCount = 24, height = 56 }: Props) {
   const bars = useRef(
     Array.from({ length: barCount }, () => new Animated.Value(0.15))
   ).current;
@@ -20,17 +20,20 @@ export function AudioWaveform({ isActive, color = '#6366f1', barCount = 18, heig
 
     if (isActive) {
       bars.forEach((bar, i) => {
-        const minH = 0.08 + Math.random() * 0.1;
-        const maxH = 0.4 + Math.random() * 0.55;
-        const dur = 280 + Math.random() * 340;
+        const minH = 0.06 + Math.random() * 0.08;
+        const maxH = 0.45 + Math.random() * 0.55;
+        const dur = 220 + Math.random() * 360;
         const loop = Animated.loop(
           Animated.sequence([
             Animated.timing(bar, {
-              toValue: maxH, duration: dur,
-              delay: i * 18, useNativeDriver: false,
+              toValue: maxH,
+              duration: dur,
+              delay: i * 14,
+              useNativeDriver: false,
             }),
             Animated.timing(bar, {
-              toValue: minH, duration: dur * 0.8,
+              toValue: minH,
+              duration: dur * 0.75,
               useNativeDriver: false,
             }),
           ])
@@ -41,12 +44,16 @@ export function AudioWaveform({ isActive, color = '#6366f1', barCount = 18, heig
     } else {
       bars.forEach(bar => {
         Animated.timing(bar, {
-          toValue: 0.12, duration: 300, useNativeDriver: false,
+          toValue: 0.10,
+          duration: 400,
+          useNativeDriver: false,
         }).start();
       });
     }
     return () => loopRefs.current.forEach(l => l.stop());
   }, [isActive]);
+
+  const barWidth = Math.max(3, Math.floor((200 / barCount) * 0.5));
 
   return (
     <View style={[s.container, { height }]}>
@@ -57,9 +64,15 @@ export function AudioWaveform({ isActive, color = '#6366f1', barCount = 18, heig
             s.bar,
             {
               backgroundColor: color,
-              opacity: isActive ? bar.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) : 0.2,
+              opacity: isActive
+                ? bar.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] })
+                : 0.18,
               height: bar.interpolate({ inputRange: [0, 1], outputRange: [3, height] }),
-              width: Math.floor((170 / barCount) * 0.55),
+              width: barWidth,
+              shadowColor: isActive ? color : 'transparent',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: isActive ? 0.6 : 0,
+              shadowRadius: 4,
             },
           ]}
         />
@@ -73,7 +86,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 2,
   },
   bar: {
     borderRadius: 3,

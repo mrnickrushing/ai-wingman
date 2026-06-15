@@ -10,13 +10,9 @@ interface Props {
   rating?: number;
 }
 
-const RING_SIZE = 140;
-const RING_BORDER = 6;
+const RING_SIZE = 160;
+const RING_BORDER = 8;
 
-// Circular progress ring with no SVG / no new deps. Two half-circle windows
-// (left + right) each clip a full ring-bordered disc. Rotating each disc sweeps
-// its colored half across the window — the classic two-semicircle gauge trick.
-// Right window covers 0–180°, left window covers 180–360°.
 function ProgressRing({ score, color }: { score: number; color: string }) {
   const deg = (Math.min(Math.max(score, 0), 100) / 100) * 360;
   const rightDeg = Math.min(deg, 180);
@@ -24,10 +20,11 @@ function ProgressRing({ score, color }: { score: number; color: string }) {
 
   return (
     <View style={ring.wrap}>
-      {/* Background track */}
+      {/* Track */}
       <View style={ring.track} />
-
-      {/* Left window: revealed once score passes 50% */}
+      {/* Glow behind the ring */}
+      <View style={[ring.glow, { shadowColor: color }]} />
+      {/* Left window: revealed after 50% */}
       <View style={[ring.window, ring.windowLeft]}>
         <View
           style={[
@@ -37,8 +34,7 @@ function ProgressRing({ score, color }: { score: number; color: string }) {
           ]}
         />
       </View>
-
-      {/* Right window: first half of the sweep */}
+      {/* Right window: first half of sweep */}
       <View style={[ring.window, ring.windowRight]}>
         <View
           style={[
@@ -63,27 +59,36 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
 
   const [displayScore, setDisplayScore] = useState(0);
   const entryAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     Animated.timing(entryAnim, {
       toValue: 1,
-      duration: 500,
+      duration: 600,
       easing: Easing.out(Easing.back(1.4)),
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      // Gentle alive pulse after entry
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.03, duration: 1200, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
+        ])
+      ).start();
+    });
 
     if (finalScore <= 0) {
       setDisplayScore(0);
       return;
     }
 
-    const duration = 1200;
+    const duration = 1400;
     const start = Date.now();
     const id = setInterval(() => {
       const t = Math.min((Date.now() - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
       setDisplayScore(Math.round(eased * finalScore));
       if (t >= 1) clearInterval(id);
     }, 12);
@@ -98,7 +103,10 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
         {
           opacity: entryAnim,
           transform: [
-            { scale: entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
+            { scale: Animated.multiply(
+              entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
+              pulseAnim
+            )},
           ],
         },
       ]}
@@ -107,16 +115,19 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
         <ProgressRing score={displayScore} color={theme.color} />
         <View style={s.numberOverlay}>
           <Text style={[s.score, { color: theme.color }]}>{displayScore}</Text>
+          <Text style={s.scoreUnit}>/ 100</Text>
         </View>
       </View>
       <Text style={s.scoreCaption}>WINGMAN SCORE</Text>
-      <Text style={[s.label, { color: theme.color }]}>{theme.label}</Text>
+      <View style={[s.labelBadge, { borderColor: `${theme.color}44`, backgroundColor: `${theme.color}14` }]}>
+        <Text style={[s.label, { color: theme.color }]}>{theme.label}</Text>
+      </View>
     </Animated.View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { alignItems: 'center', gap: 6 },
+  container: { alignItems: 'center', gap: 8 },
   ringArea: {
     width: RING_SIZE,
     height: RING_SIZE,
@@ -132,11 +143,16 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  score: { fontSize: 72, fontWeight: '900', letterSpacing: -4 },
-  scoreCaption: {
-    color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 2.5, marginTop: 4,
+  score: { fontSize: 64, fontWeight: '900', letterSpacing: -4, lineHeight: 68 },
+  scoreUnit: { color: '#475569', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  scoreCaption: { color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 2.5, marginTop: 2 },
+  labelBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
-  label: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
+  label: { fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
 });
 
 const ring = StyleSheet.create({
@@ -147,10 +163,17 @@ const ring = StyleSheet.create({
     height: RING_SIZE,
     borderRadius: RING_SIZE / 2,
     borderWidth: RING_BORDER,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  // Each window clips a vertical half of the ring area; the disc inside rotates
-  // to sweep its colored border edge across that half.
+  glow: {
+    position: 'absolute',
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+  },
   window: {
     position: 'absolute',
     width: RING_SIZE / 2,
@@ -170,7 +193,6 @@ const ring = StyleSheet.create({
     borderBottomColor: 'transparent',
     borderLeftColor: 'transparent',
   },
-  // Disc positioned so the clipped half aligns with its window.
   discRight: { right: 0 },
   discLeft: { left: 0 },
 });

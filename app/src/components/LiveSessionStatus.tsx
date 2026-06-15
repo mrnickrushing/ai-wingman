@@ -1,9 +1,40 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Animated, Easing } from 'react-native';
 import { useSessionStore } from '../store/sessionStore';
 
 function age(timestamp: number | null): number | null {
   return timestamp ? (Date.now() - timestamp) / 1000 : null;
+}
+
+function AnimatedPillDot({ color }: { color: string }) {
+  const pulse = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.7, duration: 700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        s.pillDot,
+        {
+          backgroundColor: color,
+          opacity: pulse,
+          shadowColor: color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9,
+          shadowRadius: 4,
+        },
+      ]}
+    />
+  );
 }
 
 export function LiveSessionStatus() {
@@ -20,25 +51,41 @@ export function LiveSessionStatus() {
   const transcribing = transcriptAge !== null && transcriptAge < 12;
 
   const states = [
-    { label: 'Hearing you', active: hearing },
-    { label: 'Transcribing', active: transcribing },
-    { label: 'Coaching', active: Boolean(currentCoaching) },
+    { label: 'Hearing you',  active: hearing,                   color: '#22d3ee' },
+    { label: 'Transcribing', active: transcribing,              color: '#a78bfa' },
+    { label: 'Coaching',     active: Boolean(currentCoaching),  color: '#4ade80' },
   ];
 
   return (
     <View style={s.wrap}>
       {/* Connection indicator */}
-      <View style={[s.connDot, isConnected ? s.connOnline : s.connOffline]} />
-      <Text style={[s.connLabel, isConnected ? s.connLabelOnline : s.connLabelOffline]}>
-        {isConnected ? 'Connected' : 'Offline'}
-      </Text>
+      <View style={s.connRow}>
+        <View style={[s.connDot, isConnected ? s.connOnline : s.connOffline]} />
+        <Text style={[s.connLabel, isConnected ? s.connLabelOnline : s.connLabelOffline]}>
+          {isConnected ? 'Connected' : 'Offline'}
+        </Text>
+      </View>
 
       {/* State pills */}
       <View style={s.pillRow}>
         {states.map((item) => (
-          <View key={item.label} style={[s.pill, item.active && s.pillActive]}>
-            {item.active && <View style={s.pillDot} />}
-            <Text style={[s.pillText, item.active && s.pillTextActive]}>{item.label}</Text>
+          <View
+            key={item.label}
+            style={[
+              s.pill,
+              item.active && {
+                backgroundColor: item.color + '14',
+                borderColor: item.color + '40',
+                shadowColor: item.color,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 3,
+              },
+            ]}
+          >
+            {item.active && <AnimatedPillDot color={item.color} />}
+            <Text style={[s.pillText, item.active && { color: item.color }]}>{item.label}</Text>
           </View>
         ))}
       </View>
@@ -50,57 +97,47 @@ const s = StyleSheet.create({
   wrap: {
     marginHorizontal: 16,
     marginBottom: 12,
-    gap: 8,
+    gap: 9,
+  },
+  connRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   connDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    position: 'absolute',
-    left: 0,
-    top: 6,
   },
-  connOnline: { backgroundColor: '#4ade80' },
-  connOffline: { backgroundColor: '#64748b' },
+  connOnline: { backgroundColor: '#4ade80', shadowColor: '#4ade80', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
+  connOffline: { backgroundColor: '#3d3d5c' },
   connLabel: {
-    paddingLeft: 16,
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   connLabelOnline: { color: '#4ade80' },
-  connLabelOffline: { color: '#64748b' },
+  connLabelOffline: { color: '#3d3d5c' },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
   },
-  pillActive: {
-    backgroundColor: 'rgba(74,222,128,0.11)',
-    borderColor: 'rgba(74,222,128,0.3)',
-    shadowColor: '#4ade80',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
   pillDot: {
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: 3,
-    backgroundColor: '#4ade80',
   },
-  pillText: { color: '#64748b', fontSize: 11, fontWeight: '700' },
-  pillTextActive: { color: '#4ade80' },
+  pillText: { color: '#3d3d5c', fontSize: 12, fontWeight: '800' },
 });

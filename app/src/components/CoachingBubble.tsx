@@ -3,8 +3,8 @@ import { Animated, Text, StyleSheet, View, TouchableOpacity, Easing } from 'reac
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const WORD_INTERVAL = 75;
-const PROGRESS_DURATION = 6000;
+const WORD_INTERVAL = 68;
+const PROGRESS_DURATION = 6500;
 
 interface Props {
   text: string | null;
@@ -13,13 +13,13 @@ interface Props {
 }
 
 function SpeakingDots() {
-  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.25))).current;
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.2))).current;
   useEffect(() => {
     const loops = dots.map((d, i) =>
       Animated.loop(
         Animated.sequence([
-          Animated.timing(d, { toValue: 1, duration: 300, delay: i * 120, useNativeDriver: true }),
-          Animated.timing(d, { toValue: 0.25, duration: 300, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 1, duration: 280, delay: i * 110, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 0.2, duration: 280, useNativeDriver: true }),
         ])
       )
     );
@@ -36,14 +36,35 @@ function SpeakingDots() {
   );
 }
 
+function SonarRing({ color, anim }: { color: string; anim: Animated.Value }) {
+  const ringOpacity = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.55, 0.15, 0] });
+  const ringScale   = anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2.0] });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: ringOpacity,
+          transform: [{ scale: ringScale }],
+        },
+      ]}
+    >
+      <View style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 1.5, borderColor: color }} />
+    </Animated.View>
+  );
+}
+
 function Word({ value, revealed }: { value: string; revealed: boolean }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(4)).current;
+  const opacity   = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(6)).current;
   useEffect(() => {
     if (revealed) {
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(opacity,    { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 90, useNativeDriver: true }),
       ]).start();
     }
   }, [revealed]);
@@ -55,11 +76,12 @@ function Word({ value, revealed }: { value: string; revealed: boolean }) {
 }
 
 export function CoachingBubble({ text, speaking, onDismiss }: Props) {
-  const slideAnim   = useRef(new Animated.Value(-110)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim    = useRef(new Animated.Value(-120)).current;
+  const opacityAnim  = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim   = useRef(new Animated.Value(0.9)).current;
-  const glowAnim    = useRef(new Animated.Value(0)).current;
+  const scaleAnim    = useRef(new Animated.Value(0.88)).current;
+  const glowAnim     = useRef(new Animated.Value(0)).current;
+  const sonarAnim    = useRef(new Animated.Value(0)).current;
   const [revealCount, setRevealCount] = useState(0);
 
   const words = text ? text.split(/\s+/).filter(Boolean) : [];
@@ -71,14 +93,22 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
+      // Entry animation
       Animated.parallel([
-        Animated.spring(slideAnim, { toValue: 0, tension: 72, friction: 11, useNativeDriver: true }),
-        Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: 1, tension: 72, friction: 11, useNativeDriver: true }),
-        // Glow pulse on entry
+        Animated.spring(slideAnim,  { toValue: 0, tension: 76, friction: 11, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.spring(scaleAnim,  { toValue: 1, tension: 76, friction: 11, useNativeDriver: true }),
+        // Glow burst then settle
         Animated.sequence([
-          Animated.timing(glowAnim, { toValue: 1, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 0.3, duration: 700, useNativeDriver: true }),
+        ]),
+        // Sonar ping
+        Animated.sequence([
+          Animated.timing(sonarAnim, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          Animated.delay(200),
+          Animated.timing(sonarAnim, { toValue: 0, duration: 1, useNativeDriver: true }),
+          Animated.timing(sonarAnim, { toValue: 1, duration: 900, delay: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         ]),
       ]).start();
 
@@ -100,9 +130,9 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
       return () => clearInterval(interval);
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim,   { toValue: -110, duration: 280, useNativeDriver: true }),
-        Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(scaleAnim,   { toValue: 0.9, duration: 280, useNativeDriver: true }),
+        Animated.timing(slideAnim,   { toValue: -120, duration: 260, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 0,    duration: 180, useNativeDriver: true }),
+        Animated.timing(scaleAnim,   { toValue: 0.88, duration: 260, useNativeDriver: true }),
       ]).start();
     }
   }, [text]);
@@ -116,21 +146,25 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
         { opacity: opacityAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] },
       ]}
     >
-      {/* Entry glow burst behind the card */}
+      {/* Sonar rings */}
+      <SonarRing color="#6366f1" anim={sonarAnim} />
+
+      {/* Glow burst */}
       <Animated.View
         pointerEvents="none"
         style={[s.glowBurst, { opacity: glowAnim }]}
       />
 
       <LinearGradient
-        colors={['rgba(99,102,241,0.22)', 'rgba(139,92,246,0.12)']}
+        colors={['rgba(99,102,241,0.26)', 'rgba(139,92,246,0.14)', 'rgba(10,10,30,0.92)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={s.card}
       >
         <View style={s.topRow}>
           <View style={s.aiTag}>
-            <Text style={s.aiTagText}>🎧 WINGMAN</Text>
+            <View style={s.aiDot} />
+            <Text style={s.aiTagText}>WINGMAN</Text>
             {speaking && <SpeakingDots />}
           </View>
           {onDismiss && (
@@ -139,7 +173,8 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                 onDismiss();
               }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              style={s.dismissBtn}
             >
               <Text style={s.dismiss}>✕</Text>
             </TouchableOpacity>
@@ -152,13 +187,24 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
           ))}
         </Text>
 
-        {/* Auto-dismiss progress */}
+        {/* Auto-dismiss progress bar */}
         <View style={s.progressTrack}>
           <Animated.View
             style={[
               s.progressFill,
               {
                 width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              s.progressGlowDot,
+              {
+                left: progressAnim.interpolate({
                   inputRange: [0, 1],
                   outputRange: ['0%', '100%'],
                 }),
@@ -175,43 +221,53 @@ const s = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 12,
-    left: 16,
-    right: 16,
+    left: 14,
+    right: 14,
     zIndex: 200,
   },
   glowBurst: {
     position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
-    borderRadius: 28,
+    top: -14,
+    left: -14,
+    right: -14,
+    bottom: -14,
+    borderRadius: 32,
     backgroundColor: '#6366f1',
     shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 24,
+    shadowOpacity: 1,
+    shadowRadius: 32,
   },
   card: {
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99,102,241,0.40)',
-    gap: 12,
+    borderColor: 'rgba(99,102,241,0.50)',
+    gap: 14,
     overflow: 'hidden',
     shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 16,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  aiTag: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiTagText: { color: '#8b5cf6', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  aiTag: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  aiDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#818cf8',
+    shadowColor: '#818cf8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+  },
+  aiTagText: { color: '#818cf8', fontSize: 11, fontWeight: '900', letterSpacing: 1.6 },
   speakingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   speakingDot: {
     width: 5,
@@ -220,24 +276,49 @@ const s = StyleSheet.create({
     backgroundColor: '#4ade80',
   },
   speakingText: { color: '#4ade80', fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginLeft: 4 },
-  dismiss: { color: 'rgba(148,163,184,0.5)', fontSize: 14, fontWeight: '600' },
-  textWrap: { lineHeight: 26 },
+  dismissBtn: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 99,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dismiss: { color: 'rgba(148,163,184,0.7)', fontSize: 13, fontWeight: '700' },
+  textWrap: { lineHeight: 28 },
   text: {
     color: '#f1f5f9',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
-    lineHeight: 26,
-    letterSpacing: -0.2,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   progressTrack: {
-    height: 2,
+    height: 3,
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 1,
-    overflow: 'hidden',
+    borderRadius: 2,
+    overflow: 'visible',
+    position: 'relative',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: 'rgba(99,102,241,0.65)',
-    borderRadius: 1,
+    backgroundColor: 'rgba(129,140,248,0.75)',
+    borderRadius: 2,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  progressGlowDot: {
+    position: 'absolute',
+    top: -3,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#818cf8',
+    marginLeft: -4,
+    shadowColor: '#818cf8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
   },
 });

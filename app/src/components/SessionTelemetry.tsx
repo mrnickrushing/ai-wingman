@@ -16,53 +16,48 @@ function agoLabel(timestamp: number | null): string {
 function statusLabel(phase: string): string {
   switch (phase) {
     case 'checking_server': return 'Checking';
-    case 'connecting': return 'Connecting';
-    case 'ready': return 'Ready';
-    case 'recording': return 'Recording';
-    case 'streaming': return 'Streaming';
-    case 'coaching': return 'Coaching';
-    case 'error': return 'Error';
+    case 'connecting':      return 'Connecting';
+    case 'ready':           return 'Ready';
+    case 'recording':       return 'Recording';
+    case 'streaming':       return 'Streaming';
+    case 'coaching':        return 'Coaching';
+    case 'error':           return 'Error';
     case 'idle':
-    default:
-      return 'Idle';
+    default:                return 'Idle';
   }
 }
 
 function serverLabel(status: string): { label: string; color: string } {
   switch (status) {
-    case 'online': return { label: 'Online', color: '#4ade80' };
+    case 'online':   return { label: 'Online',   color: '#4ade80' };
     case 'checking': return { label: 'Checking', color: '#f59e0b' };
-    case 'offline': return { label: 'Offline', color: '#f43f5e' };
-    case 'unknown':
-    default:
-      return { label: 'Unknown', color: '#64748b' };
+    case 'offline':  return { label: 'Offline',  color: '#f43f5e' };
+    default:         return { label: 'Unknown',  color: '#3d3d5c' };
   }
 }
 
 function micLabel(granted: boolean | null, recording: boolean): { label: string; color: string } {
   if (granted === false) return { label: 'Blocked', color: '#f43f5e' };
-  if (recording) return { label: 'Ready', color: '#4ade80' };
-  if (granted === true) return { label: 'Granted', color: '#22d3ee' };
-  return { label: 'Unknown', color: '#64748b' };
+  if (recording)         return { label: 'Ready',   color: '#4ade80' };
+  if (granted === true)  return { label: 'Granted', color: '#22d3ee' };
+  return                        { label: 'Unknown', color: '#3d3d5c' };
 }
 
 function freshnessLabel(timestamp: number | null): { label: string; color: string } {
-  if (!timestamp) return { label: 'Waiting', color: '#64748b' };
+  if (!timestamp) return { label: 'Waiting', color: '#3d3d5c' };
   const ageSeconds = (Date.now() - timestamp) / 1000;
   if (ageSeconds < 10) return { label: 'Live', color: '#4ade80' };
   if (ageSeconds < 60) return { label: 'Warm', color: '#f59e0b' };
-  return { label: 'Stale', color: '#64748b' };
+  return                      { label: 'Stale', color: '#3d3d5c' };
 }
 
 function appStateLabel(state: string): { label: string; color: string } {
   switch (state) {
-    case 'active': return { label: 'Foreground', color: '#4ade80' };
+    case 'active':     return { label: 'Foreground', color: '#4ade80' };
     case 'background': return { label: 'Background', color: '#f59e0b' };
-    case 'inactive': return { label: 'Inactive', color: '#fbbf24' };
-    case 'extension': return { label: 'Extension', color: '#22d3ee' };
-    case 'unknown':
-    default:
-      return { label: 'Unknown', color: '#64748b' };
+    case 'inactive':   return { label: 'Inactive',   color: '#fbbf24' };
+    case 'extension':  return { label: 'Extension',  color: '#22d3ee' };
+    default:           return { label: 'Unknown',    color: '#3d3d5c' };
   }
 }
 
@@ -70,10 +65,8 @@ function backgroundStateLabel(state: string): { label: string; color: string } {
   switch (state) {
     case 'verified': return { label: 'Verified', color: '#4ade80' };
     case 'watching': return { label: 'Watching', color: '#f59e0b' };
-    case 'paused': return { label: 'Paused', color: '#f43f5e' };
-    case 'idle':
-    default:
-      return { label: 'Idle', color: '#64748b' };
+    case 'paused':   return { label: 'Paused',   color: '#f43f5e' };
+    default:         return { label: 'Idle',      color: '#3d3d5c' };
   }
 }
 
@@ -111,11 +104,7 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
   const app = appStateLabel(appState);
   const background = backgroundStateLabel(backgroundAudioState);
   const phase = statusLabel(sessionPhase);
-  const connectionLabel = isConnected
-    ? 'Connected'
-    : isReconnecting
-      ? 'Reconnecting'
-      : 'Offline';
+  const connectionLabel = isConnected ? 'Connected' : isReconnecting ? 'Reconnecting' : 'Offline';
   const micPercent = micLevelDb === null
     ? 0
     : Math.max(4, Math.min(100, Math.round(((micLevelDb + 70) / 40) * 100)));
@@ -129,7 +118,7 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
           ? 'Hearing low speech'
           : 'Too quiet';
   const hearingColor = !isRecording
-    ? '#64748b'
+    ? '#3d3d5c'
     : micLevelDb === null
       ? '#22d3ee'
       : micLevelDb > -35
@@ -139,12 +128,12 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
           : '#f43f5e';
 
   const chips = [
-    { label: 'Server', value: server.label, color: server.color },
-    { label: 'Mic', value: mic.label, color: mic.color },
-    { label: 'App', value: app.label, color: app.color },
-    { label: 'Background', value: background.label, color: background.color },
-    { label: 'Transcript', value: transcriptState.label, color: transcriptState.color },
-    { label: 'Audio', value: audioState.label, color: audioState.color },
+    { label: 'Server',     value: server.label,          color: server.color },
+    { label: 'Mic',        value: mic.label,              color: mic.color },
+    { label: 'App',        value: app.label,              color: app.color },
+    { label: 'Background', value: background.label,       color: background.color },
+    { label: 'Transcript', value: transcriptState.label,  color: transcriptState.color },
+    { label: 'Audio',      value: audioState.label,       color: audioState.color },
   ];
 
   return (
@@ -167,8 +156,8 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
         {chips.map((chip) => (
           <View key={chip.label} style={s.chip}>
             <Text style={s.chipLabel}>{chip.label}</Text>
-            <View style={[s.chipDot, { backgroundColor: chip.color + '30', borderColor: chip.color + '50' }]}>
-              <View style={[s.chipDotInner, { backgroundColor: chip.color }]} />
+            <View style={[s.chipDot, { backgroundColor: chip.color + '28', borderColor: chip.color + '55' }]}>
+              <View style={[s.chipDotInner, { backgroundColor: chip.color, shadowColor: chip.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 }]} />
             </View>
             <Text style={[s.chipValue, { color: chip.color }]} numberOfLines={1}>{chip.value}</Text>
           </View>
@@ -181,7 +170,19 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
           <Text style={[s.levelValue, { color: hearingColor }]}>{hearingLabel}</Text>
         </View>
         <View style={s.levelTrack}>
-          <View style={[s.levelFill, { width: `${micPercent}%`, backgroundColor: hearingColor }]} />
+          <View
+            style={[
+              s.levelFill,
+              {
+                width: `${micPercent}%`,
+                backgroundColor: hearingColor,
+                shadowColor: hearingColor,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.6,
+                shadowRadius: 6,
+              },
+            ]}
+          />
         </View>
       </View>
 
@@ -232,18 +233,21 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#0c0c1e',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 14,
-    gap: 12,
+    borderColor: '#1a1a36',
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
     marginHorizontal: 16,
     marginBottom: 10,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  compactCard: {
-    paddingVertical: 12,
-  },
+  compactCard: { paddingVertical: 12 },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -251,73 +255,73 @@ const s = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    color: '#64748b',
+    color: '#3d3d5c',
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 1.2,
   },
   statusText: {
-    color: '#cbd5e1',
+    color: '#7c7caa',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 4,
   },
   retryBtn: {
     backgroundColor: 'rgba(99,102,241,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(99,102,241,0.32)',
+    borderColor: 'rgba(99,102,241,0.36)',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
   },
-  retryText: { color: '#c4b5fd', fontSize: 12, fontWeight: '700' },
+  retryText: { color: '#a5b4fc', fontSize: 12, fontWeight: '800' },
   chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
     flex: 1,
-    flexBasis: 90,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    flexBasis: 88,
+    backgroundColor: 'rgba(255,255,255,0.025)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderRadius: 11,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     minWidth: 0,
   },
-  chipLabel: { color: '#64748b', fontSize: 9, fontWeight: '700', letterSpacing: 0.4 },
+  chipLabel: { color: '#3d3d5c', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   chipDot: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
   },
-  chipDotInner: { width: 8, height: 8, borderRadius: 4 },
-  chipValue: { fontSize: 11, fontWeight: '800' },
+  chipDotInner: { width: 9, height: 9, borderRadius: 5, elevation: 4 },
+  chipValue: { fontSize: 11, fontWeight: '900', letterSpacing: 0.2 },
   footerRow: { gap: 4 },
-  footerText: { color: '#64748b', fontSize: 11 },
-  levelBlock: { gap: 7 },
+  footerText: { color: '#3d3d5c', fontSize: 11 },
+  levelBlock: { gap: 8 },
   levelHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  levelLabel: { color: '#64748b', fontSize: 11, fontWeight: '800' },
+  levelLabel: { color: '#3d3d5c', fontSize: 11, fontWeight: '800' },
   levelValue: { fontSize: 11, fontWeight: '900' },
   levelTrack: {
-    height: 7,
+    height: 8,
     borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'visible',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  levelFill: { height: '100%', borderRadius: 999 },
+  levelFill: { height: '100%', borderRadius: 999, elevation: 4 },
   errorText: { color: '#fca5c5', fontSize: 12, lineHeight: 18 },
-  noteText: { color: '#64748b', fontSize: 11 },
+  noteText: { color: '#3d3d5c', fontSize: 11 },
   actionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   actionBtn: {
     flexGrow: 1,
-    backgroundColor: 'rgba(255,255,255,0.035)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 9,
     paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  actionText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
+  actionText: { color: '#e2e8f0', fontSize: 11, fontWeight: '900' },
 });

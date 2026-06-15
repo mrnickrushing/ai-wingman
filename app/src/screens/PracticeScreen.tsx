@@ -52,6 +52,21 @@ const SCENARIOS: PracticeScenario[] = [
   },
 ];
 
+type RoleplayMode = {
+  mode: ConversationMode;
+  icon: string;
+  label: string;
+  accent: string;
+};
+
+const ROLEPLAY_MODES: RoleplayMode[] = [
+  { mode: 'sales',              icon: '🤝', label: 'Sales',      accent: '#6366f1' },
+  { mode: 'dating',             icon: '✨', label: 'Dating',     accent: '#ec4899' },
+  { mode: 'networking',         icon: '💬', label: 'Networking', accent: '#22d3ee' },
+  { mode: 'pitching',           icon: '🚀', label: 'Pitching',   accent: '#f59e0b' },
+  { mode: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  accent: '#8b5cf6' },
+];
+
 type Props = {
   onBack: () => void;
   onStartMode: (mode: ConversationMode) => void;
@@ -95,26 +110,22 @@ export function PracticeScreen({ onBack, onStartMode, onStartRoleplay }: Props) 
             </View>
           </View>
 
-          {/* Roleplay mode picker */}
+          {/* Roleplay mode picker — emoji icon grid */}
           <View style={s.roleplayCard}>
             <Text style={s.roleplayLabel}>CHOOSE ROLEPLAY MODE</Text>
             <Text style={s.roleplayTitle}>Pick the conversation type.</Text>
-            <View style={s.roleplayRow}>
-              <TouchableOpacity onPress={() => onStartRoleplay('sales')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Sales</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('dating')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Dating</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('networking')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Networking</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('pitching')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Pitching</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onStartRoleplay('hard_conversations')} style={s.roleplayBtn} activeOpacity={0.82}>
-                <Text style={s.roleplayBtnText}>Hard talk</Text>
-              </TouchableOpacity>
+            <View style={s.modeIconRow}>
+              {ROLEPLAY_MODES.map((m) => (
+                <TouchableOpacity
+                  key={m.mode}
+                  onPress={() => onStartRoleplay(m.mode)}
+                  style={[s.modeIconBtn, { borderColor: `${m.accent}44`, backgroundColor: `${m.accent}15` }]}
+                  activeOpacity={0.82}
+                >
+                  <Text style={s.modeIconEmoji}>{m.icon}</Text>
+                  <Text style={[s.modeIconLabel, { color: m.accent }]}>{m.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -204,27 +215,30 @@ const s = StyleSheet.create({
   },
   roleplayHeroSecondaryText: { color: '#e2e8f0', fontSize: 14, fontWeight: '800' },
 
-  // Roleplay mode card
+  // Roleplay mode icon grid
   roleplayCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     padding: 16,
-    gap: 10,
+    gap: 12,
   },
   roleplayLabel: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
   roleplayTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
-  roleplayRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  roleplayBtn: {
-    backgroundColor: 'rgba(129,140,248,0.10)',
+  modeIconRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  modeIconBtn: {
+    flex: 1,
+    minWidth: 56,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.20)',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    gap: 4,
   },
-  roleplayBtnText: { color: '#e0e7ff', fontSize: 12, fontWeight: '900' },
+  modeIconEmoji: { fontSize: 22 },
+  modeIconLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
 
   // Section
   sectionHeader: { gap: 2, marginTop: 4 },

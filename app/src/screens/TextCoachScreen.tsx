@@ -41,7 +41,7 @@ const TEMPLATES: Template[] = [
     tone: 'Professional',
     goal: 'Turn the chat into a concrete follow-up.',
     length: 'balanced',
-    thread: 'Them: Great meeting you today. Let’s stay in touch.\nYou: Likewise, really enjoyed talking.\nThem: Send me your info when you get a chance.',
+    thread: 'Them: Great meeting you today. Let\'s stay in touch.\nYou: Likewise, really enjoyed talking.\nThem: Send me your info when you get a chance.',
     latestMessage: 'Send me your info when you get a chance.',
   },
   {
@@ -50,7 +50,7 @@ const TEMPLATES: Template[] = [
     tone: 'Warm',
     goal: 'Say no without sounding cold.',
     length: 'short',
-    thread: 'Them: Can you jump on a call tonight?\nYou: I’m tied up later.\nThem: It would only take a minute.',
+    thread: 'Them: Can you jump on a call tonight?\nYou: I\'m tied up later.\nThem: It would only take a minute.',
     latestMessage: 'It would only take a minute.',
   },
   {
@@ -59,8 +59,8 @@ const TEMPLATES: Template[] = [
     tone: 'Direct',
     goal: 'Move the deal to a clear next step.',
     length: 'balanced',
-    thread: 'Them: Thanks for the demo. We need to think about it.\nYou: Totally understand.\nThem: I’ll circle back next week.',
-    latestMessage: 'I’ll circle back next week.',
+    thread: 'Them: Thanks for the demo. We need to think about it.\nYou: Totally understand.\nThem: I\'ll circle back next week.',
+    latestMessage: 'I\'ll circle back next week.',
   },
 ];
 
@@ -71,6 +71,14 @@ const LENGTHS: Array<{ label: string; value: 'short' | 'balanced' | 'warm' | 'di
   { label: 'Warm', value: 'warm' },
   { label: 'Direct', value: 'direct' },
 ];
+
+const TONE_COLORS: Record<string, string> = {
+  Warm: '#ec4899',
+  Playful: '#f59e0b',
+  Direct: '#22d3ee',
+  Professional: '#6366f1',
+  Confident: '#8b5cf6',
+};
 
 type Props = {
   onBack: () => void;
@@ -96,6 +104,8 @@ export function TextCoachScreen({ onBack }: Props) {
       default: return 'Friendly, natural, and easy to send.';
     }
   }, [tone]);
+
+  const activeToneColor = TONE_COLORS[tone] ?? '#6366f1';
 
   const applyTemplate = (template: Template) => {
     setRelationship(template.relationship);
@@ -142,11 +152,14 @@ export function TextCoachScreen({ onBack }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#0a0a1c', '#050510']} style={StyleSheet.absoluteFill} />
+      {/* Ambient tone-color glow */}
+      <View style={[s.ambientGlow, { backgroundColor: activeToneColor + '18' }]} pointerEvents="none" />
+
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
           <Pressable onPress={onBack} style={s.backBtn} hitSlop={10}>
-            <Text style={s.backText}>Back</Text>
+            <Text style={s.backText}>‹ Back</Text>
           </Pressable>
           <View style={s.headerTitleWrap}>
             <Text style={s.title}>Text Coach</Text>
@@ -157,11 +170,16 @@ export function TextCoachScreen({ onBack }: Props) {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.flex}>
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-            <View style={s.hero}>
+            {/* Hero */}
+            <LinearGradient
+              colors={[activeToneColor + '22', activeToneColor + '08']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={[s.hero, { borderColor: activeToneColor + '35' }]}
+            >
               <View style={s.heroTop}>
-                <View style={s.liveBadge}>
-                  <View style={s.liveDot} />
-                  <Text style={s.liveText}>READY</Text>
+                <View style={[s.liveBadge, { backgroundColor: activeToneColor + '18', borderColor: activeToneColor + '40' }]}>
+                  <View style={[s.liveDot, { backgroundColor: activeToneColor }]} />
+                  <Text style={[s.liveText, { color: activeToneColor }]}>READY</Text>
                 </View>
                 <Text style={s.heroMeta}>{toneHint}</Text>
               </View>
@@ -176,26 +194,29 @@ export function TextCoachScreen({ onBack }: Props) {
                   </Pressable>
                 ))}
               </View>
-            </View>
+            </LinearGradient>
 
             <Section title="Conversation context">
-              <Field label="Relationship" value={relationship} onChangeText={setRelationship} placeholder="Dating, coworker, lead..." />
-              <Field label="Goal" value={goal} onChangeText={setGoal} placeholder="Set a date, keep it warm, close the loop..." multiline />
-              <Field label="Latest message" value={latestMessage} onChangeText={setLatestMessage} placeholder="Paste the last text you received" multiline />
-              <Field label="Thread" value={thread} onChangeText={setThread} placeholder="Paste the thread for fuller context" multiline large />
+              <Field label="Relationship" value={relationship} onChangeText={setRelationship} placeholder="Dating, coworker, lead..." accentColor={activeToneColor} />
+              <Field label="Goal" value={goal} onChangeText={setGoal} placeholder="Set a date, keep it warm, close the loop..." multiline accentColor={activeToneColor} />
+              <Field label="Latest message" value={latestMessage} onChangeText={setLatestMessage} placeholder="Paste the last text you received" multiline accentColor={activeToneColor} />
+              <Field label="Thread" value={thread} onChangeText={setThread} placeholder="Paste the thread for fuller context" multiline large accentColor={activeToneColor} />
             </Section>
 
             <Section title="Tone and length">
               <View style={s.chipRow}>
-                {TONES.map((chip) => (
-                  <Pressable
-                    key={chip}
-                    onPress={() => setTone(chip)}
-                    style={[s.chip, tone === chip && s.chipActive]}
-                  >
-                    <Text style={[s.chipText, tone === chip && s.chipTextActive]}>{chip}</Text>
-                  </Pressable>
-                ))}
+                {TONES.map((chip) => {
+                  const chipColor = TONE_COLORS[chip] ?? '#6366f1';
+                  return (
+                    <Pressable
+                      key={chip}
+                      onPress={() => setTone(chip)}
+                      style={[s.chip, tone === chip && { backgroundColor: chipColor + '22', borderColor: chipColor + '50' }]}
+                    >
+                      <Text style={[s.chipText, tone === chip && { color: chipColor }]}>{chip}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
               <View style={s.chipRow}>
                 {LENGTHS.map((chip) => (
@@ -210,7 +231,7 @@ export function TextCoachScreen({ onBack }: Props) {
               </View>
             </Section>
 
-            <Pressable onPress={handleGenerate} disabled={loading} style={[s.primaryBtn, loading && s.primaryBtnDisabled]}>
+            <Pressable onPress={handleGenerate} disabled={loading} style={[s.primaryBtn, { backgroundColor: activeToneColor }, loading && s.primaryBtnDisabled]}>
               <Text style={s.primaryBtnText}>{loading ? 'Drafting reply...' : 'Draft reply'}</Text>
             </Pressable>
 
@@ -224,11 +245,11 @@ export function TextCoachScreen({ onBack }: Props) {
             {suggestion ? (
               <>
                 <Section title="Best reply">
-                  <View style={s.replyCard}>
+                  <View style={[s.replyCard, { borderColor: activeToneColor + '30', backgroundColor: activeToneColor + '10' }]}>
                     <Text style={s.replyText}>{suggestion.bestReply}</Text>
                     <View style={s.replyActions}>
-                      <Pressable onPress={() => shareReply(suggestion.bestReply)} style={s.replyAction}>
-                        <Text style={s.replyActionText}>Share</Text>
+                      <Pressable onPress={() => shareReply(suggestion.bestReply)} style={[s.replyAction, { backgroundColor: activeToneColor + '18', borderColor: activeToneColor + '30', borderWidth: 1, borderRadius: 999 }]}>
+                        <Text style={[s.replyActionText, { color: activeToneColor }]}>Share</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -261,7 +282,7 @@ export function TextCoachScreen({ onBack }: Props) {
                 <Section title="What to avoid">
                   {suggestion.whatToAvoid.map((item) => (
                     <View key={item} style={s.avoidRow}>
-                      <View style={s.avoidDot} />
+                      <View style={[s.avoidDot, { backgroundColor: activeToneColor }]} />
                       <Text style={s.bodyText}>{item}</Text>
                     </View>
                   ))}
@@ -291,6 +312,7 @@ function Field({
   placeholder,
   multiline,
   large,
+  accentColor,
 }: {
   label: string;
   value: string;
@@ -298,7 +320,9 @@ function Field({
   placeholder: string;
   multiline?: boolean;
   large?: boolean;
+  accentColor?: string;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={s.field}>
       <Text style={s.fieldLabel}>{label}</Text>
@@ -308,10 +332,17 @@ function Field({
         placeholder={placeholder}
         placeholderTextColor="#64748b"
         multiline={multiline}
-        style={[s.input, multiline && s.inputMultiline, large && s.inputLarge]}
+        style={[
+          s.input,
+          multiline && s.inputMultiline,
+          large && s.inputLarge,
+          focused && accentColor && { borderColor: accentColor + '55', backgroundColor: accentColor + '08' },
+        ]}
         textAlignVertical={multiline ? 'top' : 'center'}
         autoCapitalize="sentences"
         autoCorrect
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
     </View>
   );
@@ -330,6 +361,10 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
   flex: { flex: 1 },
+  ambientGlow: {
+    position: 'absolute', width: 320, height: 320, borderRadius: 160,
+    top: -80, right: -80,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,17 +375,15 @@ const s = StyleSheet.create({
     gap: 10,
   },
   backBtn: { minWidth: 60 },
-  backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
+  backText: { color: '#a5b4fc', fontSize: 15, fontWeight: '800' },
   headerTitleWrap: { flex: 1, alignItems: 'center' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   subtitle: { color: '#94a3b8', fontSize: 11, marginTop: 2, textAlign: 'center' },
   headerSpacer: { minWidth: 60 },
   content: { paddingHorizontal: 18, paddingBottom: 116, gap: 16 },
   hero: {
-    backgroundColor: 'rgba(99,102,241,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
-    borderRadius: 10,
+    borderRadius: 14,
     padding: 16,
     gap: 10,
   },
@@ -360,15 +393,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(74,222,128,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(74,222,128,0.28)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
-  liveText: { color: '#4ade80', fontSize: 10, fontWeight: '900' },
+  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  liveText: { fontSize: 10, fontWeight: '900' },
   heroTitle: { color: '#f8fafc', fontSize: 26, lineHeight: 31, fontWeight: '900' },
   heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
   templateRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
@@ -378,7 +409,7 @@ const s = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   templateText: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
   section: { gap: 10 },
@@ -387,7 +418,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     gap: 12,
   },
@@ -421,7 +452,6 @@ const s = StyleSheet.create({
   chipText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
   chipTextActive: { color: '#f8fafc' },
   primaryBtn: {
-    backgroundColor: '#6366f1',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
@@ -439,10 +469,8 @@ const s = StyleSheet.create({
   errorTitle: { color: '#fecaca', fontSize: 14, fontWeight: '900' },
   errorText: { color: '#fecaca', fontSize: 13, lineHeight: 19 },
   replyCard: {
-    backgroundColor: 'rgba(99,102,241,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.18)',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     gap: 10,
   },
@@ -451,10 +479,8 @@ const s = StyleSheet.create({
   replyAction: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  replyActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
+  replyActionText: { fontSize: 12, fontWeight: '800' },
   alternateList: { gap: 10 },
   altCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
@@ -488,5 +514,5 @@ const s = StyleSheet.create({
   metaLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   metaValue: { color: '#f8fafc', fontSize: 13, lineHeight: 18, fontWeight: '700' },
   avoidRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  avoidDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#f59e0b', marginTop: 8 },
+  avoidDot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
 });

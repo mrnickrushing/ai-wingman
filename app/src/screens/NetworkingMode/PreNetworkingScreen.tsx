@@ -34,13 +34,24 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
 
           <View style={s.header}>
             <TouchableOpacity onPress={onBack} style={s.backBtn}>
-              <Text style={s.backText}>← Back</Text>
+              <Text style={s.backText}>‹ Back</Text>
             </TouchableOpacity>
             <View>
               <Text style={s.title}>Networking Mode</Text>
               <Text style={s.subtitle}>Prep before you work the room</Text>
             </View>
           </View>
+
+          {/* Mode hero banner */}
+          <LinearGradient
+            colors={['rgba(34,211,238,0.16)', 'rgba(8,145,178,0.06)']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.heroBanner}
+          >
+            <Text style={s.heroEyebrow}>NETWORKING MODE</Text>
+            <Text style={s.heroTitle}>🤝 Work the room.</Text>
+            <Text style={s.heroBody}>Name the event, load your targets, and let Wingman do the heavy lifting.</Text>
+          </LinearGradient>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -137,11 +148,24 @@ export function PreNetworkingScreen({ onStart, onBack }: Props) {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
-  header: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
+  header: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 8 },
   backBtn: { marginBottom: 10 },
-  backText: { color: '#22d3ee', fontSize: 14, fontWeight: '600' },
-  title: { color: '#f1f5f9', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  backText: { color: '#67e8f9', fontSize: 14, fontWeight: '700' },
+  title: { color: '#f1f5f9', fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   subtitle: { color: '#475569', fontSize: 13, marginTop: 2 },
+
+  heroBanner: {
+    marginHorizontal: 22,
+    marginBottom: 8,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.35)',
+    gap: 4,
+  },
+  heroEyebrow: { color: '#22d3ee', fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
+  heroTitle: { color: '#f8fafc', fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
+  heroBody: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
 
   scrollContent: { paddingHorizontal: 22, paddingBottom: 20 },
   body: { gap: 14, paddingTop: 8 },

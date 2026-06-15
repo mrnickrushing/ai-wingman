@@ -20,14 +20,15 @@ type Mode = {
   label: string;
   subtitle: string;
   accent: string;
+  gradientColors: readonly [string, string];
 };
 
 const MODES: Mode[] = [
-  { id: 'sales',              icon: '🤝', label: 'Sales',      subtitle: 'Objections and closes',    accent: '#6366f1' },
-  { id: 'dating',             icon: '✨', label: 'Dating',     subtitle: 'Presence and momentum',    accent: '#ec4899' },
-  { id: 'networking',         icon: '💬', label: 'Networking', subtitle: 'Rooms and follow-ups',     accent: '#22d3ee' },
-  { id: 'pitching',           icon: '🚀', label: 'Pitching',   subtitle: 'Delivery and Q&A',         accent: '#f59e0b' },
-  { id: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  subtitle: 'Calm, clear, direct',      accent: '#8b5cf6' },
+  { id: 'sales',              icon: '🤝', label: 'Sales',      subtitle: 'Objections and closes',    accent: '#6366f1', gradientColors: ['#6366f130', '#6366f108'] },
+  { id: 'dating',             icon: '✨', label: 'Dating',     subtitle: 'Presence and momentum',    accent: '#ec4899', gradientColors: ['#ec489930', '#ec489908'] },
+  { id: 'networking',         icon: '💬', label: 'Networking', subtitle: 'Rooms and follow-ups',     accent: '#22d3ee', gradientColors: ['#22d3ee30', '#22d3ee08'] },
+  { id: 'pitching',           icon: '🚀', label: 'Pitching',   subtitle: 'Delivery and Q&A',         accent: '#f59e0b', gradientColors: ['#f59e0b30', '#f59e0b08'] },
+  { id: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  subtitle: 'Calm, clear, direct',      accent: '#8b5cf6', gradientColors: ['#8b5cf630', '#8b5cf608'] },
 ];
 
 const XP_PER_SESSION = 10;
@@ -44,57 +45,51 @@ function computeXP(sessions: number) {
 // ─── PulsingOrb ─────────────────────────────────────────────────────────────
 function PulsingOrb({ color = '#6366f1' }: { color?: string }) {
   const anim = useRef(new Animated.Value(0)).current;
+  const ring = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+        Animated.timing(anim, { toValue: 1, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
-  }, [anim]);
+    // Sonar ring
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ring, { toValue: 1, duration: 2400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.delay(1200),
+      ])
+    ).start();
+  }, [anim, ring]);
 
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.28] });
-  const scale   = anim.interpolate({ inputRange: [0, 1], outputRange: [0.9,  1.1]  });
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.10, 0.22] });
+  const scale   = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] });
+  const ringOpacity = ring.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.4, 0.1, 0] });
+  const ringScale   = ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.6] });
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-        },
-        {
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity,
-          transform: [{ scale }],
-        },
-      ]}
-    >
-      <View
-        style={{
-          width: 260,
-          height: 260,
-          borderRadius: 130,
-          backgroundColor: color,
-        }}
-      />
-    </Animated.View>
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
+          { opacity, transform: [{ scale }] },
+        ]}
+      >
+        <View style={{ width: 280, height: 280, borderRadius: 140, backgroundColor: color }} />
+      </Animated.View>
+      {/* Sonar ring */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
+          { opacity: ringOpacity, transform: [{ scale: ringScale }] },
+        ]}
+      >
+        <View style={{ width: 220, height: 220, borderRadius: 110, borderWidth: 1.5, borderColor: color }} />
+      </Animated.View>
+    </>
   );
 }
 
@@ -105,18 +100,57 @@ function AnimatedCounter({ value, style }: { value: number; style?: object }) {
 
   useEffect(() => {
     anim.setValue(0);
-    Animated.timing(anim, {
-      toValue: value,
-      duration: 800,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    Animated.timing(anim, { toValue: value, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
 
     const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
     return () => anim.removeListener(id);
   }, [value, anim]);
 
   return <Text style={style}>{display}</Text>;
+}
+
+// ─── ModeCard ─────────────────────────────────────────────────────────────────
+function ModeCard({ mode, onPress, delay }: { mode: Mode; onPress: () => void; delay: number }) {
+  const entry = useRef(new Animated.Value(0)).current;
+  const entryY = useRef(new Animated.Value(24)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entry, { toValue: 1, duration: 500, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(entryY, { toValue: 0, duration: 500, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={[s.modeTileWrapper, { opacity: entry, transform: [{ translateY: entryY }] }]}>
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={onPress}
+        onPressIn={() => Animated.spring(pressAnim, { toValue: 0.97, useNativeDriver: true }).start()}
+        onPressOut={() => Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true }).start()}
+      >
+        <Animated.View style={[s.modeTile, { transform: [{ scale: pressAnim }] }]}>
+          {/* Top accent bar */}
+          <View style={[s.modeTileAccentBar, { backgroundColor: mode.accent }]} />
+          {/* Gradient wash */}
+          <LinearGradient colors={mode.gradientColors} style={s.modeTileGradient} />
+          {/* Glow border overlay */}
+          <View style={[s.modeTileGlowBorder, { borderColor: mode.accent + '40' }]} />
+          <View style={s.modeTileContent}>
+            <View style={[s.modeIcon, { borderColor: mode.accent + '60', backgroundColor: mode.accent + '20' }]}>
+              <Text style={s.modeIconEmoji}>{mode.icon}</Text>
+            </View>
+            <Text style={s.modeLabel}>{mode.label}</Text>
+            <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
+            <View style={[s.modeStartRow, { backgroundColor: mode.accent + '18', borderColor: mode.accent + '40' }]}>
+              <Text style={[s.modeStart, { color: mode.accent }]}>Start session →</Text>
+            </View>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -184,10 +218,11 @@ export function HomeScreen({
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#090920', '#05050f']} style={StyleSheet.absoluteFill} />
 
-      {/* Ambient background orb */}
-      <View pointerEvents="none" style={s.ambientOrb} />
+      {/* Ambient orbs */}
+      <View pointerEvents="none" style={s.ambientOrbTop} />
+      <View pointerEvents="none" style={s.ambientOrbBottom} />
 
       <SafeAreaView style={s.safe}>
         {/* Header */}
@@ -223,7 +258,9 @@ export function HomeScreen({
             </Text>
             <View style={s.commandActions}>
               <TouchableOpacity onPress={onOpenPractice} style={s.primaryAction} activeOpacity={0.82}>
-                <Text style={s.primaryActionText}>Practice</Text>
+                <LinearGradient colors={['#6366f1', '#8b5cf6']} style={s.primaryActionGrad}>
+                  <Text style={s.primaryActionText}>Practice</Text>
+                </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity onPress={onOpenBriefs} style={s.secondaryAction} activeOpacity={0.82}>
                 <Text style={s.secondaryActionText}>Briefs</Text>
@@ -296,36 +333,13 @@ export function HomeScreen({
             <Text style={s.sectionAction}>Tap to start a live session</Text>
           </View>
           <View style={s.modeGrid}>
-            {MODES.map((mode) => (
-              <TouchableOpacity
+            {MODES.map((mode, i) => (
+              <ModeCard
                 key={mode.id}
-                activeOpacity={0.78}
+                mode={mode}
                 onPress={() => onSelectMode(mode.id)}
-                style={s.modeTileWrapper}
-              >
-                <View style={s.modeTile}>
-                  {/* Top accent bar */}
-                  <View style={[s.modeTileAccentBar, { backgroundColor: mode.accent }]} />
-                  {/* Gradient wash top-to-transparent */}
-                  <LinearGradient
-                    colors={[`${mode.accent}28`, 'transparent']}
-                    style={s.modeTileGradient}
-                  />
-                  <View style={s.modeTileContent}>
-                    <View
-                      style={[
-                        s.modeIcon,
-                        { borderColor: `${mode.accent}55`, backgroundColor: `${mode.accent}18` },
-                      ]}
-                    >
-                      <Text style={s.modeIconEmoji}>{mode.icon}</Text>
-                    </View>
-                    <Text style={s.modeLabel}>{mode.label}</Text>
-                    <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
-                    <Text style={[s.modeStart, { color: mode.accent }]}>Start ›</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                delay={i * 80}
+              />
             ))}
           </View>
 
@@ -338,19 +352,9 @@ export function HomeScreen({
 
 // ─── MetricCard ───────────────────────────────────────────────────────────────
 function MetricCard({
-  label,
-  value,
-  rawValue,
-  highlight,
-  fire,
-  animated,
+  label, value, rawValue, highlight, fire, animated,
 }: {
-  label: string;
-  value: number;
-  rawValue?: string;
-  highlight?: boolean;
-  fire?: boolean;
-  animated: boolean;
+  label: string; value: number; rawValue?: string; highlight?: boolean; fire?: boolean; animated: boolean;
 }) {
   const displayRaw = rawValue ?? value.toString();
   return (
@@ -385,17 +389,27 @@ function MissionStep({ index, text, done }: { index: number; text: string; done:
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#050510' },
+  root: { flex: 1, backgroundColor: '#05050f' },
   safe: { flex: 1 },
 
-  ambientOrb: {
+  // Two ambient orbs from HEAD (more atmospheric depth than single orb)
+  ambientOrbTop: {
     position: 'absolute',
-    top: -120,
-    right: -100,
-    width: 420,
-    height: 420,
-    borderRadius: 210,
-    backgroundColor: '#6366f118',
+    top: -140,
+    right: -110,
+    width: 460,
+    height: 460,
+    borderRadius: 230,
+    backgroundColor: 'rgba(99,102,241,0.10)',
+  },
+  ambientOrbBottom: {
+    position: 'absolute',
+    bottom: -100,
+    left: -80,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: 'rgba(139,92,246,0.07)',
   },
 
   header: {
@@ -406,44 +420,52 @@ const s = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  brand: { fontSize: 22, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.5 },
-  tagline: { fontSize: 12, fontWeight: '400', color: '#64748b', marginTop: 2 },
+  // HEAD: larger font + tighter tracking feels more premium
+  brand: { fontSize: 23, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.7 },
+  tagline: { fontSize: 12, fontWeight: '400', color: '#475569', marginTop: 2 },
   accountBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#161628',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#2d2d4e',
   },
-  accountBtnText: { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
+  accountBtnText: { fontSize: 13, fontWeight: '700', color: '#7c7caa' },
 
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
 
+  // HEAD: darker panel + indigo glow shadow feels more immersive
   commandPanel: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
+    backgroundColor: '#0c0c1e',
+    borderRadius: 22,
     padding: 24,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#1a1a36',
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#052e16',
+    gap: 6,
+    backgroundColor: '#041f10',
     borderRadius: 99,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#166534',
+    borderColor: '#145a30',
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
-  liveText: { fontSize: 11, fontWeight: '700', color: '#4ade80', letterSpacing: 1 },
+  // HEAD: larger dot with glow shadow
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e', shadowColor: '#22c55e', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
+  liveText: { fontSize: 11, fontWeight: '800', color: '#4ade80', letterSpacing: 1.2 },
   cacheBadge: {
     backgroundColor: '#1c1917',
     borderRadius: 99,
@@ -453,191 +475,206 @@ const s = StyleSheet.create({
     borderColor: '#44403c',
   },
   cacheBadgeText: { fontSize: 11, fontWeight: '700', color: '#a8a29e' },
+  // HEAD: larger hero title for more impact
   heroTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
     color: '#f1f5f9',
-    lineHeight: 34,
-    letterSpacing: -0.6,
+    lineHeight: 36,
+    letterSpacing: -0.8,
     marginBottom: 10,
   },
-  heroBody: { fontSize: 14, fontWeight: '400', color: '#64748b', lineHeight: 20, marginBottom: 20 },
+  heroBody: { fontSize: 14, fontWeight: '400', color: '#475569', lineHeight: 20, marginBottom: 22 },
   commandActions: { flexDirection: 'row', gap: 10 },
-  primaryAction: {
-    flex: 1,
-    backgroundColor: '#6366f1',
-    borderRadius: 12,
+  // HEAD: gradient primary action (more polished than flat color)
+  primaryAction: { flex: 1, borderRadius: 13, overflow: 'hidden' },
+  primaryActionGrad: {
     paddingVertical: 13,
     alignItems: 'center',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 8,
+    justifyContent: 'center',
   },
-  primaryActionText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  primaryActionText: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
   secondaryAction: {
     flex: 1,
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
+    backgroundColor: '#161628',
+    borderRadius: 13,
     paddingVertical: 13,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#2d2d4e',
   },
-  secondaryActionText: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
+  secondaryActionText: { fontSize: 14, fontWeight: '700', color: '#7c7caa' },
 
   metricsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   metric: {
     flex: 1,
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
-    paddingVertical: 16,
+    backgroundColor: '#0c0c1e',
+    borderRadius: 16,
+    paddingVertical: 18,
     paddingHorizontal: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#1a1a36',
   },
-  metricHighlight: { backgroundColor: '#1a0e2e', borderColor: '#7c3aed44' },
-  metricValue: { fontSize: 22, fontWeight: '800', color: '#f1f5f9', letterSpacing: -0.5 },
+  metricHighlight: { backgroundColor: '#130b24', borderColor: '#4c1d9544' },
+  metricValue: { fontSize: 24, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.8 },
   metricValueHighlight: { color: '#a78bfa' },
   metricLabel: {
-    fontSize: 11,
-    fontWeight: '400',
-    color: '#475569',
-    marginTop: 3,
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#3d3d5c',
+    marginTop: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
 
   missionCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
+    backgroundColor: '#0c0c1e',
+    borderRadius: 18,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#1a1a36',
   },
   missionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   missionBadge: {
-    backgroundColor: '#1e1b4b',
-    borderRadius: 99,
-    paddingHorizontal: 10,
+    backgroundColor: '#130b24',
+    borderRadius: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#4338ca55',
+    borderColor: '#4c1d9544',
   },
-  missionBadgeText: { fontSize: 10, fontWeight: '700', color: '#818cf8', letterSpacing: 1.2 },
+  missionBadgeText: { fontSize: 10, fontWeight: '800', color: '#818cf8', letterSpacing: 1.2 },
   missionTitle: { fontSize: 15, fontWeight: '800', color: '#e2e8f0' },
-  missionSteps: { gap: 10 },
+  missionSteps: { gap: 12 },
   missionStep: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   missionStepDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#1e293b',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#161628',
     borderWidth: 1.5,
-    borderColor: '#334155',
+    borderColor: '#2d2d4e',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  missionStepDotDone: { backgroundColor: '#052e16', borderColor: '#166534' },
-  missionStepNum: { fontSize: 11, fontWeight: '700', color: '#64748b' },
-  missionStepCheck: { fontSize: 12, fontWeight: '700', color: '#4ade80' },
-  missionStepText: { fontSize: 14, fontWeight: '400', color: '#94a3b8' },
-  missionStepTextDone: { color: '#475569', textDecorationLine: 'line-through' },
+  missionStepDotDone: { backgroundColor: '#041f10', borderColor: '#145a30' },
+  missionStepNum: { fontSize: 11, fontWeight: '800', color: '#3d3d5c' },
+  missionStepCheck: { fontSize: 13, fontWeight: '800', color: '#4ade80' },
+  missionStepText: { fontSize: 14, fontWeight: '400', color: '#7c7caa' },
+  missionStepTextDone: { color: '#3d3d5c', textDecorationLine: 'line-through' },
 
   xpCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
+    backgroundColor: '#0c0c1e',
+    borderRadius: 18,
     padding: 18,
-    marginBottom: 20,
+    marginBottom: 22,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#1a1a36',
   },
-  xpRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  xpRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
   levelBadge: {
-    backgroundColor: '#1e1b4b',
+    backgroundColor: '#130b24',
     borderRadius: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#4338ca55',
+    borderColor: '#4c1d9544',
   },
-  levelText: { fontSize: 11, fontWeight: '700', color: '#818cf8', letterSpacing: 0.8 },
-  xpLabel: { flex: 1, fontSize: 13, fontWeight: '800', color: '#94a3b8' },
-  xpCount: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  levelText: { fontSize: 11, fontWeight: '800', color: '#818cf8', letterSpacing: 0.8 },
+  xpLabel: { flex: 1, fontSize: 13, fontWeight: '800', color: '#7c7caa' },
+  xpCount: { fontSize: 12, fontWeight: '700', color: '#3d3d5c' },
   xpTrack: {
-    height: 6,
-    backgroundColor: '#1e293b',
-    borderRadius: 3,
+    height: 7,
+    backgroundColor: '#161628',
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 12,
     position: 'relative',
   },
   xpFill: {
     height: '100%',
     backgroundColor: '#6366f1',
-    borderRadius: 3,
+    borderRadius: 4,
     shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
   },
   xpGlowDot: {
     position: 'absolute',
-    top: -3,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    top: -4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#818cf8',
-    marginLeft: -6,
+    marginLeft: -7,
     shadowColor: '#818cf8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
-    shadowRadius: 6,
+    shadowRadius: 8,
   },
-  xpHint: { fontSize: 12, fontWeight: '400', color: '#475569', lineHeight: 17 },
+  xpHint: { fontSize: 12, fontWeight: '400', color: '#3d3d5c', lineHeight: 17 },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#e2e8f0', letterSpacing: -0.3 },
-  sectionAction: { fontSize: 12, fontWeight: '400', color: '#475569' },
+  sectionTitle: { fontSize: 19, fontWeight: '900', color: '#e2e8f0', letterSpacing: -0.4 },
+  sectionAction: { fontSize: 12, fontWeight: '400', color: '#3d3d5c' },
 
-  modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   modeTileWrapper: { width: '47.5%' },
   modeTile: {
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
+    backgroundColor: '#0c0c1e',
+    borderRadius: 18,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1e293b',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
   },
-  modeTileAccentBar: { height: 2.5, width: '100%' },
+  // Glow border overlay from HEAD (ui-revamp lacked this)
+  modeTileGlowBorder: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 18,
+    borderWidth: 1,
+    zIndex: 1,
+  },
+  modeTileAccentBar: { height: 3, width: '100%' },
   modeTileGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 70,
+    height: 80,
   },
-  modeTileContent: { padding: 14 },
+  modeTileContent: { padding: 16, paddingTop: 14, gap: 2 },
   modeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  modeIconEmoji: { fontSize: 20 },
-  modeLabel: { fontSize: 15, fontWeight: '800', color: '#e2e8f0', marginBottom: 4, letterSpacing: -0.2 },
-  modeSub: { fontSize: 12, fontWeight: '400', color: '#64748b', lineHeight: 16, marginBottom: 10 },
-  modeStart: { fontSize: 13, fontWeight: '700' },
+  modeIconEmoji: { fontSize: 22 },
+  modeLabel: { fontSize: 16, fontWeight: '900', color: '#e2e8f0', marginBottom: 5, letterSpacing: -0.3 },
+  modeSub: { fontSize: 12, fontWeight: '400', color: '#475569', lineHeight: 16, marginBottom: 14 },
+  // HEAD: pill-style start row (more polished than bare text)
+  modeStartRow: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  modeStart: { fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
 });

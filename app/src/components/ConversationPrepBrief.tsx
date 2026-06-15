@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ConversationMode } from '../types';
 
 type Props = {
@@ -12,15 +13,22 @@ type Props = {
   label?: string;
 };
 
-function compact(value?: string): string {
+const MODE_ACCENT: Record<ConversationMode, string> = {
+  sales: '#6366f1',
+  dating: '#ec4899',
+  networking: '#22d3ee',
+  pitching: '#f59e0b',
+  hard_conversations: '#8b5cf6',
+};
+
+function compactStr(value?: string): string {
   return value?.trim().replace(/\s+/g, ' ') ?? '';
 }
 
 function buildBrief(mode: ConversationMode, title: string, goal?: string, context?: string, audience?: string) {
-  const who = compact(title) || 'the conversation';
-  const target = compact(goal) || 'leave with a clear next step';
-  const extra = compact(context);
-  const room = compact(audience);
+  const who = compactStr(title) || 'the conversation';
+  const target = compactStr(goal) || 'leave with a clear next step';
+  const room = compactStr(audience);
 
   if (mode === 'sales') {
     return {
@@ -104,32 +112,39 @@ export function ConversationPrepBrief({ mode, title, goal, context, audience, co
   );
   const askItems = compact ? brief.questions.slice(0, 2) : brief.questions;
   const watchItems = compact ? brief.risks.slice(0, 2) : brief.risks;
+  const accent = MODE_ACCENT[mode] ?? '#6366f1';
 
   return (
-    <View style={[s.card, compact && s.compactCard]}>
+    <LinearGradient
+      colors={[accent + '18', accent + '08']}
+      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+      style={[s.card, compact && s.compactCard, { borderColor: accent + '35' }]}
+    >
       <View style={s.header}>
-        <Text style={s.kicker}>{label}</Text>
+        <View style={[s.kickerPill, { backgroundColor: accent + '20', borderColor: accent + '40' }]}>
+          <Text style={[s.kicker, { color: accent }]}>{label}</Text>
+        </View>
         <Text style={s.title}>{brief.focus}</Text>
       </View>
       <View style={s.grid}>
-        <PrepSection label="Ask" items={askItems} />
-        <PrepSection label="Watch" items={watchItems} />
+        <PrepSection label="Ask" items={askItems} accent={accent} />
+        <PrepSection label="Watch" items={watchItems} accent={accent} />
       </View>
-      <View style={s.fallback}>
-        <Text style={s.fallbackLabel}>Fallback line</Text>
+      <View style={[s.fallback, { borderTopColor: accent + '20' }]}>
+        <Text style={[s.fallbackLabel, { color: accent + 'aa' }]}>Fallback line</Text>
         <Text style={s.fallbackText}>{brief.fallback}</Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
-function PrepSection({ label, items }: { label: string; items: string[] }) {
+function PrepSection({ label, items, accent }: { label: string; items: string[]; accent: string }) {
   return (
     <View style={s.section}>
-      <Text style={s.sectionLabel}>{label}</Text>
+      <Text style={[s.sectionLabel, { color: accent }]}>{label}</Text>
       {items.map((item) => (
         <View key={item} style={s.itemRow}>
-          <View style={s.dot} />
+          <View style={[s.dot, { backgroundColor: accent }]} />
           <Text style={s.itemText}>{item}</Text>
         </View>
       ))}
@@ -139,9 +154,7 @@ function PrepSection({ label, items }: { label: string; items: string[] }) {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(99,102,241,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
     borderRadius: 16,
     padding: 14,
     gap: 12,
@@ -152,26 +165,32 @@ const s = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
-  header: { gap: 5 },
-  kicker: { color: '#818cf8', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  header: { gap: 8 },
+  kickerPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  kicker: { fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
   title: { color: '#f8fafc', fontSize: 15, fontWeight: '900', lineHeight: 20 },
   grid: { gap: 10 },
   section: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
-  sectionLabel: { color: '#c4b5fd', fontSize: 11, fontWeight: '900' },
+  sectionLabel: { fontSize: 11, fontWeight: '900' },
   itemRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#818cf8', marginTop: 7 },
+  dot: { width: 5, height: 5, borderRadius: 3, marginTop: 7 },
   itemText: { flex: 1, color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
   fallback: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
     paddingTop: 10,
     gap: 4,
   },
-  fallbackLabel: { color: '#64748b', fontSize: 10, fontWeight: '900' },
+  fallbackLabel: { fontSize: 10, fontWeight: '900' },
   fallbackText: { color: '#f8fafc', fontSize: 13, lineHeight: 19, fontWeight: '700' },
 });

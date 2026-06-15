@@ -632,10 +632,13 @@ export function useWingmanSession() {
       }
     };
 
-    // First segment immediately
+    // First segment immediately, then ~1.8s segments. Longer clips give
+    // Deepgram enough context to transcribe speech-in-noise accurately (0.9s
+    // clips were too short — the model had almost no context and garbled noisy
+    // audio) and halve the number of stop/start gaps where audio is lost. The
+    // small added latency is an acceptable trade for a usable transcript.
     await captureAndSend();
-    // Then every ~0.9s so live transcription sees smaller chunks sooner.
-    chunkTimerRef.current = setInterval(captureAndSend, 900);
+    chunkTimerRef.current = setInterval(captureAndSend, 1800);
     return Boolean(recordingRef.current);
   }, []);
 

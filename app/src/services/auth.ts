@@ -37,6 +37,24 @@ const SERVER_BASE = (() => {
     .replace(/\/ws$/, '');
 })();
 
+// Public OAuth client identifiers must be available in OTA bundles too.
+// EAS Update does not always inject the EXPO_PUBLIC_* values unless the
+// environment is configured server-side, so keep runtime-safe fallbacks here.
+const GOOGLE_CLIENT_IDS = {
+  webClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+    || '734907398246-8sviv3dbi0siu18p33mjuromspdi1rbr.apps.googleusercontent.com',
+  iosClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+    || '734907398246-e232dsef4fbfuc6kc6tsictqurgl28vn.apps.googleusercontent.com',
+  androidClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+    || '98129298079-p7q7vlrrj4s5t68r2a0qigqtd1p8guqj.apps.googleusercontent.com',
+  expoClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+    || '98129298079-aj8fdiufoqpv90f9r8l724rnsroujesi.apps.googleusercontent.com',
+} as const;
+
 // ── JWT helpers ────────────────────────────────────────────────────────────────
 
 async function saveToken(token: string): Promise<void> {
@@ -307,10 +325,10 @@ export async function resetLaunchState(): Promise<void> {
 
 export function hasGoogleConfig(): boolean {
   return Boolean(
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-    || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
-    || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
-    || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+    GOOGLE_CLIENT_IDS.webClientId
+    || GOOGLE_CLIENT_IDS.iosClientId
+    || GOOGLE_CLIENT_IDS.androidClientId
+    || GOOGLE_CLIENT_IDS.expoClientId
   );
 }
 
@@ -320,12 +338,7 @@ export function getGoogleClientIds(): {
   androidClientId?: string;
   expoClientId?: string;
 } {
-  return {
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-  };
+  return { ...GOOGLE_CLIENT_IDS };
 }
 
 // kept to avoid unused-import warning

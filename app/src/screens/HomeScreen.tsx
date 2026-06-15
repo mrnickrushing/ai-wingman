@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadStats, PersistedStats } from '../utils/statsStorage';
@@ -27,6 +29,17 @@ const MODES: Mode[] = [
   { id: 'pitching',           icon: '🚀', label: 'Pitching',   subtitle: 'Delivery and Q&A',         accent: '#f59e0b' },
   { id: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  subtitle: 'Calm, clear, direct',      accent: '#8b5cf6' },
 ];
+
+const XP_PER_SESSION = 10;
+const XP_PER_LEVEL = 50;
+
+function computeXP(sessions: number) {
+  const totalXP = sessions * XP_PER_SESSION;
+  const level = Math.floor(totalXP / XP_PER_LEVEL) + 1;
+  const xpInLevel = totalXP % XP_PER_LEVEL;
+  const xpProgress = xpInLevel / XP_PER_LEVEL;
+  return { level, xpInLevel, xpProgress, totalXP };
+}
 
 interface Props {
   onSelectMode: (modeId: string) => void;
@@ -53,6 +66,10 @@ export function HomeScreen({
   });
   const [statsSource, setStatsSource] = useState<SessionSnapshotSource>('empty');
 
+  // XP bar animation
+  const xpAnim = useRef(new Animated.Value(0)).current;
+  const prevSessions = useRef(0);
+
   useEffect(() => {
     loadStats().then(setStats);
     fetchStatsSnapshot().then(({ stats: s, source }) => {
@@ -67,6 +84,23 @@ export function HomeScreen({
       }
     });
   }, []);
+
+  // Animate XP bar whenever sessions change
+  useEffect(() => {
+    if (stats.sessions === prevSessions.current) return;
+    prevSessions.current = stats.sessions;
+    const { xpProgress } = computeXP(stats.sessions);
+    Animated.timing(xpAnim, {
+      toValue: xpProgress,
+      duration: 1100,
+      delay: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [stats.sessions, xpAnim]);
+
+  const { level, xpInLevel } = computeXP(stats.sessions);
+  const xpBarWidth = xpAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   return (
     <View style={s.root}>
@@ -124,6 +158,27 @@ export function HomeScreen({
               highlight={stats.streak >= 3}
               fire={stats.streak >= 3}
             />
+          </View>
+
+          {/* XP / Level bar */}
+          <View style={s.xpCard}>
+            <View style={s.xpRow}>
+              <View style={s.levelBadge}>
+                <Text style={s.levelText}>LVL {level}</Text>
+              </View>
+              <Text style={s.xpLabel}>Coach XP</Text>
+              <Text style={s.xpCount}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
+            </View>
+            <View style={s.xpTrack}>
+              <Animated.View style={[s.xpFill, { width: xpBarWidth }]} />
+              {/* Trailing glow dot on XP bar */}
+              <Animated.View style={[s.xpGlowDot, { left: xpBarWidth }]} />
+            </View>
+            <Text style={s.xpHint}>
+              {stats.sessions === 0
+                ? 'Complete sessions to earn XP and level up your coaching profile.'
+                : `${XP_PER_LEVEL - xpInLevel} XP to reach Level ${level + 1}`}
+            </Text>
           </View>
 
           {/* Mode grid */}
@@ -273,6 +328,58 @@ const s = StyleSheet.create({
   metricValue: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
   metricValueHighlight: { color: '#818cf8' },
   metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
+
+  // XP Level bar
+  xpCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.18)',
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  xpRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  levelBadge: {
+    backgroundColor: 'rgba(99,102,241,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.45)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  levelText: { color: '#c7d2fe', fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
+  xpLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '800', flex: 1 },
+  xpCount: { color: '#818cf8', fontSize: 11, fontWeight: '900' },
+  xpTrack: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'visible',
+    position: 'relative',
+  },
+  xpFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+  },
+  xpGlowDot: {
+    position: 'absolute',
+    top: -2,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    marginLeft: -5,
+    backgroundColor: '#818cf8',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  xpHint: { color: '#475569', fontSize: 11, lineHeight: 16 },
 
   // Section header
   sectionHeader: { gap: 2 },

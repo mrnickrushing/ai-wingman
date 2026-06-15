@@ -18,6 +18,8 @@ type Playbook = {
   mode: ConversationMode;
   description: string;
   accent: string;
+  accentBg: string;
+  emoji: string;
   apply: () => void;
 };
 
@@ -45,8 +47,10 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     {
       title: 'Cold Call Close',
       mode: 'sales',
+      emoji: '💼',
       description: 'Qualify pain, handle price resistance, and ask for a calendar commitment.',
       accent: '#6366f1',
+      accentBg: 'rgba(99,102,241,0.1)',
       apply: () => setSalesSetup({
         prospectName: 'Prospect',
         company: 'Target account',
@@ -62,8 +66,10 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     {
       title: 'First Date Momentum',
       mode: 'dating',
+      emoji: '💘',
       description: 'Stay relaxed, ask better follow-ups, and avoid dead-air spirals.',
       accent: '#ec4899',
+      accentBg: 'rgba(236,72,153,0.1)',
       apply: () => setDatingSetup({
         name: 'Date',
         intent: 'Create a relaxed conversation and earn a second plan.',
@@ -72,8 +78,10 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     {
       title: 'Conference Connector',
       mode: 'networking',
+      emoji: '🤝',
       description: 'Open cleanly, log contacts, and leave with follow-up hooks.',
       accent: '#22d3ee',
+      accentBg: 'rgba(34,211,238,0.1)',
       apply: () => setNetworkingSetup({
         eventName: 'Industry event',
         attendees: 'Founders, buyers, operators, investors',
@@ -82,8 +90,10 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     {
       title: 'Investor Pitch',
       mode: 'pitching',
+      emoji: '🚀',
       description: 'Keep the story tight around problem, traction, market, team, and ask.',
       accent: '#f59e0b',
+      accentBg: 'rgba(245,158,11,0.1)',
       apply: () => setPitchingSetup({
         title: 'Investor pitch',
         audience: 'Investors',
@@ -93,8 +103,10 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
     {
       title: 'Ask For A Raise',
       mode: 'hard_conversations',
+      emoji: '🔥',
       description: 'Keep the conversation calm, specific, and anchored to outcomes.',
       accent: '#8b5cf6',
+      accentBg: 'rgba(139,92,246,0.1)',
       apply: () => setHardConvoSetup({
         scenario: 'salary_negotiation',
         situation: 'Compensation conversation',
@@ -191,23 +203,29 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#0a0818', '#050510']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
           <TouchableOpacity onPress={onBack} style={s.backBtn} hitSlop={10}>
-            <Text style={s.backText}>Back</Text>
+            <Text style={s.backText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={s.title}>Playbooks</Text>
           <View style={s.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          <View style={s.hero}>
-            <Text style={s.heroTitle}>Start with a proven setup.</Text>
+          {/* Hero */}
+          <LinearGradient
+            colors={['rgba(139,92,246,0.18)', 'rgba(99,102,241,0.06)']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.hero}
+          >
+            <Text style={s.heroEyebrow}>PROVEN SETUPS</Text>
+            <Text style={s.heroTitle}>Start faster.</Text>
             <Text style={s.heroBody}>
-              Playbooks prefill context, goals, and coaching bias so you can start faster.
+              Each playbook pre-loads context, goals, and coaching bias so you spend zero time on setup.
             </Text>
-          </View>
+          </LinearGradient>
 
           <View style={s.customCard}>
             <Text style={s.sectionLabel}>CUSTOM PLAYBOOK</Text>
@@ -226,9 +244,9 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
                   <TouchableOpacity
                     key={playbook.mode}
                     onPress={() => setCustomMode(playbook.mode)}
-                    style={[s.modeChip, active && s.modeChipActive]}
+                    style={[s.modeChip, active && { backgroundColor: playbook.accentBg, borderColor: playbook.accent + '80' }]}
                   >
-                    <Text style={[s.modeChipText, active && s.modeChipTextActive]}>{playbook.title}</Text>
+                    <Text style={[s.modeChipText, active && { color: playbook.accent }]}>{playbook.emoji} {playbook.title}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -268,14 +286,14 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
                 style={s.customPrimary}
                 activeOpacity={0.82}
               >
-                <Text style={s.customPrimaryText}>Save & pin</Text>
+                <Text style={s.customPrimaryText}>Save &amp; pin</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {pinnedPlaybooks.length > 0 ? (
             <View style={s.sectionBlock}>
-              <Text style={s.sectionLabel}>PINNED</Text>
+              <Text style={s.sectionLabel}>📌 PINNED</Text>
               {pinnedPlaybooks.map((playbook) => (
                 <TouchableOpacity
                   key={playbook.id}
@@ -309,7 +327,7 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
                   <Text style={s.savedMeta}>{playbook.description || playbook.goal || 'Custom playbook'}</Text>
                   <View style={s.savedActions}>
                     <TouchableOpacity onPress={() => applyCustomPlaybook(playbook)} style={s.savedAction}>
-                      <Text style={s.savedActionText}>Use</Text>
+                      <Text style={s.savedActionText}>Use →</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -317,16 +335,22 @@ export function PlaybooksScreen({ onBack, onStartMode }: Props) {
             </View>
           ) : null}
 
+          <Text style={s.sectionLabel}>FEATURED PLAYBOOKS</Text>
           {playbooks.map((playbook) => (
             <TouchableOpacity
               key={playbook.title}
               onPress={() => applyPlaybook(playbook)}
               activeOpacity={0.82}
-              style={[s.card, { borderLeftColor: playbook.accent }]}
+              style={[s.card, { borderLeftColor: playbook.accent, backgroundColor: playbook.accentBg }]}
             >
               <View style={s.cardTop}>
-                <Text style={s.cardTitle}>{playbook.title}</Text>
-                <Text style={[s.cardAction, { color: playbook.accent }]}>Use</Text>
+                <View style={s.cardTitleRow}>
+                  <Text style={s.cardEmoji}>{playbook.emoji}</Text>
+                  <Text style={s.cardTitle}>{playbook.title}</Text>
+                </View>
+                <View style={[s.useBtn, { borderColor: playbook.accent + '60', backgroundColor: playbook.accentBg }]}>
+                  <Text style={[s.cardAction, { color: playbook.accent }]}>Use →</Text>
+                </View>
               </View>
               <Text style={s.cardBody}>{playbook.description}</Text>
             </TouchableOpacity>
@@ -349,28 +373,27 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   backBtn: { minWidth: 64 },
-  backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
+  backText: { color: '#a5b4fc', fontSize: 15, fontWeight: '800' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
-  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 12 },
+  content: { paddingHorizontal: 18, paddingBottom: 116, gap: 14 },
   hero: {
-    backgroundColor: 'rgba(139,92,246,0.11)',
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.22)',
-    borderRadius: 8,
-    padding: 18,
+    borderColor: 'rgba(167,139,250,0.28)',
+    borderRadius: 14,
+    padding: 20,
     gap: 8,
-    marginBottom: 4,
   },
-  heroTitle: { color: '#f8fafc', fontSize: 24, fontWeight: '900', lineHeight: 30 },
-  heroBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
+  heroEyebrow: { color: '#a78bfa', fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
+  heroTitle: { color: '#f8fafc', fontSize: 28, fontWeight: '900', lineHeight: 34, letterSpacing: -0.5 },
+  heroBody: { color: '#94a3b8', fontSize: 14, lineHeight: 21 },
   sectionBlock: { gap: 10 },
   sectionLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   customCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 16,
     gap: 10,
   },
@@ -379,7 +402,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     color: '#f8fafc',
@@ -395,16 +418,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  modeChipActive: {
-    backgroundColor: 'rgba(99,102,241,0.18)',
-    borderColor: 'rgba(99,102,241,0.45)',
-  },
   modeChipText: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
-  modeChipTextActive: { color: '#f8fafc' },
   customActions: { flexDirection: 'row', gap: 10 },
   customSecondary: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(255,255,255,0.03)',
@@ -414,7 +432,7 @@ const s = StyleSheet.create({
   customSecondaryText: { color: '#e2e8f0', fontSize: 13, fontWeight: '800' },
   customPrimary: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#6366f1',
     alignItems: 'center',
     paddingVertical: 12,
@@ -424,7 +442,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 14,
     gap: 8,
   },
@@ -443,16 +461,23 @@ const s = StyleSheet.create({
   },
   savedActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderLeftWidth: 3,
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderLeftWidth: 4,
+    borderRadius: 12,
     padding: 16,
-    gap: 8,
+    gap: 10,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  cardEmoji: { fontSize: 18 },
   cardTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900', flex: 1 },
+  useBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   cardAction: { fontSize: 13, fontWeight: '900' },
-  cardBody: { color: '#cbd5e1', fontSize: 14, lineHeight: 20 },
+  cardBody: { color: '#94a3b8', fontSize: 14, lineHeight: 20 },
 });

@@ -135,13 +135,15 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={['#090914', '#050510']} style={StyleSheet.absoluteFill} />
+      {/* Ambient glow behind profile area */}
+      <View style={s.bgGlow} pointerEvents="none" />
 
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
           <Pressable onPress={onBack} style={s.backBtn} hitSlop={12}>
-            <Text style={s.backText}>Back</Text>
+            <Text style={s.backText}>‹ Back</Text>
           </Pressable>
-          <Text style={s.title}>Settings</Text>
+          <Text style={s.title}>Account</Text>
           <View style={s.headerSpacer} />
         </View>
 
@@ -151,18 +153,46 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
           </View>
         ) : (
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+            {/* Profile band */}
             <View style={s.profileBand}>
-              <LinearGradient colors={['#6366f1', '#8b5cf6']} style={s.avatar}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </LinearGradient>
+              <View style={s.avatarGlowWrap}>
+                <LinearGradient colors={['#6366f1', '#8b5cf6']} style={s.avatar}>
+                  <Text style={s.avatarText}>{initials}</Text>
+                </LinearGradient>
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.displayName}>{account?.displayName ?? 'Wingman User'}</Text>
                 <Text style={s.email} numberOfLines={1}>{account?.email ?? 'No account connected'}</Text>
               </View>
-              <View style={[s.membershipPill, account?.premium ? s.membershipActive : s.membershipFree]}>
-                <Text style={[s.membershipText, account?.premium ? s.membershipTextActive : s.membershipTextFree]}>
+              {account?.premium ? (
+                <LinearGradient
+                  colors={['rgba(74,222,128,0.22)', 'rgba(74,222,128,0.08)']}
+                  style={[s.membershipPill, s.membershipActive]}
+                >
+                  <Text style={[s.membershipText, s.membershipTextActive]}>⚡ Pro</Text>
+                </LinearGradient>
+              ) : (
+                <View style={[s.membershipPill, s.membershipFree]}>
+                  <Text style={[s.membershipText, s.membershipTextFree]}>Free</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Stats mini row */}
+            <View style={s.statsRow}>
+              <View style={s.statTile}>
+                <Text style={s.statValue}>—</Text>
+                <Text style={s.statLabel}>Sessions</Text>
+              </View>
+              <View style={s.statTile}>
+                <Text style={s.statValue}>—</Text>
+                <Text style={s.statLabel}>Streak</Text>
+              </View>
+              <View style={s.statTile}>
+                <Text style={[s.statValue, account?.premium ? { color: '#4ade80' } : { color: '#f59e0b' }]}>
                   {account?.premium ? 'Pro' : 'Free'}
                 </Text>
+                <Text style={s.statLabel}>Tier</Text>
               </View>
             </View>
 
@@ -240,9 +270,13 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
             </View>
 
             <View style={s.card}>
-              <ActionRow label="Sign out" loading={actionLoading === 'signout'} disabled={Boolean(actionLoading)} onPress={handleSignOut} />
+              <View style={s.signOutBorder}>
+                <ActionRow label="Sign out" loading={actionLoading === 'signout'} disabled={Boolean(actionLoading)} onPress={handleSignOut} />
+              </View>
               <Divider />
-              <ActionRow label="Delete account" danger loading={actionLoading === 'delete'} disabled={Boolean(actionLoading)} onPress={handleDeleteAccount} />
+              <View style={s.deleteBorder}>
+                <ActionRow label="Delete account" danger loading={actionLoading === 'delete'} disabled={Boolean(actionLoading)} onPress={handleDeleteAccount} />
+              </View>
             </View>
           </ScrollView>
         )}
@@ -302,6 +336,10 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  bgGlow: {
+    position: 'absolute', width: 280, height: 280, borderRadius: 140,
+    top: 60, alignSelf: 'center', backgroundColor: 'rgba(99,102,241,0.12)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,7 +349,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   backBtn: { minWidth: 64 },
-  backText: { color: '#818cf8', fontSize: 15, fontWeight: '800' },
+  backText: { color: '#a5b4fc', fontSize: 15, fontWeight: '800' },
   title: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
   headerSpacer: { width: 64 },
   content: { paddingHorizontal: 18, paddingBottom: 116, gap: 14 },
@@ -321,29 +359,53 @@ const s = StyleSheet.create({
     gap: 14,
     backgroundColor: 'rgba(99,102,241,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.22)',
-    borderRadius: 8,
+    borderColor: 'rgba(129,140,248,0.28)',
+    borderRadius: 14,
     padding: 16,
   },
+  avatarGlowWrap: {
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 18,
+    elevation: 14,
+  },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(129,140,248,0.5)',
   },
   avatarText: { color: '#fff', fontSize: 20, fontWeight: '900' },
   displayName: { color: '#f8fafc', fontSize: 17, fontWeight: '900' },
   email: { color: '#94a3b8', fontSize: 12, marginTop: 3 },
   membershipPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1 },
-  membershipActive: { backgroundColor: 'rgba(74,222,128,0.12)', borderColor: 'rgba(74,222,128,0.28)' },
+  membershipActive: { borderColor: 'rgba(74,222,128,0.4)', shadowColor: '#4ade80', shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 6 },
   membershipFree: { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.28)' },
   membershipText: { fontSize: 11, fontWeight: '900' },
   membershipTextActive: { color: '#4ade80' },
   membershipTextFree: { color: '#f59e0b' },
+
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statTile: {
+    flex: 1,
+    borderRadius: 10,
+    backgroundColor: 'rgba(99,102,241,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.18)',
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statValue: { color: '#a5b4fc', fontSize: 18, fontWeight: '900' },
+  statLabel: { color: '#64748b', fontSize: 11, fontWeight: '600' },
+
   card: {
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
@@ -381,6 +443,8 @@ const s = StyleSheet.create({
   rowValue: { color: '#f8fafc', fontSize: 13, fontWeight: '800', flexShrink: 1 },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 16 },
   diagnosticsNote: { color: '#64748b', fontSize: 11, padding: 16, paddingTop: 8, lineHeight: 17 },
+  signOutBorder: { borderLeftWidth: 3, borderLeftColor: 'rgba(129,140,248,0.35)' },
+  deleteBorder: { borderLeftWidth: 3, borderLeftColor: 'rgba(244,63,94,0.35)' },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

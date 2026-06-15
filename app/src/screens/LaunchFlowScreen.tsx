@@ -20,6 +20,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import type { LaunchSnapshot } from '../services/auth';
 import {
+  getGoogleClientIds,
   loadLaunchSnapshot,
   loginEmailAccount,
   markIntroSeen,
@@ -80,10 +81,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   const contentAnim = useRef(new Animated.Value(0)).current;
 
   const googleConfig = useMemo(() => {
-    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    const expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID;
+    const { iosClientId, androidClientId, webClientId, expoClientId } = getGoogleClientIds();
 
     if (Platform.OS === 'web') {
       return { webClientId };

@@ -187,7 +187,7 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
           ))}
         </Text>
 
-        {/* Auto-dismiss progress bar */}
+        {/* Auto-dismiss progress */}
         <View style={s.progressTrack}>
           <Animated.View
             style={[

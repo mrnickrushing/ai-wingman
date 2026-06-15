@@ -101,6 +101,7 @@ function AnimatedCounter({ value, style }: { value: number; style?: object }) {
   useEffect(() => {
     anim.setValue(0);
     Animated.timing(anim, { toValue: value, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+
     const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
     return () => anim.removeListener(id);
   }, [value, anim]);
@@ -391,6 +392,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#05050f' },
   safe: { flex: 1 },
 
+  // Two ambient orbs from HEAD (more atmospheric depth than single orb)
   ambientOrbTop: {
     position: 'absolute',
     top: -140,
@@ -418,6 +420,7 @@ const s = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
+  // HEAD: larger font + tighter tracking feels more premium
   brand: { fontSize: 23, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.7 },
   tagline: { fontSize: 12, fontWeight: '400', color: '#475569', marginTop: 2 },
   accountBtn: {
@@ -432,6 +435,7 @@ const s = StyleSheet.create({
 
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
 
+  // HEAD: darker panel + indigo glow shadow feels more immersive
   commandPanel: {
     backgroundColor: '#0c0c1e',
     borderRadius: 22,
@@ -459,6 +463,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#145a30',
   },
+  // HEAD: larger dot with glow shadow
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e', shadowColor: '#22c55e', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
   liveText: { fontSize: 11, fontWeight: '800', color: '#4ade80', letterSpacing: 1.2 },
   cacheBadge: {
@@ -470,6 +475,7 @@ const s = StyleSheet.create({
     borderColor: '#44403c',
   },
   cacheBadgeText: { fontSize: 11, fontWeight: '700', color: '#a8a29e' },
+  // HEAD: larger hero title for more impact
   heroTitle: {
     fontSize: 30,
     fontWeight: '900',
@@ -480,6 +486,7 @@ const s = StyleSheet.create({
   },
   heroBody: { fontSize: 14, fontWeight: '400', color: '#475569', lineHeight: 20, marginBottom: 22 },
   commandActions: { flexDirection: 'row', gap: 10 },
+  // HEAD: gradient primary action (more polished than flat color)
   primaryAction: { flex: 1, borderRadius: 13, overflow: 'hidden' },
   primaryActionGrad: {
     paddingVertical: 13,
@@ -532,8 +539,8 @@ const s = StyleSheet.create({
   missionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   missionBadge: {
     backgroundColor: '#130b24',
-    borderRadius: 99,
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#4c1d9544',
@@ -632,6 +639,7 @@ const s = StyleSheet.create({
     shadowRadius: 14,
     elevation: 10,
   },
+  // Glow border overlay from HEAD (ui-revamp lacked this)
   modeTileGlowBorder: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -655,11 +663,12 @@ const s = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   modeIconEmoji: { fontSize: 22 },
   modeLabel: { fontSize: 16, fontWeight: '900', color: '#e2e8f0', marginBottom: 5, letterSpacing: -0.3 },
   modeSub: { fontSize: 12, fontWeight: '400', color: '#475569', lineHeight: 16, marginBottom: 14 },
+  // HEAD: pill-style start row (more polished than bare text)
   modeStartRow: {
     borderRadius: 8,
     paddingHorizontal: 10,

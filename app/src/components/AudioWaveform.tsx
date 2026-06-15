@@ -1,39 +1,50 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
+import { View, Animated, StyleSheet, Easing } from 'react-native';
 
 interface Props {
   isActive: boolean;
   color?: string;
+  inactiveColor?: string;
   barCount?: number;
   height?: number;
 }
 
-export function AudioWaveform({ isActive, color = '#6366f1', barCount = 24, height = 56 }: Props) {
+export function AudioWaveform({ isActive, color = '#22d3ee', inactiveColor = '#1e293b', barCount = 28, height = 60 }: Props) {
   const bars = useRef(
-    Array.from({ length: barCount }, () => new Animated.Value(0.15))
+    Array.from({ length: barCount }, () => new Animated.Value(0.12))
   ).current;
   const loopRefs = useRef<Animated.CompositeAnimation[]>([]);
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loopRefs.current.forEach(l => l.stop());
     loopRefs.current = [];
 
     if (isActive) {
+      // Glow pulse on activation
+      Animated.timing(glowAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
+
       bars.forEach((bar, i) => {
-        const minH = 0.06 + Math.random() * 0.08;
-        const maxH = 0.45 + Math.random() * 0.55;
-        const dur = 220 + Math.random() * 360;
+        // Create organic wave-like motion using offset phases
+        const phase = (i / barCount) * Math.PI * 2;
+        const minH = 0.05 + Math.sin(phase) * 0.03 + 0.03;
+        const maxH = 0.35 + Math.sin(phase * 0.7 + 1) * 0.30 + 0.30;
+        const dur = 280 + Math.sin(phase * 1.3) * 120 + 120;
+        const delayMs = i * 18;
+
         const loop = Animated.loop(
           Animated.sequence([
             Animated.timing(bar, {
               toValue: maxH,
               duration: dur,
-              delay: i * 14,
+              delay: delayMs,
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: false,
             }),
             Animated.timing(bar, {
               toValue: minH,
-              duration: dur * 0.75,
+              duration: dur * 0.85,
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: false,
             }),
           ])
@@ -42,10 +53,14 @@ export function AudioWaveform({ isActive, color = '#6366f1', barCount = 24, heig
         loop.start();
       });
     } else {
-      bars.forEach(bar => {
+      Animated.timing(glowAnim, { toValue: 0, duration: 400, useNativeDriver: false }).start();
+      bars.forEach((bar, i) => {
+        // Settle to a gentle idle wave
+        const idleHeight = 0.08 + Math.sin((i / barCount) * Math.PI) * 0.06;
         Animated.timing(bar, {
-          toValue: 0.10,
-          duration: 400,
+          toValue: idleHeight,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }).start();
       });
@@ -53,30 +68,39 @@ export function AudioWaveform({ isActive, color = '#6366f1', barCount = 24, heig
     return () => loopRefs.current.forEach(l => l.stop());
   }, [isActive]);
 
-  const barWidth = Math.max(3, Math.floor((200 / barCount) * 0.5));
+  const barWidth = Math.max(3, Math.floor((220 / barCount) * 0.52));
 
   return (
     <View style={[s.container, { height }]}>
-      {bars.map((bar, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            s.bar,
-            {
-              backgroundColor: color,
-              opacity: isActive
-                ? bar.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] })
-                : 0.18,
-              height: bar.interpolate({ inputRange: [0, 1], outputRange: [3, height] }),
-              width: barWidth,
-              shadowColor: isActive ? color : 'transparent',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: isActive ? 0.6 : 0,
-              shadowRadius: 4,
-            },
-          ]}
-        />
-      ))}
+      {bars.map((bar, i) => {
+        // Center bars are taller (natural wave shape)
+        const centerBoost = 1 + Math.sin((i / (barCount - 1)) * Math.PI) * 0.25;
+        return (
+          <Animated.View
+            key={i}
+            style={[
+              s.bar,
+              {
+                backgroundColor: isActive ? color : inactiveColor,
+                opacity: bar.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: isActive ? [0.35, 1] : [0.4, 0.4],
+                }),
+                height: bar.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [3, height * centerBoost],
+                }),
+                width: barWidth,
+                borderRadius: barWidth / 2,
+                shadowColor: isActive ? color : 'transparent',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: isActive ? 0.75 : 0,
+                shadowRadius: 5,
+              },
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -86,9 +110,9 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 2.5,
   },
   bar: {
-    borderRadius: 3,
+    borderRadius: 4,
   },
 });

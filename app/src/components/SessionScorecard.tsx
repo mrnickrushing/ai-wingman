@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export type SessionScoreMetric = {
   label: string;
@@ -21,17 +22,14 @@ function AnimatedBar({ weight, accent, delay }: { weight: number; accent: string
   useEffect(() => {
     Animated.timing(anim, {
       toValue: Math.max(12, Math.min(100, weight)),
-      duration: 900,
+      duration: 1000,
       delay,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [weight, delay]);
 
-  const width = anim.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-  });
+  const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
 
   return (
     <View style={s.track}>
@@ -40,11 +38,7 @@ function AnimatedBar({ weight, accent, delay }: { weight: number; accent: string
       <Animated.View
         style={[
           s.glowDot,
-          {
-            left: width,
-            backgroundColor: accent,
-            shadowColor: accent,
-          },
+          { left: width, backgroundColor: accent, shadowColor: accent },
         ]}
       />
     </View>
@@ -57,7 +51,8 @@ export function SessionScorecard({ title, accent, subtitle, metrics }: Props) {
   useEffect(() => {
     Animated.timing(containerAnim, {
       toValue: 1,
-      duration: 400,
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, []);
@@ -68,22 +63,31 @@ export function SessionScorecard({ title, accent, subtitle, metrics }: Props) {
         s.card,
         {
           opacity: containerAnim,
-          transform: [
-            {
-              translateY: containerAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [16, 0],
-              }),
-            },
-          ],
+          transform: [{
+            translateY: containerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+          }],
         },
       ]}
     >
+      {/* Mode color accent bar at top */}
+      <LinearGradient
+        colors={[accent + 'cc', accent + '44', 'transparent']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={s.accentBar}
+      />
+
       <View style={s.header}>
-        <Text style={s.label}>MODE SCORECARD</Text>
-        <Text style={[s.title, { color: accent }]}>{title}</Text>
-        {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+        <View style={[s.modeDot, { backgroundColor: accent + '30', borderColor: accent + '60' }]}>
+          <View style={[s.modeDotInner, { backgroundColor: accent }]} />
+        </View>
+        <View style={s.headerText}>
+          <Text style={s.label}>MODE SCORECARD</Text>
+          <Text style={[s.title, { color: accent }]}>{title}</Text>
+          {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+        </View>
       </View>
+
       <View style={s.metricList}>
         {metrics.map((metric, index) => (
           <View key={metric.label} style={s.metric}>
@@ -91,11 +95,7 @@ export function SessionScorecard({ title, accent, subtitle, metrics }: Props) {
               <Text style={s.metricLabel}>{metric.label}</Text>
               <Text style={[s.metricValue, { color: accent }]}>{metric.value}</Text>
             </View>
-            <AnimatedBar
-              weight={metric.weight ?? 60}
-              accent={accent}
-              delay={index * 160}
-            />
+            <AnimatedBar weight={metric.weight ?? 60} accent={accent} delay={index * 120} />
             {metric.detail ? <Text style={s.detail}>{metric.detail}</Text> : null}
           </View>
         ))}
@@ -106,25 +106,51 @@ export function SessionScorecard({ title, accent, subtitle, metrics }: Props) {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#0c0c1e',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
-    padding: 14,
-    gap: 12,
+    borderColor: '#1a1a36',
+    borderRadius: 18,
+    overflow: 'hidden',
+    gap: 0,
   },
-  header: { gap: 4 },
-  label: { color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  title: { fontSize: 17, fontWeight: '900' },
-  subtitle: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
-  metricList: { gap: 12 },
+  accentBar: {
+    height: 3,
+    width: '100%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    paddingBottom: 14,
+  },
+  modeDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  modeDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  headerText: { flex: 1, gap: 3 },
+  label: { color: '#3d3d5c', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  title: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3 },
+  subtitle: { color: '#7c7caa', fontSize: 12, lineHeight: 17 },
+  metricList: { gap: 2, paddingHorizontal: 14, paddingBottom: 16 },
   metric: {
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.025)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 8,
-    padding: 10,
+    borderColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 2,
   },
   metricTop: {
     flexDirection: 'row',
@@ -132,8 +158,8 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  metricLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
-  metricValue: { fontSize: 14, fontWeight: '900' },
+  metricLabel: { color: '#7c7caa', fontSize: 12, fontWeight: '800' },
+  metricValue: { fontSize: 15, fontWeight: '900' },
   track: {
     height: 7,
     borderRadius: 999,
@@ -150,9 +176,9 @@ const s = StyleSheet.create({
     borderRadius: 6,
     marginLeft: -5,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
+    shadowOpacity: 1,
+    shadowRadius: 7,
     elevation: 4,
   },
-  detail: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
+  detail: { color: '#7c7caa', fontSize: 12, lineHeight: 17 },
 });

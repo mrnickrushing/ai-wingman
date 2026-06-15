@@ -15,11 +15,11 @@ import { scheduleFollowUps } from '../utils/followUpScheduler';
 import { SessionTranscriptExplorer } from '../components/SessionTranscriptExplorer';
 
 const MODE_META: Record<string, { icon: string; label: string; accent: string }> = {
-  sales: { icon: 'S', label: 'Sales', accent: '#6366f1' },
-  dating: { icon: 'D', label: 'Dating', accent: '#ec4899' },
-  networking: { icon: 'N', label: 'Networking', accent: '#22d3ee' },
-  pitching: { icon: 'P', label: 'Pitching', accent: '#f59e0b' },
-  hard_conversations: { icon: 'H', label: 'Hard Talk', accent: '#8b5cf6' },
+  sales:              { icon: '🤝', label: 'Sales',      accent: '#6366f1' },
+  dating:             { icon: '✨', label: 'Dating',     accent: '#ec4899' },
+  networking:         { icon: '💬', label: 'Networking', accent: '#22d3ee' },
+  pitching:           { icon: '🚀', label: 'Pitching',   accent: '#f59e0b' },
+  hard_conversations: { icon: '⚡', label: 'Hard Talk',  accent: '#8b5cf6' },
 };
 
 function formatDate(iso: string): string {
@@ -427,16 +427,22 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                   <Text style={st.sectionMeta}>Average score and momentum</Text>
                 </View>
                 <View style={st.trendList}>
-                  {modeTrends.map((trend) => (
-                    <View key={trend.mode} style={st.trendCard}>
-                      <Text style={st.trendMode}>{MODE_META[trend.mode]?.label ?? trend.mode}</Text>
-                      <Text style={st.trendScore}>Avg {trend.avg}</Text>
-                      <Text style={st.trendMeta}>
-                        {trend.count} session{trend.count === 1 ? '' : 's'} · {trend.delta >= 0 ? '+' : ''}
-                        {trend.delta} recent delta
-                      </Text>
-                    </View>
-                  ))}
+                  {modeTrends.map((trend) => {
+                    const meta = MODE_META[trend.mode];
+                    return (
+                      <View key={trend.mode} style={[st.trendCard, { borderLeftColor: meta?.accent ?? '#6366f1' }]}>
+                        <View style={st.trendRow}>
+                          <Text style={st.trendIcon}>{meta?.icon ?? '⚙️'}</Text>
+                          <Text style={st.trendMode}>{meta?.label ?? trend.mode}</Text>
+                          <Text style={[st.trendScore, { color: meta?.accent ?? '#818cf8' }]}>Avg {trend.avg}</Text>
+                        </View>
+                        <Text style={st.trendMeta}>
+                          {trend.count} session{trend.count === 1 ? '' : 's'} · {trend.delta >= 0 ? '+' : ''}
+                          {trend.delta} recent delta
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             ) : null}
@@ -520,7 +526,7 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
               <View key={group.label}>
                 <Text style={st.groupLabel}>{group.label}</Text>
                 {group.items.map((session) => {
-                  const meta = MODE_META[session.mode] ?? { icon: 'W', label: session.mode, accent: '#6366f1' };
+                  const meta = MODE_META[session.mode] ?? { icon: '⚙️', label: session.mode, accent: '#6366f1' };
                   const isOpen = expanded === session.id;
                   return (
                     <TouchableOpacity
@@ -532,7 +538,7 @@ export function HistoryScreen({ onBack, onStartMode }: Props) {
                       <View style={[st.cardInner, { borderLeftColor: meta.accent }]}>
                         <View style={st.cardRow}>
                           <View style={[st.modeIcon, { backgroundColor: `${meta.accent}20`, borderColor: `${meta.accent}66` }]}>
-                            <Text style={[st.modeIconText, { color: meta.accent }]}>{meta.icon}</Text>
+                            <Text style={st.modeIconEmoji}>{meta.icon}</Text>
                           </View>
                           <View style={st.cardMid}>
                             <Text style={st.cardTitle} numberOfLines={1}>{session.title || meta.label}</Text>
@@ -792,11 +798,14 @@ const st = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
+    borderLeftWidth: 2,
     borderRadius: 8,
     padding: 12,
   },
-  trendMode: { color: '#f8fafc', fontSize: 13, fontWeight: '900' },
-  trendScore: { color: '#818cf8', fontSize: 13, fontWeight: '900' },
+  trendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  trendIcon: { fontSize: 16 },
+  trendMode: { color: '#f8fafc', fontSize: 13, fontWeight: '900', flex: 1 },
+  trendScore: { fontSize: 13, fontWeight: '900' },
   trendMeta: { color: '#94a3b8', fontSize: 11, lineHeight: 16 },
   bookmarkPanel: {
     gap: 10,
@@ -905,14 +914,14 @@ const st = StyleSheet.create({
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   modeIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeIconText: { fontSize: 13, fontWeight: '900' },
+  modeIconEmoji: { fontSize: 18 },
   cardMid: { flex: 1, gap: 3 },
   cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
   cardSub: { color: '#64748b', fontSize: 12 },
@@ -938,28 +947,6 @@ const st = StyleSheet.create({
   timelineSpeaker: { color: '#f8fafc', fontSize: 11, fontWeight: '900' },
   timelineText: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
   memorySummary: { color: '#94a3b8', fontSize: 11, lineHeight: 16, marginBottom: 6 },
-  transcriptCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 8,
-    padding: 10,
-    gap: 5,
-  },
-  transcriptLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  transcriptText: { color: '#cbd5e1', fontSize: 12, lineHeight: 17 },
-  transcriptActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  transcriptAction: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  transcriptActionText: { color: '#e2e8f0', fontSize: 11, fontWeight: '800' },
-  searchHighlight: {
-    color: '#f8fafc',
-    backgroundColor: 'rgba(129,140,248,0.25)',
-  },
   followRow: {
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderRadius: 8,
@@ -978,6 +965,7 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   cardActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
 });

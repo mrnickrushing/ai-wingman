@@ -167,6 +167,9 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
         {chips.map((chip) => (
           <View key={chip.label} style={s.chip}>
             <Text style={s.chipLabel}>{chip.label}</Text>
+            <View style={[s.chipDot, { backgroundColor: chip.color + '30', borderColor: chip.color + '50' }]}>
+              <View style={[s.chipDotInner, { backgroundColor: chip.color }]} />
+            </View>
             <Text style={[s.chipValue, { color: chip.color }]} numberOfLines={1}>{chip.value}</Text>
           </View>
         ))}
@@ -232,9 +235,9 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8,
-    padding: 12,
-    gap: 10,
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
     marginHorizontal: 16,
     marginBottom: 10,
   },
@@ -272,18 +275,24 @@ const s = StyleSheet.create({
   chip: {
     flex: 1,
     flexBasis: 90,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
     minWidth: 0,
   },
   chipLabel: { color: '#64748b', fontSize: 9, fontWeight: '700', letterSpacing: 0.4 },
-  chipValue: { fontSize: 13, fontWeight: '800' },
+  chipDot: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+  },
+  chipDotInner: { width: 8, height: 8, borderRadius: 4 },
+  chipValue: { fontSize: 11, fontWeight: '800' },
   footerRow: { gap: 4 },
   footerText: { color: '#64748b', fontSize: 11 },
   levelBlock: { gap: 7 },

@@ -14,18 +14,18 @@ import { fetchStatsSnapshot, type SessionSnapshotSource } from '../services/sess
 
 type Mode = {
   id: ConversationMode;
-  abbr: string;
+  icon: string;
   label: string;
   subtitle: string;
   accent: string;
 };
 
 const MODES: Mode[] = [
-  { id: 'sales', abbr: 'SL', label: 'Sales', subtitle: 'Objections and closes', accent: '#6366f1' },
-  { id: 'dating', abbr: 'DT', label: 'Dating', subtitle: 'Presence and momentum', accent: '#ec4899' },
-  { id: 'networking', abbr: 'NW', label: 'Networking', subtitle: 'Rooms and follow-ups', accent: '#22d3ee' },
-  { id: 'pitching', abbr: 'PT', label: 'Pitching', subtitle: 'Delivery and Q&A', accent: '#f59e0b' },
-  { id: 'hard_conversations', abbr: 'HT', label: 'Hard Talk', subtitle: 'Calm, clear, direct', accent: '#8b5cf6' },
+  { id: 'sales',              icon: '🤝', label: 'Sales',      subtitle: 'Objections and closes',    accent: '#6366f1' },
+  { id: 'dating',             icon: '✨', label: 'Dating',     subtitle: 'Presence and momentum',    accent: '#ec4899' },
+  { id: 'networking',         icon: '💬', label: 'Networking', subtitle: 'Rooms and follow-ups',     accent: '#22d3ee' },
+  { id: 'pitching',           icon: '🚀', label: 'Pitching',   subtitle: 'Delivery and Q&A',         accent: '#f59e0b' },
+  { id: 'hard_conversations', icon: '⚡', label: 'Hard Talk',  subtitle: 'Calm, clear, direct',      accent: '#8b5cf6' },
 ];
 
 interface Props {
@@ -122,6 +122,7 @@ export function HomeScreen({
               label="Streak"
               value={stats.streak > 0 ? `${stats.streak}d` : '--'}
               highlight={stats.streak >= 3}
+              fire={stats.streak >= 3}
             />
           </View>
 
@@ -139,7 +140,7 @@ export function HomeScreen({
                 onPress={() => onSelectMode(mode.id)}
               >
                 <View style={[s.modeIcon, { borderColor: `${mode.accent}55`, backgroundColor: `${mode.accent}18` }]}>
-                  <Text style={[s.modeIconText, { color: mode.accent }]}>{mode.abbr}</Text>
+                  <Text style={s.modeIconEmoji}>{mode.icon}</Text>
                 </View>
                 <Text style={s.modeLabel}>{mode.label}</Text>
                 <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
@@ -153,10 +154,22 @@ export function HomeScreen({
   );
 }
 
-function Metric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Metric({
+  label,
+  value,
+  highlight,
+  fire,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  fire?: boolean;
+}) {
   return (
     <View style={[s.metric, highlight && s.metricHighlight]}>
-      <Text style={[s.metricValue, highlight && s.metricValueHighlight]}>{value}</Text>
+      <Text style={[s.metricValue, highlight && s.metricValueHighlight]}>
+        {fire ? '🔥 ' : ''}{value}
+      </Text>
       <Text style={s.metricLabel}>{label}</Text>
     </View>
   );
@@ -280,14 +293,14 @@ const s = StyleSheet.create({
     gap: 8,
   },
   modeIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeIconText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  modeIconEmoji: { fontSize: 20 },
   modeLabel: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
   modeSub: { color: '#94a3b8', fontSize: 12, lineHeight: 17, flex: 1 },
   modeStart: { fontSize: 12, fontWeight: '900', marginTop: 2 },

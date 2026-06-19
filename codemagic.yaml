@@ -7,6 +7,9 @@ workflows:
 
       groups:
         - appstore_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.rushingtechnologies.aiwingman
       vars:
         BUNDLE_ID: com.rushingtechnologies.aiwingman
         XCODE_PROJECT: AIWingman.xcodeproj
@@ -58,12 +61,6 @@ workflows:
           pod install
       - name: Install iOS signing assets
         script: |
-          set -e
-          keychain initialize
-          app-store-connect fetch-signing-files $BUNDLE_ID \
-            --platform IOS \
-            --type IOS_APP_STORE
-          keychain add-certificates
           # Keep TestFlight on the internal-testing path so Codemagic uploads
           # the build without requiring Apple's external beta review metadata.
           xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'

@@ -1,14 +1,10 @@
+// BUG 8 FIX: all imports moved to the top before any function declarations
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Animated, ActivityIndicator, Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-function cleanText(raw: string): string {
-  return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
-}
-import { useSessionStore } from '../../store/sessionStore';
 import { WingmanScore } from '../../components/WingmanScore';
 import { SessionScorecard } from '../../components/SessionScorecard';
 import { computeWingmanScore } from '../../utils/scoring';
@@ -23,6 +19,12 @@ import {
   saveSessionRecap,
 } from '../../utils/sessionArchive';
 import { scheduleFollowUps } from '../../utils/followUpScheduler';
+import { useSessionStore } from '../../store/sessionStore';
+
+// BUG 8 FIX: cleanText defined AFTER all imports (not before them)
+function cleanText(raw: string): string {
+  return raw.replace(/^["'"']+|["'"']+$/gu, '').trim();
+}
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60);

@@ -13,6 +13,49 @@ interface Props {
   chips: LiveStatChip[];
 }
 
+// UPGRADE 12: radial glow behind active chip icon
+function IconGlow({ color }: { color: string }) {
+  const glowAnim = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.4,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        s.iconGlow,
+        {
+          backgroundColor: color,
+          opacity: glowAnim,
+          shadowColor: color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 1,
+          shadowRadius: 8,
+        },
+      ]}
+    />
+  );
+}
+
 function Chip({ chip, delay }: { chip: LiveStatChip; delay: number }) {
   const entryAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -65,9 +108,15 @@ function Chip({ chip, delay }: { chip: LiveStatChip; delay: number }) {
       ]}
     >
       {chip.active && (
-        <View style={[s.activeDot, { backgroundColor: activeColor, shadowColor: activeColor }]} />
+        <View style={s.activeDot} >
+          <View style={[s.activeDotInner, { backgroundColor: activeColor, shadowColor: activeColor }]} />
+        </View>
       )}
-      <Text style={s.icon}>{chip.icon}</Text>
+      {/* UPGRADE 12: color-matched glow behind icon when active */}
+      <View style={s.iconWrap}>
+        {chip.active && <IconGlow color={activeColor} />}
+        <Text style={s.icon}>{chip.icon}</Text>
+      </View>
       <Text style={[s.value, chip.color ? { color: chip.color } : null]} numberOfLines={1}>
         {chip.value}
       </Text>
@@ -106,16 +155,35 @@ const s = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  // Renamed to avoid conflict
   activeDot: {
     position: 'absolute',
     top: 6,
     right: 7,
     width: 6,
     height: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeDotInner: {
+    width: 6,
+    height: 6,
     borderRadius: 3,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 4,
+  },
+  // UPGRADE 12: icon wrapper with relative positioning for glow
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   icon: { fontSize: 14 },
   value: { color: '#f1f5f9', fontSize: 17, fontWeight: '900', letterSpacing: -0.5 },

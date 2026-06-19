@@ -37,6 +37,67 @@ function AnimatedPillDot({ color }: { color: string }) {
   );
 }
 
+// UPGRADE 4: Sonar ring emanating from the online connection dot
+function SonarConnDot() {
+  const sonarAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    // Sonar ring loop
+    const sonarLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sonarAnim, {
+          toValue: 1,
+          duration: 1400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.delay(600),
+        Animated.timing(sonarAnim, { toValue: 0, duration: 1, useNativeDriver: true }),
+      ])
+    );
+    sonarLoop.start();
+
+    // Dot brightness pulse
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.7, duration: 800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    pulseLoop.start();
+
+    return () => {
+      sonarLoop.stop();
+      pulseLoop.stop();
+    };
+  }, []);
+
+  const ringScale = sonarAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 3.2] });
+  const ringOpacity = sonarAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 0.2, 0] });
+
+  return (
+    <View style={s.connDotWrap}>
+      {/* sonar ring */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          s.sonarRing,
+          { opacity: ringOpacity, transform: [{ scale: ringScale }] },
+        ]}
+      />
+      {/* main dot */}
+      <Animated.View
+        style={[
+          s.connDot,
+          s.connOnline,
+          { opacity: pulseAnim },
+        ]}
+      />
+    </View>
+  );
+}
+
 export function LiveSessionStatus() {
   const {
     isRecording,
@@ -47,7 +108,8 @@ export function LiveSessionStatus() {
   } = useSessionStore();
 
   const transcriptAge = age(lastTranscriptAt);
-  const hearing = isRecording && micLevelDb !== null && micLevelDb > -50;
+  // BUG 5 FIX: threshold changed from -50 to -60 (more sensitive)
+  const hearing = isRecording && micLevelDb !== null && micLevelDb > -60;
   const transcribing = transcriptAge !== null && transcriptAge < 12;
 
   const states = [
@@ -60,7 +122,12 @@ export function LiveSessionStatus() {
     <View style={s.wrap}>
       {/* Connection indicator */}
       <View style={s.connRow}>
-        <View style={[s.connDot, isConnected ? s.connOnline : s.connOffline]} />
+        {/* UPGRADE 4: sonar dot when online, static dot when offline */}
+        {isConnected ? (
+          <SonarConnDot />
+        ) : (
+          <View style={[s.connDot, s.connOffline]} />
+        )}
         <Text style={[s.connLabel, isConnected ? s.connLabelOnline : s.connLabelOffline]}>
           {isConnected ? 'Connected' : 'Offline'}
         </Text>
@@ -104,12 +171,33 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
+  // UPGRADE 4: wrapper for sonar dot
+  connDotWrap: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sonarRing: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#4ade80',
+  },
   connDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  connOnline: { backgroundColor: '#4ade80', shadowColor: '#4ade80', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
+  connOnline: {
+    backgroundColor: '#4ade80',
+    shadowColor: '#4ade80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
   connOffline: { backgroundColor: '#3d3d5c' },
   connLabel: {
     fontSize: 11,

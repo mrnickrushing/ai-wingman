@@ -21,7 +21,7 @@ export function AudioWaveform({ isActive, color = '#22d3ee', inactiveColor = '#1
     loopRefs.current = [];
 
     if (isActive) {
-      // Glow pulse on activation
+      // BUG 9 FIX + UPGRADE 5: Animate glowAnim and apply as shadowOpacity
       Animated.timing(glowAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
 
       bars.forEach((bar, i) => {
@@ -70,8 +70,25 @@ export function AudioWaveform({ isActive, color = '#22d3ee', inactiveColor = '#1
 
   const barWidth = Math.max(3, Math.floor((220 / barCount) * 0.52));
 
+  // UPGRADE 5: glowAnim drives shadowOpacity on the container (0.1 → 0.5)
+  const containerShadowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.1, 0.5],
+  });
+
   return (
-    <View style={[s.container, { height }]}>
+    <Animated.View
+      style={[
+        s.container,
+        {
+          height,
+          shadowColor: color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: containerShadowOpacity,
+          shadowRadius: 18,
+        },
+      ]}
+    >
       {bars.map((bar, i) => {
         // Center bars are taller (natural wave shape)
         const centerBoost = 1 + Math.sin((i / (barCount - 1)) * Math.PI) * 0.25;
@@ -101,7 +118,7 @@ export function AudioWaveform({ isActive, color = '#22d3ee', inactiveColor = '#1
           />
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 

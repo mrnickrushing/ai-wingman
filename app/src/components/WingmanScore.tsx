@@ -86,6 +86,37 @@ function ProgressRing({ score, color }: { score: number; color: string }) {
   );
 }
 
+// UPGRADE 8: shimmer sweep component for the ring
+function ShimmerRing({ anim, color }: { anim: Animated.Value; color: string }) {
+  const opacity = anim.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 0.9, 0.6, 0] });
+  const rotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        { alignItems: 'center', justifyContent: 'center', opacity },
+      ]}
+    >
+      <Animated.View
+        style={{
+          width: RING_SIZE + 12,
+          height: RING_SIZE + 12,
+          borderRadius: (RING_SIZE + 12) / 2,
+          borderWidth: 3,
+          borderColor: 'transparent',
+          borderTopColor: color,
+          transform: [{ rotate }],
+          shadowColor: color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9,
+          shadowRadius: 8,
+        }}
+      />
+    </Animated.View>
+  );
+}
+
 const CONFETTI_COLORS = ['#6366f1', '#ec4899', '#22d3ee', '#f59e0b', '#4ade80', '#a78bfa'];
 
 export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, rating = 0 }: Props) {
@@ -99,25 +130,37 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
 
   const [displayScore, setDisplayScore] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
-  const entryAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const entryAnim  = useRef(new Animated.Value(0)).current;
+  const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
+    // BUG 3 FIX + UPGRADE 8: Use separate transforms instead of Animated.multiply
+    // entry animation
     Animated.timing(entryAnim, {
       toValue: 1,
       duration: 700,
       easing: Easing.out(Easing.back(1.6)),
       useNativeDriver: true,
     }).start(() => {
-      // Breathing pulse after entry
-      Animated.loop(
+      // Breathing pulse after entry — plain pulseAnim, no Animated.multiply
+      const pulseLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.035, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
           Animated.timing(pulseAnim, { toValue: 1,     duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ])
-      ).start();
+      );
+      pulseLoop.start();
+
+      // UPGRADE 8: shimmer sweep on ring once entry completes
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
     });
 
     if (finalScore <= 0) {
@@ -144,23 +187,27 @@ export function WingmanScore({ coachingHistory, elapsedSeconds, wordsSelf, ratin
     return () => clearInterval(id);
   }, [finalScore]);
 
+  // BUG 3 FIX: entry scale derived as an interpolation without Animated.multiply
+  const entryScale = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] });
+
   return (
     <Animated.View
       style={[
         s.container,
         {
           opacity: entryAnim,
+          // Apply entry scale and pulse scale as separate transforms
           transform: [
-            { scale: Animated.multiply(
-              entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }),
-              pulseAnim
-            )},
+            { scale: entryScale },
+            { scale: pulseAnim },
           ],
         },
       ]}
     >
       <View style={s.ringArea}>
         <ProgressRing score={displayScore} color={theme.color} />
+        {/* UPGRADE 8: shimmer sweep over the ring */}
+        <ShimmerRing anim={shimmerAnim} color={theme.color} />
         <View style={s.numberOverlay}>
           <Text style={[s.score, { color: theme.color }]}>{displayScore}</Text>
           <Text style={s.scoreUnit}>/ 100</Text>

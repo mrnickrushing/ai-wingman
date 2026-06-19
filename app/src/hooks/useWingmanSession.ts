@@ -703,13 +703,16 @@ export function useWingmanSession() {
       const authToken = await getAuthToken().catch(() => null);
       wingmanClient.connect(config, authToken);
       if (connectWatchdogRef.current) clearTimeout(connectWatchdogRef.current);
+      // BUG 11 FIX: 15-second connection timeout with helpful error message
       connectWatchdogRef.current = setTimeout(() => {
         const current = useSessionStore.getState();
         if (!current.isConnected && isActiveRef.current) {
           current.setSessionPhase('error');
-          current.setError('Could not connect to the Wingman server. Check your network and server URL.');
+          current.setError(
+            'Could not connect to the Wingman server within 15 seconds. Check your network connection and server URL, then tap Retry.'
+          );
         }
-      }, 10000);
+      }, 15000);
 
       // Elapsed time clock
       clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);

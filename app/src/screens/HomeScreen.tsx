@@ -48,19 +48,26 @@ function PulsingOrb({ color = '#6366f1' }: { color?: string }) {
   const ring = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const orbLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(anim, { toValue: 1, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         Animated.timing(anim, { toValue: 0, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
-    ).start();
+    );
+    orbLoop.start();
     // Sonar ring
-    Animated.loop(
+    const ringLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(ring, { toValue: 1, duration: 2400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.delay(1200),
+        Animated.timing(ring, { toValue: 0, duration: 1, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    ringLoop.start();
+    return () => {
+      orbLoop.stop();
+      ringLoop.stop();
+    };
   }, [anim, ring]);
 
   const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.10, 0.22] });
@@ -109,17 +116,154 @@ function AnimatedCounter({ value, style }: { value: number; style?: object }) {
   return <Text style={style}>{display}</Text>;
 }
 
+// ─── PulsingLiveDot (Bug 7 Fix) ───────────────────────────────────────────────
+function PulsingLiveDot() {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scaleAnim, { toValue: 1.5, duration: 700, easing: Easing.out(Easing.sin), useNativeDriver: true }),
+          Animated.timing(opacityAnim, { toValue: 0.4, duration: 700, easing: Easing.out(Easing.sin), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scaleAnim, { toValue: 1, duration: 700, easing: Easing.in(Easing.sin), useNativeDriver: true }),
+          Animated.timing(opacityAnim, { toValue: 1, duration: 700, easing: Easing.in(Easing.sin), useNativeDriver: true }),
+        ]),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        s.liveDot,
+        { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
+      ]}
+    />
+  );
+}
+
+// ─── XpShimmer (Upgrade 3) ────────────────────────────────────────────────────
+function XpShimmer() {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.delay(800),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 1, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const translateX = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-120, 300],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        s.xpShimmer,
+        { transform: [{ translateX }, { skewX: '-20deg' }] },
+      ]}
+    />
+  );
+}
+
+// ─── GlowActionBtn (Upgrade 9) ────────────────────────────────────────────────
+function GlowActionBtn({ onPress, label, primary, accent }: {
+  onPress: () => void;
+  label: string;
+  primary?: boolean;
+  accent?: string;
+}) {
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0.4, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const borderOpacity = glowAnim;
+
+  if (primary) {
+    return (
+      <TouchableOpacity onPress={onPress} style={s.primaryAction} activeOpacity={0.82}>
+        <LinearGradient colors={['#6366f1', '#8b5cf6']} style={s.primaryActionGrad}>
+          <Text style={s.primaryActionText}>{label}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.82} style={{ flex: 1 }}>
+      <Animated.View
+        style={[
+          s.secondaryAction,
+          {
+            borderColor: glowAnim.interpolate({
+              inputRange: [0.4, 1],
+              outputRange: ['#2d2d4e', accent ? accent + '60' : '#4d4d7e'],
+            }),
+            shadowColor: accent ?? '#6366f1',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0, 0.35] }),
+            shadowRadius: 8,
+          },
+        ]}
+      >
+        <Text style={s.secondaryActionText}>{label}</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 // ─── ModeCard ─────────────────────────────────────────────────────────────────
-function ModeCard({ mode, onPress, delay }: { mode: Mode; onPress: () => void; delay: number }) {
+function ModeCard({ mode, onPress, delay, index }: { mode: Mode; onPress: () => void; delay: number; index: number }) {
   const entry = useRef(new Animated.Value(0)).current;
   const entryY = useRef(new Animated.Value(24)).current;
   const pressAnim = useRef(new Animated.Value(1)).current;
+  // UPGRADE 1: icon breathing pulse with staggered delay
+  const iconPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(entry, { toValue: 1, duration: 500, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(entryY, { toValue: 0, duration: 500, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]).start();
+    ]).start(() => {
+      // Start icon pulse after card enters
+      const iconDelay = index * 120;
+      const iconLoop = Animated.loop(
+        Animated.sequence([
+          Animated.delay(iconDelay),
+          Animated.timing(iconPulse, { toValue: 1.08, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(iconPulse, { toValue: 1.0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ])
+      );
+      iconLoop.start();
+    });
   }, []);
 
   return (
@@ -138,9 +282,16 @@ function ModeCard({ mode, onPress, delay }: { mode: Mode; onPress: () => void; d
           {/* Glow border overlay */}
           <View style={[s.modeTileGlowBorder, { borderColor: mode.accent + '40' }]} />
           <View style={s.modeTileContent}>
-            <View style={[s.modeIcon, { borderColor: mode.accent + '60', backgroundColor: mode.accent + '20' }]}>
+            {/* UPGRADE 1: icon container with breathing pulse */}
+            <Animated.View
+              style={[
+                s.modeIcon,
+                { borderColor: mode.accent + '60', backgroundColor: mode.accent + '20' },
+                { transform: [{ scale: iconPulse }] },
+              ]}
+            >
               <Text style={s.modeIconEmoji}>{mode.icon}</Text>
-            </View>
+            </Animated.View>
             <Text style={s.modeLabel}>{mode.label}</Text>
             <Text style={s.modeSub} numberOfLines={2}>{mode.subtitle}</Text>
             <View style={[s.modeStartRow, { backgroundColor: mode.accent + '18', borderColor: mode.accent + '40' }]}>
@@ -221,8 +372,10 @@ export function HomeScreen({
       <LinearGradient colors={['#090920', '#05050f']} style={StyleSheet.absoluteFill} />
 
       {/* Ambient orbs */}
+      {/* UPGRADE 2: second ambient orb at bottom-left in pink */}
       <View pointerEvents="none" style={s.ambientOrbTop} />
       <View pointerEvents="none" style={s.ambientOrbBottom} />
+      <View pointerEvents="none" style={s.ambientOrbBottomLeft} />
 
       <SafeAreaView style={s.safe}>
         {/* Header */}
@@ -243,7 +396,8 @@ export function HomeScreen({
             <PulsingOrb color="#6366f1" />
             <View style={s.statusRow}>
               <View style={s.liveBadge}>
-                <View style={s.liveDot} />
+                {/* BUG 7 FIX: pulsing live dot */}
+                <PulsingLiveDot />
                 <Text style={s.liveText}>READY</Text>
               </View>
               {statsSource === 'cache' && (
@@ -256,18 +410,11 @@ export function HomeScreen({
             <Text style={s.heroBody}>
               Pick a mode below to start a live coached session.
             </Text>
+            {/* UPGRADE 9: action buttons with animated glow border */}
             <View style={s.commandActions}>
-              <TouchableOpacity onPress={onOpenPractice} style={s.primaryAction} activeOpacity={0.82}>
-                <LinearGradient colors={['#6366f1', '#8b5cf6']} style={s.primaryActionGrad}>
-                  <Text style={s.primaryActionText}>Practice</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onOpenBriefs} style={s.secondaryAction} activeOpacity={0.82}>
-                <Text style={s.secondaryActionText}>Briefs</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onOpenMessages} style={s.secondaryAction} activeOpacity={0.82}>
-                <Text style={s.secondaryActionText}>Text Coach</Text>
-              </TouchableOpacity>
+              <GlowActionBtn onPress={onOpenPractice} label="Practice" primary accent="#6366f1" />
+              <GlowActionBtn onPress={onOpenBriefs} label="Briefs" accent="#8b5cf6" />
+              <GlowActionBtn onPress={onOpenMessages} label="Text Coach" accent="#22d3ee" />
             </View>
           </View>
 
@@ -316,8 +463,11 @@ export function HomeScreen({
               <Text style={s.xpLabel}>Coach XP</Text>
               <Text style={s.xpCount}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
             </View>
+            {/* UPGRADE 3: shimmer on the XP bar */}
             <View style={s.xpTrack}>
-              <Animated.View style={[s.xpFill, { width: xpBarWidth }]} />
+              <Animated.View style={[s.xpFill, { width: xpBarWidth }]}>
+                <XpShimmer />
+              </Animated.View>
               <Animated.View style={[s.xpGlowDot, { left: xpBarWidth }]} />
             </View>
             <Text style={s.xpHint}>
@@ -339,6 +489,7 @@ export function HomeScreen({
                 mode={mode}
                 onPress={() => onSelectMode(mode.id)}
                 delay={i * 80}
+                index={i}
               />
             ))}
           </View>
@@ -392,7 +543,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#05050f' },
   safe: { flex: 1 },
 
-  // Two ambient orbs from HEAD (more atmospheric depth than single orb)
+  // Ambient orbs
   ambientOrbTop: {
     position: 'absolute',
     top: -140,
@@ -411,6 +562,16 @@ const s = StyleSheet.create({
     borderRadius: 170,
     backgroundColor: 'rgba(139,92,246,0.07)',
   },
+  // UPGRADE 2: pink ambient orb at bottom-left
+  ambientOrbBottomLeft: {
+    position: 'absolute',
+    bottom: -60,
+    left: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(236,72,153,0.07)',
+  },
 
   header: {
     flexDirection: 'row',
@@ -420,7 +581,6 @@ const s = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  // HEAD: larger font + tighter tracking feels more premium
   brand: { fontSize: 23, fontWeight: '900', color: '#f1f5f9', letterSpacing: -0.7 },
   tagline: { fontSize: 12, fontWeight: '400', color: '#475569', marginTop: 2 },
   accountBtn: {
@@ -435,7 +595,6 @@ const s = StyleSheet.create({
 
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
 
-  // HEAD: darker panel + indigo glow shadow feels more immersive
   commandPanel: {
     backgroundColor: '#0c0c1e',
     borderRadius: 22,
@@ -463,7 +622,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#145a30',
   },
-  // HEAD: larger dot with glow shadow
+  // BUG 7 FIX: liveDot is now managed by PulsingLiveDot component
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e', shadowColor: '#22c55e', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
   liveText: { fontSize: 11, fontWeight: '800', color: '#4ade80', letterSpacing: 1.2 },
   cacheBadge: {
@@ -475,7 +634,6 @@ const s = StyleSheet.create({
     borderColor: '#44403c',
   },
   cacheBadgeText: { fontSize: 11, fontWeight: '700', color: '#a8a29e' },
-  // HEAD: larger hero title for more impact
   heroTitle: {
     fontSize: 30,
     fontWeight: '900',
@@ -486,7 +644,6 @@ const s = StyleSheet.create({
   },
   heroBody: { fontSize: 14, fontWeight: '400', color: '#475569', lineHeight: 20, marginBottom: 22 },
   commandActions: { flexDirection: 'row', gap: 10 },
-  // HEAD: gradient primary action (more polished than flat color)
   primaryAction: { flex: 1, borderRadius: 13, overflow: 'hidden' },
   primaryActionGrad: {
     paddingVertical: 13,
@@ -601,6 +758,17 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  // UPGRADE 3: shimmer sweep across XP bar
+  xpShimmer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 50,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    opacity: 0.7,
   },
   xpGlowDot: {
     position: 'absolute',
@@ -639,7 +807,6 @@ const s = StyleSheet.create({
     shadowRadius: 14,
     elevation: 10,
   },
-  // Glow border overlay from HEAD (ui-revamp lacked this)
   modeTileGlowBorder: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -668,7 +835,6 @@ const s = StyleSheet.create({
   modeIconEmoji: { fontSize: 22 },
   modeLabel: { fontSize: 16, fontWeight: '900', color: '#e2e8f0', marginBottom: 5, letterSpacing: -0.3 },
   modeSub: { fontSize: 12, fontWeight: '400', color: '#475569', lineHeight: 16, marginBottom: 14 },
-  // HEAD: pill-style start row (more polished than bare text)
   modeStartRow: {
     borderRadius: 8,
     paddingHorizontal: 10,

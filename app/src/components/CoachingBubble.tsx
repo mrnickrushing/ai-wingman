@@ -57,6 +57,38 @@ function SonarRing({ color, anim }: { color: string; anim: Animated.Value }) {
   );
 }
 
+// UPGRADE 10: aiDot as animated pulsing component
+function AiDot() {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scaleAnim, { toValue: 1.3, duration: 750, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(opacityAnim, { toValue: 0.6, duration: 750, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scaleAnim, { toValue: 1.0, duration: 750, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(opacityAnim, { toValue: 1.0, duration: 750, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        s.aiDot,
+        { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
+      ]}
+    />
+  );
+}
+
 function Word({ value, revealed }: { value: string; revealed: boolean }) {
   const opacity   = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(6)).current;
@@ -82,14 +114,29 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
   const scaleAnim    = useRef(new Animated.Value(0.88)).current;
   const glowAnim     = useRef(new Animated.Value(0)).current;
   const sonarAnim    = useRef(new Animated.Value(0)).current;
+  // BUG 2 FIX: keep a ref to the sonar loop so we can stop it on unmount
+  const sonarLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const [revealCount, setRevealCount] = useState(0);
 
   const words = text ? text.split(/\s+/).filter(Boolean) : [];
+
+  // BUG 2 FIX: cleanup sonar loop on unmount
+  useEffect(() => {
+    return () => {
+      sonarLoopRef.current?.stop();
+      sonarLoopRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (text) {
       progressAnim.setValue(1);
       setRevealCount(0);
+
+      // Stop any running sonar loop before starting a new one
+      sonarLoopRef.current?.stop();
+      sonarLoopRef.current = null;
+      sonarAnim.setValue(0);
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
@@ -103,14 +150,19 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
           Animated.timing(glowAnim, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
           Animated.timing(glowAnim, { toValue: 0.3, duration: 700, useNativeDriver: true }),
         ]),
-        // Sonar ping
+      ]).start();
+
+      // BUG 2 FIX: Sonar now properly loops with a ref-tracked composite animation
+      const sonarLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(sonarAnim, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          Animated.delay(200),
+          Animated.delay(400),
           Animated.timing(sonarAnim, { toValue: 0, duration: 1, useNativeDriver: true }),
-          Animated.timing(sonarAnim, { toValue: 1, duration: 900, delay: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        ]),
-      ]).start();
+          Animated.delay(300),
+        ])
+      );
+      sonarLoopRef.current = sonarLoop;
+      sonarLoop.start();
 
       const count = words.length;
       let i = 0;
@@ -127,8 +179,14 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
         }
       }, WORD_INTERVAL);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        sonarLoopRef.current?.stop();
+        sonarLoopRef.current = null;
+      };
     } else {
+      sonarLoopRef.current?.stop();
+      sonarLoopRef.current = null;
       Animated.parallel([
         Animated.timing(slideAnim,   { toValue: -120, duration: 260, useNativeDriver: true }),
         Animated.timing(opacityAnim, { toValue: 0,    duration: 180, useNativeDriver: true }),
@@ -163,7 +221,8 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
       >
         <View style={s.topRow}>
           <View style={s.aiTag}>
-            <View style={s.aiDot} />
+            {/* UPGRADE 10: animated aiDot */}
+            <AiDot />
             <Text style={s.aiTagText}>WINGMAN</Text>
             {speaking && <SpeakingDots />}
           </View>

@@ -23,6 +23,124 @@ interface Props {
   onEnd: () => void;
 }
 
+// UPGRADE 13: Multi-ring pulsing mic button
+function MicButton({ isRecording }: { isRecording: boolean }) {
+  const ring1Anim = useRef(new Animated.Value(1)).current;
+  const ring1Opacity = useRef(new Animated.Value(0)).current;
+  const ring2Anim = useRef(new Animated.Value(1)).current;
+  const ring2Opacity = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isRecording) {
+      // Ring 1 — fast pulse
+      const ring1Loop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(ring1Anim, { toValue: 1.7, duration: 1000, useNativeDriver: true }),
+            Animated.timing(ring1Opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ring1Anim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring1Opacity, { toValue: 0.55, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      // Ring 2 — staggered slower pulse
+      const ring2Loop = Animated.loop(
+        Animated.sequence([
+          Animated.delay(500),
+          Animated.parallel([
+            Animated.timing(ring2Anim, { toValue: 1.7, duration: 1000, useNativeDriver: true }),
+            Animated.timing(ring2Opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ring2Anim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring2Opacity, { toValue: 0.35, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      // Glow border breathe
+      const glowLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0.3, duration: 900, useNativeDriver: false }),
+        ])
+      );
+
+      ring1Loop.start();
+      ring2Loop.start();
+      glowLoop.start();
+
+      return () => {
+        ring1Loop.stop();
+        ring2Loop.stop();
+        glowLoop.stop();
+        ring1Anim.setValue(1);
+        ring1Opacity.setValue(0);
+        ring2Anim.setValue(1);
+        ring2Opacity.setValue(0);
+        glowAnim.setValue(0);
+      };
+    } else {
+      ring1Anim.setValue(1);
+      ring1Opacity.setValue(0);
+      ring2Anim.setValue(1);
+      ring2Opacity.setValue(0);
+      glowAnim.setValue(0);
+    }
+  }, [isRecording]);
+
+  const activeColor = isRecording ? '#4ade80' : '#6366f1';
+  const borderColor = glowAnim.interpolate({
+    inputRange: [0.3, 1],
+    outputRange: [
+      isRecording ? 'rgba(74,222,128,0.3)' : 'rgba(99,102,241,0.25)',
+      isRecording ? 'rgba(74,222,128,0.8)' : 'rgba(99,102,241,0.6)',
+    ],
+  });
+
+  return (
+    <View style={mic.wrap}>
+      {/* Ring 1 */}
+      <Animated.View
+        style={[
+          mic.ring,
+          {
+            borderColor: activeColor,
+            transform: [{ scale: ring1Anim }],
+            opacity: ring1Opacity,
+          },
+        ]}
+      />
+      {/* Ring 2 — staggered */}
+      <Animated.View
+        style={[
+          mic.ring,
+          mic.ring2,
+          {
+            borderColor: activeColor,
+            transform: [{ scale: ring2Anim }],
+            opacity: ring2Opacity,
+          },
+        ]}
+      />
+      {/* Button body with animated glow border */}
+      <Animated.View
+        style={[
+          mic.btn,
+          isRecording && mic.btnActive,
+          { borderColor },
+        ]}
+      >
+        <Text style={mic.icon}>
+          {isRecording ? '🔴' : '🎙️'}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 export function ActiveCallScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
   const {
@@ -32,41 +150,19 @@ export function ActiveCallScreen({ onEnd }: Props) {
     coachingHistory, getSessionConfig,
   } = useSessionStore();
 
-  const ringAnim = useRef(new Animated.Value(1)).current;
-  const ringOpacity = useRef(new Animated.Value(0.6)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
 
   useEffect(() => {
-    void start().catch(() => {});
+    // BUG 1 VERIFIED: getSessionConfig('sales') is the correct mode for this screen
+    void start(getSessionConfig('sales')).catch(() => {});
     return () => { void stop(); };
-  }, [start, stop]);
+  }, [start, stop, getSessionConfig]);
 
   // Header entrance
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
-
-  // Mic pulse ring
-  useEffect(() => {
-    if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(ringAnim, { toValue: 1.6, duration: 1200, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(ringAnim, { toValue: 1, duration: 0, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    } else {
-      ringAnim.setValue(1);
-      ringOpacity.setValue(0);
-    }
-  }, [isRecording]);
 
   // Show coaching bubble when new coaching arrives
   useEffect(() => {
@@ -87,6 +183,7 @@ export function ActiveCallScreen({ onEnd }: Props) {
 
   const handleRetry = async () => {
     await stop();
+    // BUG 1: uses getSessionConfig('sales') — correct for this screen
     await start(getSessionConfig('sales'));
   };
   const handleReconnect = handleRetry;
@@ -221,15 +318,8 @@ export function ActiveCallScreen({ onEnd }: Props) {
             <AudioWaveform isActive={isRecording} color="#6366f1" height={36} barCount={20} />
           </View>
           <View style={s.controls}>
-            <View style={s.micWrap}>
-              <Animated.View style={[s.micRing, {
-                transform: [{ scale: ringAnim }],
-                opacity: ringOpacity,
-              }]} />
-              <View style={[s.micBtn, isRecording && s.micBtnActive]}>
-                <Text style={s.micIcon}>🎙️</Text>
-              </View>
-            </View>
+            {/* UPGRADE 13: upgraded mic button */}
+            <MicButton isRecording={isRecording} />
             <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
               <Text style={s.endBtnText}>End Call</Text>
             </TouchableOpacity>
@@ -239,6 +329,43 @@ export function ActiveCallScreen({ onEnd }: Props) {
     </View>
   );
 }
+
+// UPGRADE 13: mic button styles
+const mic = StyleSheet.create({
+  wrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 72,
+    height: 72,
+  },
+  ring: {
+    position: 'absolute',
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 2,
+  },
+  ring2: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  btn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(99,102,241,0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(99,102,241,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnActive: {
+    backgroundColor: 'rgba(74,222,128,0.15)',
+  },
+  icon: { fontSize: 26 },
+});
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050510' },
@@ -330,22 +457,6 @@ const s = StyleSheet.create({
     justifyContent: 'center', gap: 24,
     paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8,
   },
-  micWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  micRing: {
-    position: 'absolute', width: 70, height: 70,
-    borderRadius: 35, borderWidth: 2, borderColor: '#6366f1',
-  },
-  micBtn: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  micBtnActive: {
-    backgroundColor: 'rgba(99,102,241,0.22)',
-    borderColor: 'rgba(99,102,241,0.6)',
-  },
-  micIcon: { fontSize: 24 },
   endBtn: {
     backgroundColor: 'rgba(236,72,153,0.12)',
     borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',

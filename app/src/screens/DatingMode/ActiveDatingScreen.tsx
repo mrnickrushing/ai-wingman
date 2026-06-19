@@ -18,6 +18,83 @@ import { ConversationPrepBrief } from '../../components/ConversationPrepBrief';
 const POSITIVE_VIBE = ['good', 'great', 'energy', 'escalate'];
 const NEGATIVE_VIBE = ['slow', 'awkward', 'silence'];
 
+// UPGRADE 13: Multi-ring pulsing mic button (shared pattern)
+function MicButton({ isRecording, accentColor }: { isRecording: boolean; accentColor: string }) {
+  const ring1Anim = useRef(new Animated.Value(1)).current;
+  const ring1Opacity = useRef(new Animated.Value(0)).current;
+  const ring2Anim = useRef(new Animated.Value(1)).current;
+  const ring2Opacity = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isRecording) {
+      const ring1Loop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(ring1Anim, { toValue: 1.7, duration: 1000, useNativeDriver: true }),
+            Animated.timing(ring1Opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ring1Anim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring1Opacity, { toValue: 0.55, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      const ring2Loop = Animated.loop(
+        Animated.sequence([
+          Animated.delay(500),
+          Animated.parallel([
+            Animated.timing(ring2Anim, { toValue: 1.7, duration: 1000, useNativeDriver: true }),
+            Animated.timing(ring2Opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ring2Anim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring2Opacity, { toValue: 0.35, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      const glowLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0.3, duration: 900, useNativeDriver: false }),
+        ])
+      );
+      ring1Loop.start();
+      ring2Loop.start();
+      glowLoop.start();
+      return () => {
+        ring1Loop.stop(); ring2Loop.stop(); glowLoop.stop();
+        ring1Anim.setValue(1); ring1Opacity.setValue(0);
+        ring2Anim.setValue(1); ring2Opacity.setValue(0);
+        glowAnim.setValue(0);
+      };
+    } else {
+      ring1Anim.setValue(1); ring1Opacity.setValue(0);
+      ring2Anim.setValue(1); ring2Opacity.setValue(0);
+      glowAnim.setValue(0);
+    }
+  }, [isRecording]);
+
+  const activeColor = isRecording ? '#4ade80' : accentColor;
+  const borderColor = glowAnim.interpolate({
+    inputRange: [0.3, 1],
+    outputRange: [
+      isRecording ? 'rgba(74,222,128,0.3)' : accentColor + '4d',
+      isRecording ? 'rgba(74,222,128,0.8)' : accentColor + 'cc',
+    ],
+  });
+
+  return (
+    <View style={micBtn.wrap}>
+      <Animated.View style={[micBtn.ring, { borderColor: activeColor, transform: [{ scale: ring1Anim }], opacity: ring1Opacity }]} />
+      <Animated.View style={[micBtn.ring, micBtn.ring2, { borderColor: activeColor, transform: [{ scale: ring2Anim }], opacity: ring2Opacity }]} />
+      <Animated.View style={[micBtn.btn, isRecording && micBtn.btnActive, { borderColor }]}>
+        <Text style={micBtn.icon}>{isRecording ? '🔴' : '🎙️'}</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 }
@@ -35,8 +112,6 @@ export function ActiveDatingScreen({ onEnd }: Props) {
     coachingHistory, getSessionConfig,
   } = useSessionStore();
 
-  const ringAnim = useRef(new Animated.Value(1)).current;
-  const ringOpacity = useRef(new Animated.Value(0.6)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
   const [silenceCount, setSilenceCount] = useState(0);
@@ -65,26 +140,6 @@ export function ActiveDatingScreen({ onEnd }: Props) {
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
-
-  useEffect(() => {
-    if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(ringAnim, { toValue: 1.6, duration: 1200, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(ringAnim, { toValue: 1, duration: 0, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    } else {
-      ringAnim.setValue(1);
-      ringOpacity.setValue(0);
-    }
-  }, [isRecording]);
 
   useEffect(() => {
     if (currentCoaching) setShowCoaching(true);
@@ -241,15 +296,7 @@ export function ActiveDatingScreen({ onEnd }: Props) {
             <AudioWaveform isActive={isRecording} color="#ec4899" height={36} barCount={20} />
           </View>
           <View style={s.controls}>
-            <View style={s.micWrap}>
-              <Animated.View style={[s.micRing, {
-                transform: [{ scale: ringAnim }],
-                opacity: ringOpacity,
-              }]} />
-              <View style={[s.micBtn, isRecording && s.micBtnActive]}>
-                <Text style={s.micIcon}>🎙️</Text>
-              </View>
-            </View>
+            <MicButton isRecording={isRecording} accentColor="#ec4899" />
             <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
               <Text style={s.endBtnText}>End</Text>
             </TouchableOpacity>
@@ -350,26 +397,20 @@ const s = StyleSheet.create({
     justifyContent: 'center', gap: 24,
     paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8,
   },
-  micWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  micRing: {
-    position: 'absolute', width: 70, height: 70,
-    borderRadius: 35, borderWidth: 2, borderColor: '#ec4899',
-  },
-  micBtn: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: 'rgba(236,72,153,0.12)',
-    borderWidth: 1, borderColor: 'rgba(236,72,153,0.3)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  micBtnActive: {
-    backgroundColor: 'rgba(236,72,153,0.22)',
-    borderColor: 'rgba(236,72,153,0.6)',
-  },
-  micIcon: { fontSize: 24 },
+
   endBtn: {
     backgroundColor: 'rgba(244,63,94,0.12)',
     borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
     borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
   },
   endBtnText: { color: '#f43f5e', fontSize: 14, fontWeight: '700' },
+});
+
+const micBtn = StyleSheet.create({
+  wrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 72, height: 72 },
+  ring: { position: 'absolute', width: 86, height: 86, borderRadius: 43, borderWidth: 2 },
+  ring2: { width: 96, height: 96, borderRadius: 48 },
+  btn: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(236,72,153,0.12)', borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  btnActive: { backgroundColor: 'rgba(74,222,128,0.15)' },
+  icon: { fontSize: 26 },
 });

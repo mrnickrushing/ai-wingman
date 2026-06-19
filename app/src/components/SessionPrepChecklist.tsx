@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Animated, Easing } from 'react-native';
 
 export type ChecklistItem = {
   label: string;
@@ -12,6 +12,49 @@ type Props = {
   subtitle: string;
   items: ChecklistItem[];
 };
+
+// UPGRADE 7: Animated row with staggered fade+slide-up entrance
+function AnimatedRow({ item, index }: { item: ChecklistItem; index: number }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 380,
+        delay: index * 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 380,
+        delay: index * 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        s.row,
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+      ]}
+    >
+      <View style={[s.dot, item.ready ? s.dotReady : s.dotPending]} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.rowLabel}>{item.label}</Text>
+        <Text style={s.rowDetail}>{item.detail}</Text>
+      </View>
+      <Text style={[s.rowState, item.ready ? s.rowStateReady : s.rowStatePending]}>
+        {item.ready ? 'Ready' : 'Missing'}
+      </Text>
+    </Animated.View>
+  );
+}
 
 export function SessionPrepChecklist({ title, subtitle, items }: Props) {
   const readyCount = items.filter((item) => item.ready).length;
@@ -32,17 +75,9 @@ export function SessionPrepChecklist({ title, subtitle, items }: Props) {
       </View>
 
       <View style={s.list}>
-        {items.map((item) => (
-          <View key={item.label} style={s.row}>
-            <View style={[s.dot, item.ready ? s.dotReady : s.dotPending]} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{item.label}</Text>
-              <Text style={s.rowDetail}>{item.detail}</Text>
-            </View>
-            <Text style={[s.rowState, item.ready ? s.rowStateReady : s.rowStatePending]}>
-              {item.ready ? 'Ready' : 'Missing'}
-            </Text>
-          </View>
+        {items.map((item, index) => (
+          // BUG 6 FIX: use index as fallback key to avoid label collisions
+          <AnimatedRow key={`${index}-${item.label}`} item={item} index={index} />
         ))}
       </View>
     </View>

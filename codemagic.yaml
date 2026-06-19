@@ -62,8 +62,7 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files $BUNDLE_ID \
             --platform IOS \
-            --type IOS_APP_STORE \
-            --create
+            --type IOS_APP_STORE
           keychain add-certificates
           # Keep TestFlight on the internal-testing path so Codemagic uploads
           # the build without requiring Apple's external beta review metadata.

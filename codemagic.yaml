@@ -65,7 +65,9 @@ workflows:
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
-          xcode-project use-profiles
+          # Keep TestFlight on the internal-testing path so Codemagic uploads
+          # the build without requiring Apple's external beta review metadata.
+          xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
       - name: Build and export IPA
         script: |
           set -o pipefail
@@ -87,8 +89,7 @@ workflows:
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-        beta_groups:
-          - External Testers
+        expire_build_submitted_for_review: true
       email:
         recipients:
           - mrnickrushing@yahoo.com

@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { checkWingmanServerHealth, wingmanClient } from '../services/wingmanClient';
 import { getAuthToken } from '../services/auth';
 import { useSessionStore } from '../store/sessionStore';
-import { TranscriptEntry, CoachingEntry } from '../types';
+import { TranscriptEntry, CoachingEntry, type SessionConfig } from '../types';
 
 let idCounter = 0;
 const nextId = () => String(++idCounter);
@@ -137,13 +137,16 @@ const configureRecordingAudioMode = async (resetSession = false) => {
 // routes audio to AirPods (or speaker) based on the user's selected output.
 // PlayAndRecord + DefaultToSpeaker forces the built-in speaker and blocks
 // Bluetooth A2DP output, which is why coaching audio never reaches AirPods.
-const configurePlaybackAudioMode = async () => {
+const configurePlaybackAudioMode = async (resetSession = false) => {
+  if (resetSession) {
+    await setIsAudioActiveAsync(false).catch(() => {});
+  }
   await setAudioModeAsync({
     allowsRecording: false,
     allowsBackgroundRecording: false,
     playsInSilentMode: true,
     shouldPlayInBackground: true,
-    interruptionMode: 'duckOthers',
+    interruptionMode: 'doNotMix',
     shouldRouteThroughEarpiece: false,
   } as Parameters<typeof setAudioModeAsync>[0]);
 };
@@ -368,25 +371,15 @@ export function useWingmanSession() {
       const uri = `${FileSystem.cacheDirectory}wm-coach-${nextId()}.mp3`;
       let player: AudioPlayer | null = null;
       try {
-        await configurePlaybackAudioMode();
-        await setIsAudioActiveAsync(true);
+        await configurePlaybackAudioMode(true);
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
         player = createAudioPlayer({ uri }, {
           updateInterval: 100,
-          keepAudioSessionActive: true,
         });
         player.volume = 1.0;
-        try {
-          player.setActiveForLockScreen(true, {
-            title: 'AI Wingman',
-            artist: 'Live coaching',
-            albumTitle: 'Wingman',
-          });
-        } catch {
-          // Lock screen controls are a best-effort background playback upgrade.
-        }
+        await setIsAudioActiveAsync(true);
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         await new Promise<void>((resolve) => {
@@ -403,7 +396,6 @@ export function useWingmanSession() {
       } finally {
         if (player) {
           try { player.remove(); } catch { /* noop */ }
-          try { player.clearLockScreenControls(); } catch { /* noop */ }
         }
         FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
       }
@@ -412,7 +404,7 @@ export function useWingmanSession() {
     setWingmanSpeaking(false);
     isPlayingRef.current = false;
     // Restore recording mode so the mic keeps working after coaching plays.
-    configureRecordingAudioMode().catch(() => {});
+    configureRecordingAudioMode(true).catch(() => {});
   }, []);
 
   // Wire up WebSocket events. Actions are read via getState() so this effect
@@ -506,7 +498,7 @@ export function useWingmanSession() {
     return unsubscribe;
   }, [playCoachingAudio]);
 
-  const startChunkRecording = useCallback(async () => {
+  const startChunkRecording = useCallback(async (config: SessionConfig) => {
     try {
       const permissions = await requestRecordingPermissionsAsync();
       useSessionStore.getState().setMicPermissionGranted('granted' in permissions ? permissions.granted : null);
@@ -632,13 +624,13 @@ export function useWingmanSession() {
       }
     };
 
-    // First segment immediately, then ~1.8s segments. Longer clips give
-    // Deepgram enough context to transcribe speech-in-noise accurately (0.9s
-    // clips were too short — the model had almost no context and garbled noisy
-    // audio) and halve the number of stop/start gaps where audio is lost. The
-    // small added latency is an acceptable trade for a usable transcript.
+    const segmentMs = config.interactionMode === 'roleplay' ? 6500 : 1800;
+
+    // Start immediately, then repeat on a mode-specific cadence. Roleplay uses
+    // a longer slice so Claude sees a fuller utterance instead of reacting to
+    // tiny fragments. The regular coaching modes stay a bit faster.
     await captureAndSend();
-    chunkTimerRef.current = setInterval(captureAndSend, 1800);
+    chunkTimerRef.current = setInterval(captureAndSend, segmentMs);
     return Boolean(recordingRef.current);
   }, []);
 
@@ -723,7 +715,7 @@ export function useWingmanSession() {
       // impossible to diagnose or gate silence. Chunk recording has explicit
       // metering, file-size fallback gating, and ships complete containers that
       // Deepgram auto-detects — it is the more reliable path on current devices.
-      const started = await startChunkRecording().catch((err: unknown) => {
+      const started = await startChunkRecording(config).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
         useSessionStore.getState().setError(message);
         useSessionStore.getState().setSessionPhase('error');

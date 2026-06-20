@@ -31,6 +31,7 @@ const MIN_NEW_WORDS_FOR_COACH = 2;
 const PCM_SAMPLE_RATE = 16000;
 const PCM_CHANNELS = 1;
 const PCM_BITS_PER_SAMPLE = 16;
+const ROLEPLAY_TRANSCRIPT_FLUSH_MS = 3000;
 
 function wrapPcmInWav(pcm: Buffer, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Buffer {
   const byteRate = sampleRate * channels * (PCM_BITS_PER_SAMPLE / 8);
@@ -68,6 +69,10 @@ export class Session {
   private liveTranscriberRate = PCM_SAMPLE_RATE;
   private liveTranscriberChannels = PCM_CHANNELS;
   private transcriptionMode: 'live' | 'chunked' = 'live';
+  private receiveAudioQueue: Promise<void> = Promise.resolve();
+  private roleplayTranscriptBuffer: string[] = [];
+  private roleplayTranscriptTimer: ReturnType<typeof setTimeout> | null = null;
+  private roleplayTranscriptFlushing = false;
 
   // --- Rolling context state (persists for the session lifetime) ---
   private rollingSummary = '';
@@ -136,68 +141,121 @@ export class Session {
    * transcribe it, surface the transcript, and trigger coaching.
    */
   async receiveAudio(base64Chunk: string, mimeType?: string, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Promise<void> {
-    if (!base64Chunk) return;
+    const run = async (): Promise<void> => {
+      if (!base64Chunk) return;
 
-    let buf: Buffer;
-    try {
-      buf = Buffer.from(base64Chunk, 'base64');
-    } catch {
-      return;
-    }
-    // Skip empty / near-silent segments that are too small to contain speech.
-    if (buf.byteLength < 1024) return;
-
-    const isPcmStream = mimeType === 'audio/pcm';
-    if (isPcmStream) {
-      const live = this.ensureLiveTranscriber(sampleRate, channels);
-      if (this.transcriptionMode === 'live' && live.isHealthy) {
-        const sent = live.send(buf);
-        if (sent) return;
-        this.transcriptionMode = 'chunked';
-        void live.close();
-        this.liveTranscriber = null;
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(base64Chunk, 'base64');
+      } catch {
+        return;
       }
-      const wav = wrapPcmInWav(buf, sampleRate, channels);
+      // Skip empty / near-silent segments that are too small to contain speech.
+      if (buf.byteLength < 1024) return;
+
+      const isPcmStream = mimeType === 'audio/pcm';
+      if (isPcmStream) {
+        const live = this.ensureLiveTranscriber(sampleRate, channels);
+        if (this.transcriptionMode === 'live' && live.isHealthy) {
+          const sent = live.send(buf);
+          if (sent) return;
+          this.transcriptionMode = 'chunked';
+          void live.close();
+          this.liveTranscriber = null;
+        }
+        const wav = wrapPcmInWav(buf, sampleRate, channels);
+        let text = '';
+        try {
+          text = await transcribeChunk(wav, this.config.keywords ?? []);
+        } catch (err) {
+          const msg = (err as Error).message ?? 'Transcription failed';
+          console.error(`[Session ${this.id}] PCM transcription error:`, msg);
+          this.send({ type: 'error', message: `Transcription error: ${msg}` });
+          return;
+        }
+        if (!text) return;
+
+        this.wordCount += text.split(/\s+/).filter(Boolean).length;
+        this.send({ type: 'transcript', text, isFinal: true });
+        this.recordTranscript(text);
+        this.transcriptSinceCoach.push(text);
+        this.latestTranscript = this.buildRecentTranscriptWindow();
+        void this.maybeCoach();
+        return;
+      }
+
       let text = '';
       try {
-        text = await transcribeChunk(wav, this.config.keywords ?? []);
+        text = await transcribeChunk(buf, this.config.keywords ?? []);
       } catch (err) {
         const msg = (err as Error).message ?? 'Transcription failed';
-        console.error(`[Session ${this.id}] PCM transcription error:`, msg);
+        console.error(`[Session ${this.id}] Transcription error:`, msg);
         this.send({ type: 'error', message: `Transcription error: ${msg}` });
         return;
       }
       if (!text) return;
 
+      if (this.config.interactionMode === 'roleplay') {
+        this.queueRoleplayTranscript(text);
+        return;
+      }
+
       this.wordCount += text.split(/\s+/).filter(Boolean).length;
+      // Always surface the transcript to the client, even while a coaching
+      // request is already in flight, so the UI never loses words.
       this.send({ type: 'transcript', text, isFinal: true });
+
       this.recordTranscript(text);
       this.transcriptSinceCoach.push(text);
       this.latestTranscript = this.buildRecentTranscriptWindow();
       void this.maybeCoach();
-      return;
+    };
+
+    const queued = this.receiveAudioQueue.then(run, run);
+    this.receiveAudioQueue = queued.catch(() => {});
+    return queued;
+  }
+
+  private queueRoleplayTranscript(fragment: string): void {
+    const clean = fragment.trim();
+    if (!clean) return;
+
+    this.roleplayTranscriptBuffer.push(clean);
+
+    if (this.roleplayTranscriptTimer) {
+      clearTimeout(this.roleplayTranscriptTimer);
+    }
+    this.roleplayTranscriptTimer = setTimeout(() => {
+      void this.flushRoleplayTranscript();
+    }, ROLEPLAY_TRANSCRIPT_FLUSH_MS);
+  }
+
+  private async flushRoleplayTranscript(): Promise<void> {
+    if (this.roleplayTranscriptFlushing) return;
+    if (this.roleplayTranscriptTimer) {
+      clearTimeout(this.roleplayTranscriptTimer);
+      this.roleplayTranscriptTimer = null;
     }
 
-    let text = '';
+    const transcript = this.roleplayTranscriptBuffer.join(' ').replace(/\s+/g, ' ').trim();
+    if (!transcript) return;
+
+    this.roleplayTranscriptFlushing = true;
+    this.roleplayTranscriptBuffer = [];
+
     try {
-      text = await transcribeChunk(buf, this.config.keywords ?? []);
-    } catch (err) {
-      const msg = (err as Error).message ?? 'Transcription failed';
-      console.error(`[Session ${this.id}] Transcription error:`, msg);
-      this.send({ type: 'error', message: `Transcription error: ${msg}` });
-      return;
+      this.wordCount += transcript.split(/\s+/).filter(Boolean).length;
+      this.send({ type: 'transcript', text: transcript, isFinal: true });
+      this.recordTranscript(transcript);
+      this.transcriptSinceCoach.push(transcript);
+      this.latestTranscript = this.buildRecentTranscriptWindow();
+      void this.maybeCoach();
+    } finally {
+      this.roleplayTranscriptFlushing = false;
+      if (this.roleplayTranscriptBuffer.length > 0) {
+        void this.flushRoleplayTranscript();
+      }
     }
-    if (!text) return;
-
-    this.wordCount += text.split(/\s+/).filter(Boolean).length;
-    // Always surface the transcript to the client, even while a coaching
-    // request is already in flight, so the UI never loses words.
-    this.send({ type: 'transcript', text, isFinal: true });
-
-    this.recordTranscript(text);
-    this.transcriptSinceCoach.push(text);
-    this.latestTranscript = this.buildRecentTranscriptWindow();
-    void this.maybeCoach();
   }
 
   /**
@@ -518,6 +576,11 @@ export class Session {
   end(): void {
     this.transcriptionMode = 'chunked';
     this.ttsQueue = [];
+    if (this.roleplayTranscriptTimer) {
+      clearTimeout(this.roleplayTranscriptTimer);
+      this.roleplayTranscriptTimer = null;
+    }
+    void this.flushRoleplayTranscript();
     if (this.liveTranscriber) {
       this.liveTranscriber.finalize();
       void (async () => {

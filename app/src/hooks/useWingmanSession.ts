@@ -293,6 +293,7 @@ export function useWingmanSession() {
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef = useRef(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roleplayFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards against overlapping capture cycles: a slow stop()/file-read can run
   // past the interval, and a second invocation racing the first would
   // orphan a native recorder (leak / double-record crash).
@@ -372,14 +373,15 @@ export function useWingmanSession() {
       let player: AudioPlayer | null = null;
       try {
         await configurePlaybackAudioMode(true);
+        await setIsAudioActiveAsync(true);
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
         player = createAudioPlayer({ uri }, {
           updateInterval: 100,
+          keepAudioSessionActive: true,
         });
         player.volume = 1.0;
-        await setIsAudioActiveAsync(true);
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         await new Promise<void>((resolve) => {
@@ -634,6 +636,27 @@ export function useWingmanSession() {
     return Boolean(recordingRef.current);
   }, []);
 
+  const switchRoleplayToChunkRecording = useCallback(async (config: SessionConfig) => {
+    if (!isActiveRef.current) return false;
+    try {
+      audioStreamActiveRef.current = false;
+      try {
+        audioStream.stream.stop();
+      } catch {
+        // noop
+      }
+      const started = await startChunkRecording(config);
+      if (started) {
+        useSessionStore.getState().setError(null);
+        useSessionStore.getState().setSessionPhase('recording');
+      }
+      return started;
+    } catch (err) {
+      useSessionStore.getState().setError(`Could not switch to fallback mic capture. ${describeError(err)}`);
+      return false;
+    }
+  }, [audioStream, startChunkRecording]);
+
   const startContinuousAudioStream = useCallback(async () => {
     try {
       const permissions = await requestRecordingPermissionsAsync();
@@ -709,19 +732,32 @@ export function useWingmanSession() {
       // Elapsed time clock
       clockRef.current = setInterval(() => useSessionStore.getState().incrementElapsed(), 1000);
 
-      // Use chunk recording (complete AAC container per cycle) rather than the
-      // raw-PCM continuous stream. The stream path silently returns empty buffers
-      // on iOS 26 with AirPods connected and provides no metering data, so it is
-      // impossible to diagnose or gate silence. Chunk recording has explicit
-      // metering, file-size fallback gating, and ships complete containers that
-      // Deepgram auto-detects — it is the more reliable path on current devices.
-      const started = await startChunkRecording(config).catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
-        useSessionStore.getState().setError(message);
-        useSessionStore.getState().setSessionPhase('error');
-        return false;
-      });
+      const started = config.interactionMode === 'roleplay'
+        ? await startContinuousAudioStream().catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+            useSessionStore.getState().setError(message);
+            useSessionStore.getState().setSessionPhase('error');
+            return false;
+          })
+        : await startChunkRecording(config).catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Could not start microphone capture.';
+            useSessionStore.getState().setError(message);
+            useSessionStore.getState().setSessionPhase('error');
+            return false;
+          });
       useSessionStore.getState().setRecording(started);
+      if (roleplayFallbackTimerRef.current) {
+        clearTimeout(roleplayFallbackTimerRef.current);
+        roleplayFallbackTimerRef.current = null;
+      }
+      if (started && config.interactionMode === 'roleplay') {
+        roleplayFallbackTimerRef.current = setTimeout(() => {
+          const current = useSessionStore.getState();
+          if (!isActiveRef.current || current.sessionPhase === 'error') return;
+          if (hasReceivedTranscriptRef.current) return;
+          void switchRoleplayToChunkRecording(config);
+        }, 3500);
+      }
       if (!started) {
         wingmanClient.disconnect();
         isActiveRef.current = false;
@@ -752,6 +788,10 @@ export function useWingmanSession() {
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
+    }
+    if (roleplayFallbackTimerRef.current) {
+      clearTimeout(roleplayFallbackTimerRef.current);
+      roleplayFallbackTimerRef.current = null;
     }
     if (connectWatchdogRef.current) {
       clearTimeout(connectWatchdogRef.current);

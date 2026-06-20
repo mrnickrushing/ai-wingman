@@ -31,7 +31,7 @@ const MIN_NEW_WORDS_FOR_COACH = 2;
 const PCM_SAMPLE_RATE = 16000;
 const PCM_CHANNELS = 1;
 const PCM_BITS_PER_SAMPLE = 16;
-const ROLEPLAY_TRANSCRIPT_FLUSH_MS = 3000;
+const ROLEPLAY_TRANSCRIPT_FLUSH_MS = 1200;
 
 function wrapPcmInWav(pcm: Buffer, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Buffer {
   const byteRate = sampleRate * channels * (PCM_BITS_PER_SAMPLE / 8);

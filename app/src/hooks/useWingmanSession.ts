@@ -366,6 +366,18 @@ export function useWingmanSession() {
     if (isPlayingRef.current) return;
     isPlayingRef.current = true;
 
+    // The live mic stream keeps an AVAudioEngine recording tap attached for
+    // the whole session, which pins the session to .playAndRecord. Switching
+    // setAudioModeAsync to allowsRecording:false while that tap is still
+    // running doesn't actually change the session category, so coaching
+    // audio kept getting forced to the speaker instead of AirPods. Stop the
+    // stream first so the category switch below actually takes effect.
+    const wasStreaming = audioStreamActiveRef.current;
+    if (wasStreaming) {
+      audioStreamActiveRef.current = false;
+      try { audioStream.stream.stop(); } catch { /* noop */ }
+    }
+
     const { setWingmanSpeaking, setError } = useSessionStore.getState();
     while (audioQueueRef.current.length > 0) {
       const b64 = audioQueueRef.current.shift()!;
@@ -405,9 +417,21 @@ export function useWingmanSession() {
 
     setWingmanSpeaking(false);
     isPlayingRef.current = false;
-    // Restore recording mode so the mic keeps working after coaching plays.
-    configureRecordingAudioMode(true).catch(() => {});
-  }, []);
+    // Restore recording mode and restart the mic tap so live coaching keeps
+    // working after coaching audio plays.
+    if (wasStreaming && isActiveRef.current) {
+      try {
+        await configureRecordingAudioMode(true);
+        await setIsAudioActiveAsync(true);
+        await audioStream.stream.start();
+        audioStreamActiveRef.current = true;
+      } catch (err) {
+        setError(`Could not resume live microphone stream. ${describeError(err)}`);
+      }
+    } else {
+      configureRecordingAudioMode(true).catch(() => {});
+    }
+  }, [audioStream]);
 
   // Wire up WebSocket events. Actions are read via getState() so this effect
   // never needs to re-subscribe and runs exactly once.

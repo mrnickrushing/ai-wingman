@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least-privilege: these jobs only read the repo.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref so PRs don't queue stale builds.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck (server + app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck server
+        run: npm run typecheck --workspace=server
+      - name: Typecheck app
+        run: npm run typecheck --workspace=app
+
+  lint:
+    name: Lint (server + app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint server
+        run: npm run lint --workspace=server
+      - name: Lint app
+        run: npm run lint --workspace=app
+
+  build:
+    name: Build server + validate workers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build server (tsc)
+        run: npm run build --workspace=server
+      - name: Validate Cloudflare worker syntax
+        run: |
+          node --check workers/wingman-landing/worker.js
+          node --check workers/wingman-admin/worker.js
+
+  audit:
+    name: Dependency audit (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Surfaces high/critical advisories in the run summary. Advisory only —
+      # it never blocks a merge (Dependabot opens the actual upgrade PRs).
+      - name: npm audit (high + critical)
+        run: npm audit --audit-level=high
+        continue-on-error: true

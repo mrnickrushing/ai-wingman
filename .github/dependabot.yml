@@ -13,10 +13,10 @@ updates:
       # Collapse low-risk bumps into one PR each to cut review noise.
       dev-dependencies:
         dependency-type: development
-        update-types: ["minor", "patch"]
+        update-types: ["major", "minor", "patch"]
       production-minor-patch:
         dependency-type: production
-        update-types: ["minor", "patch"]
+        update-types: ["major", "minor", "patch"]
     labels:
       - dependencies
 

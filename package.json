@@ -7,6 +7,9 @@
     "server",
     "app"
   ],
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "scripts": {
     "server": "npm run dev --workspace=server",
     "app": "npm start --workspace=app",

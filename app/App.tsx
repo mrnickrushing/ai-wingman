@@ -167,9 +167,8 @@ function WingmanApp() {
   useEffect(() => { void applyAvailableUpdate(); }, []);
 
   useEffect(() => {
-    AsyncStorage.multiGet([ONBOARDED_KEY, CONSENT_KEY])
-      .then((entries) => {
-        const map = Object.fromEntries(entries) as Record<string, string | null>;
+    AsyncStorage.getMany([ONBOARDED_KEY, CONSENT_KEY])
+      .then((map) => {
         setOnboarded(map[ONBOARDED_KEY] === 'true');
         setConsented(map[CONSENT_KEY] === 'true');
       })

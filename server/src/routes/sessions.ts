@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { createSession, listSessionsByAccount, getSessionById, getSessionStats, DbSession } from '../db/sessions';
 import { upsertAccountMemory } from '../db/accountMemory';
 import { verifyToken } from '../services/jwt';
@@ -73,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
   });
 
   const session = await createSession({
-    id: uuidv4(),
+    id: randomUUID(),
     accountId: accountId ?? null,
     mode,
     title: title ?? '',

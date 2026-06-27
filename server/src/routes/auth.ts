@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 import {
   findByEmail, findByAppleId, findByGoogleSubject, findById,
   createAccount, updateAccount, deleteAccount, DbAccount,
@@ -84,7 +83,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const salt = newSalt();
   const hash = hashPassword(password, salt);
   const account = await createAccount({
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     provider: 'email',
     email: normalEmail,
     displayName: displayName?.trim() || normalEmail.split('@')[0],
@@ -134,7 +133,7 @@ router.post('/apple', asyncHandler(async (req: Request, res: Response) => {
     }) ?? account;
   } else {
     account = await createAccount({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       provider: 'apple',
       email: normalEmail,
       displayName: displayName?.trim() || normalEmail.split('@')[0],
@@ -163,7 +162,7 @@ router.post('/google', asyncHandler(async (req: Request, res: Response) => {
     account = await updateAccount(account.id, { email: normalEmail, displayName: name }) ?? account;
   } else {
     account = await createAccount({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       provider: 'google',
       email: normalEmail,
       displayName: name,

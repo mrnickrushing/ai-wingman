@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { Session } from './Session';
 import { SessionConfig } from '../types';
 
@@ -7,7 +7,7 @@ export class SessionManager {
   private sessions = new Map<string, Session>();
 
   create(ws: WebSocket, config: SessionConfig): Session {
-    const id = uuidv4();
+    const id = randomUUID();
     const session = new Session(id, ws, config);
     this.sessions.set(id, session);
     console.log(`[SessionManager] Created session ${id} (mode: ${config.mode})`);

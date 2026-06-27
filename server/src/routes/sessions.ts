@@ -129,7 +129,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
-  const session = await getSessionById(req.params.id);
+  const session = await getSessionById(String(req.params.id));
   if (!session) return res.status(404).json({ error: 'Session not found.' });
   if (session.account_id && session.account_id !== accountId) {
     return res.status(403).json({ error: 'Forbidden.' });

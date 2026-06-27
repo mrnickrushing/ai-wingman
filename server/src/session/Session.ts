@@ -164,7 +164,7 @@ export class Session {
           this.liveTranscriber = null;
         }
         const wav = wrapPcmInWav(buf, sampleRate, channels);
-        let text = '';
+        let text: string;
         try {
           text = await transcribeChunk(wav, this.config.keywords ?? []);
         } catch (err) {
@@ -184,7 +184,7 @@ export class Session {
         return;
       }
 
-      let text = '';
+      let text: string;
       try {
         text = await transcribeChunk(buf, this.config.keywords ?? []);
       } catch (err) {

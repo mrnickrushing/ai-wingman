@@ -16,14 +16,14 @@ export interface PersistedStats {
 
 export async function loadStats(): Promise<PersistedStats> {
   try {
-    const [sessions, bestScore, streak, lastSessionDate] = await AsyncStorage.multiGet([
+    const entries = await AsyncStorage.getMany([
       KEYS.sessions, KEYS.bestScore, KEYS.streak, KEYS.lastSessionDate,
     ]);
     return {
-      sessions: parseInt(sessions[1] ?? '0', 10) || 0,
-      bestScore: parseInt(bestScore[1] ?? '0', 10) || 0,
-      streak: parseInt(streak[1] ?? '0', 10) || 0,
-      lastSessionDate: lastSessionDate[1] ?? null,
+      sessions: parseInt(entries[KEYS.sessions] ?? '0', 10) || 0,
+      bestScore: parseInt(entries[KEYS.bestScore] ?? '0', 10) || 0,
+      streak: parseInt(entries[KEYS.streak] ?? '0', 10) || 0,
+      lastSessionDate: entries[KEYS.lastSessionDate] ?? null,
     };
   } catch {
     return { sessions: 0, bestScore: 0, streak: 0, lastSessionDate: null };
@@ -49,12 +49,12 @@ export async function recordSessionStats(score: number): Promise<PersistedStats>
       else newStreak = 1; // streak broken
     }
 
-    await AsyncStorage.multiSet([
-      [KEYS.sessions, newSessions.toString()],
-      [KEYS.bestScore, newBestScore.toString()],
-      [KEYS.streak, newStreak.toString()],
-      [KEYS.lastSessionDate, today],
-    ]);
+    await AsyncStorage.setMany({
+      [KEYS.sessions]: newSessions.toString(),
+      [KEYS.bestScore]: newBestScore.toString(),
+      [KEYS.streak]: newStreak.toString(),
+      [KEYS.lastSessionDate]: today,
+    });
 
     return { sessions: newSessions, bestScore: newBestScore, streak: newStreak, lastSessionDate: today };
   } catch {

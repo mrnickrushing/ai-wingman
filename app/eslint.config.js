@@ -7,6 +7,13 @@ module.exports = [
     ignores: ['dist/**', 'node_modules/**', '.expo/**', 'eslint.config.js', 'babel.config.js'],
   },
   {
+    // eslint-plugin-react's React-version auto-detection calls the
+    // ESLint 9 `context.getFilename()` API, which ESLint 10 removed,
+    // crashing every version-aware rule (e.g. react/display-name).
+    // Pinning the version explicitly skips that detection path.
+    settings: {
+      react: { version: '19.2.7' },
+    },
     rules: {
       // The React Compiler is NOT enabled in this app's build, so its strict
       // ref/purity/immutability diagnostics fire on standard React Native

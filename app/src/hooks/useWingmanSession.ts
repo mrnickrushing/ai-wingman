@@ -407,10 +407,16 @@ export function useWingmanSession() {
           // True once the player emits its first status update, which confirms
           // the native audio engine accepted the play request.
           let didStart = false;
+          // Guard against sub.remove() being called more than once (e.g. if
+          // the status listener and the timeout both race to clean up).
+          let subRemoved = false;
 
           const cleanup = (timer: ReturnType<typeof setTimeout> | null, sub: { remove(): void }) => {
             if (timer) clearTimeout(timer);
-            sub.remove();
+            if (!subRemoved) {
+              subRemoved = true;
+              sub.remove();
+            }
           };
 
           const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
@@ -434,9 +440,9 @@ export function useWingmanSession() {
           // the native player never started (silent Bluetooth/AirPods route
           // failure). Fail fast so the queue can advance rather than hanging.
           startGuardTimer = setTimeout(() => {
-            sub.remove();
             const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
             console.warn('[useWingmanSession] playback start timeout:', msg);
+            cleanup(null, sub);
             reject(new Error(msg));
           }, PLAY_START_TIMEOUT_MS);
 

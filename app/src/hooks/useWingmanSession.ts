@@ -404,19 +404,21 @@ export function useWingmanSession() {
         await new Promise<void>((resolve, reject) => {
           const PLAY_START_TIMEOUT_MS = 2500;
           let startGuardTimer: ReturnType<typeof setTimeout> | null = null;
-          // True once the player emits its first status update, which confirms
-          // the native audio engine accepted the play request.
           let didStart = false;
-          // Guard against sub.remove() being called more than once (e.g. if
-          // the status listener and the timeout both race to clean up).
-          let subRemoved = false;
+          // Ensures the promise is settled exactly once regardless of which
+          // path (finish, error, timeout, sync throw) wins the race.
+          let settled = false;
 
-          const cleanup = (timer: ReturnType<typeof setTimeout> | null, sub: { remove(): void }) => {
+          const settle = (
+            action: () => void,
+            timer: ReturnType<typeof setTimeout> | null,
+            sub: { remove(): void },
+          ) => {
+            if (settled) return;
+            settled = true;
             if (timer) clearTimeout(timer);
-            if (!subRemoved) {
-              subRemoved = true;
-              sub.remove();
-            }
+            sub.remove();
+            action();
           };
 
           const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
@@ -431,8 +433,7 @@ export function useWingmanSession() {
               }
             }
             if (status.didJustFinish || status.error) {
-              cleanup(startGuardTimer, sub);
-              resolve();
+              settle(resolve, startGuardTimer, sub);
             }
           });
 
@@ -442,16 +443,14 @@ export function useWingmanSession() {
           startGuardTimer = setTimeout(() => {
             const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
             console.warn('[useWingmanSession] playback start timeout:', msg);
-            cleanup(null, sub);
-            reject(new Error(msg));
+            settle(() => reject(new Error(msg)), null, sub);
           }, PLAY_START_TIMEOUT_MS);
 
           try {
             player!.play();
           } catch (playErr) {
-            cleanup(startGuardTimer, sub);
             console.warn('[useWingmanSession] player.play() threw synchronously:', playErr);
-            reject(playErr);
+            settle(() => reject(playErr), startGuardTimer, sub);
           }
         });
       } catch (err) {

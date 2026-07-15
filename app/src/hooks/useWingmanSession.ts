@@ -26,6 +26,9 @@ const nextId = () => String(++idCounter);
 const COACHING_VISIBLE_MS = 6000;
 const STREAM_SAMPLE_RATE = 16000;
 const STREAM_CHANNELS = 1;
+// Maximum time (ms) to wait for the first playbackStatusUpdate after play()
+// before treating the attempt as a silent Bluetooth route failure.
+const PLAY_START_TIMEOUT_MS = 2500;
 
 // dBFS threshold below which we treat the chunk as silence and skip it.
 // AirPod mics and iOS 26 devices can report speech at lower dBFS than the
@@ -402,7 +405,6 @@ export function useWingmanSession() {
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         await new Promise<void>((resolve, reject) => {
-          const PLAY_START_TIMEOUT_MS = 2500;
           let startGuardTimer: ReturnType<typeof setTimeout> | null = null;
           let didStart = false;
           // Ensures the promise is settled exactly once regardless of which
@@ -443,7 +445,7 @@ export function useWingmanSession() {
           startGuardTimer = setTimeout(() => {
             const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
             console.warn('[useWingmanSession] playback start timeout:', msg);
-            settle(() => reject(new Error(msg)), null, sub);
+            settle(() => reject(new Error(msg)), startGuardTimer, sub);
           }, PLAY_START_TIMEOUT_MS);
 
           try {

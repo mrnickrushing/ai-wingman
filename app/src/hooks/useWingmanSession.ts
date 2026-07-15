@@ -445,14 +445,21 @@ export function useWingmanSession() {
           startGuardTimer = setTimeout(() => {
             const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
             console.warn('[useWingmanSession] playback start timeout:', msg);
-            settle(() => reject(new Error(msg)), startGuardTimer, sub);
+            // Timer has already fired; pass null so settle() skips clearTimeout.
+            settle(() => reject(new Error(msg)), null, sub);
           }, PLAY_START_TIMEOUT_MS);
 
           try {
             player!.play();
           } catch (playErr) {
             console.warn('[useWingmanSession] player.play() threw synchronously:', playErr);
-            settle(() => reject(playErr), startGuardTimer, sub);
+            // Disarm the guard timer explicitly before handing off to settle()
+            // so it cannot fire after the promise is already settled.
+            if (startGuardTimer) {
+              clearTimeout(startGuardTimer);
+              startGuardTimer = null;
+            }
+            settle(() => reject(playErr), null, sub);
           }
         });
       } catch (err) {

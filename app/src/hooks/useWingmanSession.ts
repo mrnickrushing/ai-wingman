@@ -386,6 +386,11 @@ export function useWingmanSession() {
       try {
         await configurePlaybackAudioMode(true);
         await setIsAudioActiveAsync(true);
+        // Brief pause to let Bluetooth/AirPods route settle after the audio
+        // session category switch before we open a new player. Without this,
+        // iOS can hand off to a transitioning route and play() silently
+        // discards the audio frame while route negotiation is still in flight.
+        await new Promise<void>(res => setTimeout(res, 150));
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -396,16 +401,55 @@ export function useWingmanSession() {
         player.volume = 1.0;
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          const PLAY_START_TIMEOUT_MS = 2500;
+          let startGuardTimer: ReturnType<typeof setTimeout> | null = null;
+          // True once the player emits its first status update, which confirms
+          // the native audio engine accepted the play request.
+          let didStart = false;
+
+          const cleanup = (timer: ReturnType<typeof setTimeout> | null, sub: { remove(): void }) => {
+            if (timer) clearTimeout(timer);
+            sub.remove();
+          };
+
           const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+            // Any status update from the player means the native engine is
+            // active; cancel the start guard so a normally-playing long clip
+            // is not mistakenly aborted by the timeout.
+            if (!didStart) {
+              didStart = true;
+              if (startGuardTimer) {
+                clearTimeout(startGuardTimer);
+                startGuardTimer = null;
+              }
+            }
             if (status.didJustFinish || status.error) {
-              sub.remove();
+              cleanup(startGuardTimer, sub);
               resolve();
             }
           });
-          player!.play();
+
+          // Guard timeout: if no status update arrives within PLAY_START_TIMEOUT_MS
+          // the native player never started (silent Bluetooth/AirPods route
+          // failure). Fail fast so the queue can advance rather than hanging.
+          startGuardTimer = setTimeout(() => {
+            sub.remove();
+            const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
+            console.warn('[useWingmanSession] playback start timeout:', msg);
+            reject(new Error(msg));
+          }, PLAY_START_TIMEOUT_MS);
+
+          try {
+            player!.play();
+          } catch (playErr) {
+            cleanup(startGuardTimer, sub);
+            console.warn('[useWingmanSession] player.play() threw synchronously:', playErr);
+            reject(playErr);
+          }
         });
       } catch (err) {
+        console.warn('[useWingmanSession] coaching audio playback failed:', describeError(err));
         setError(`Coaching audio playback failed. ${describeError(err)}`);
       } finally {
         if (player) {

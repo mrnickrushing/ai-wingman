@@ -26,6 +26,9 @@ const nextId = () => String(++idCounter);
 const COACHING_VISIBLE_MS = 6000;
 const STREAM_SAMPLE_RATE = 16000;
 const STREAM_CHANNELS = 1;
+// Maximum time (ms) to wait for the first playbackStatusUpdate after play()
+// before treating the attempt as a silent Bluetooth route failure.
+const PLAY_START_TIMEOUT_MS = 2500;
 
 // dBFS threshold below which we treat the chunk as silence and skip it.
 // AirPod mics and iOS 26 devices can report speech at lower dBFS than the
@@ -386,6 +389,11 @@ export function useWingmanSession() {
       try {
         await configurePlaybackAudioMode(true);
         await setIsAudioActiveAsync(true);
+        // Brief pause to let Bluetooth/AirPods route settle after the audio
+        // session category switch before we open a new player. Without this,
+        // iOS can hand off to a transitioning route and play() silently
+        // discards the audio frame while route negotiation is still in flight.
+        await new Promise<void>(res => setTimeout(res, 150));
         await FileSystem.writeAsStringAsync(uri, b64, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -396,16 +404,66 @@ export function useWingmanSession() {
         player.volume = 1.0;
         setWingmanSpeaking(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          let startGuardTimer: ReturnType<typeof setTimeout> | null = null;
+          let didStart = false;
+          // Ensures the promise is settled exactly once regardless of which
+          // path (finish, error, timeout, sync throw) wins the race.
+          let settled = false;
+
+          const settle = (
+            action: () => void,
+            timer: ReturnType<typeof setTimeout> | null,
+            sub: { remove(): void },
+          ) => {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            sub.remove();
+            action();
+          };
+
           const sub = player!.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+            // Any status update from the player means the native engine is
+            // active; cancel the start guard so a normally-playing long clip
+            // is not mistakenly aborted by the timeout.
+            if (!didStart) {
+              didStart = true;
+              if (startGuardTimer) {
+                clearTimeout(startGuardTimer);
+                startGuardTimer = null;
+              }
+            }
             if (status.didJustFinish || status.error) {
-              sub.remove();
-              resolve();
+              settle(resolve, startGuardTimer, sub);
             }
           });
-          player!.play();
+
+          // Guard timeout: if no status update arrives within PLAY_START_TIMEOUT_MS
+          // the native player never started (silent Bluetooth/AirPods route
+          // failure). Fail fast so the queue can advance rather than hanging.
+          startGuardTimer = setTimeout(() => {
+            const msg = 'Coaching audio playback did not start within 2.5 s — possible Bluetooth/AirPods route failure.';
+            console.warn('[useWingmanSession] playback start timeout:', msg);
+            // Timer has already fired; pass null so settle() skips clearTimeout.
+            settle(() => reject(new Error(msg)), null, sub);
+          }, PLAY_START_TIMEOUT_MS);
+
+          try {
+            player!.play();
+          } catch (playErr) {
+            console.warn('[useWingmanSession] player.play() threw synchronously:', playErr);
+            // Disarm the guard timer explicitly before handing off to settle()
+            // so it cannot fire after the promise is already settled.
+            if (startGuardTimer) {
+              clearTimeout(startGuardTimer);
+              startGuardTimer = null;
+            }
+            settle(() => reject(playErr), null, sub);
+          }
         });
       } catch (err) {
+        console.warn('[useWingmanSession] coaching audio playback failed:', describeError(err));
         setError(`Coaching audio playback failed. ${describeError(err)}`);
       } finally {
         if (player) {

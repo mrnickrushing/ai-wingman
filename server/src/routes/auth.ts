@@ -16,6 +16,9 @@ const router = Router();
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 function legacyPasswordHash(password: string, salt: string): string {
+  // Verification-only compatibility for old rows; a match is immediately
+  // replaced with bcrypt before the login response is issued.
+  // codeql[js/insufficient-password-hash]
   return crypto.createHmac('sha256', salt).update(password).digest('hex');
 }
 

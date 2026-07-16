@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -130,8 +131,7 @@ export function RoleplayScreen({ onBack, mode }: Props) {
 
   const { start, stop } = useWingmanSession();
 
-  const {
-    transcript,
+  const { transcript,
     coachingHistory,
     currentCoaching,
     isConnected,
@@ -141,8 +141,21 @@ export function RoleplayScreen({ onBack, mode }: Props) {
     sessionPhase,
     serverHealth,
     micPermissionGranted,
-    micLevelDb,
-  } = useSessionStore();
+    micLevelDb, } = useSessionStore(
+  useShallow((state) => ({
+    transcript: state.transcript,
+    coachingHistory: state.coachingHistory,
+    currentCoaching: state.currentCoaching,
+    isConnected: state.isConnected,
+    isRecording: state.isRecording,
+    isWingmanSpeaking: state.isWingmanSpeaking,
+    error: state.error,
+    sessionPhase: state.sessionPhase,
+    serverHealth: state.serverHealth,
+    micPermissionGranted: state.micPermissionGranted,
+    micLevelDb: state.micLevelDb,
+  }))
+);
 
   // Slide-in animation for the coaching card
   const coachSlide = useRef(new Animated.Value(0)).current;

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -17,7 +18,12 @@ interface Props {
 }
 
 export function PrePitchingScreen({ onStart, onBack }: Props) {
-  const { pitchingSetup, setPitchingSetup } = useSessionStore();
+  const { pitchingSetup, setPitchingSetup } = useSessionStore(
+  useShallow((state) => ({
+    pitchingSetup: state.pitchingSetup,
+    setPitchingSetup: state.setPitchingSetup,
+  }))
+);
   const [titleFocused, setTitleFocused] = useState(false);
   const [deckFocused, setDeckFocused] = useState(false);
 

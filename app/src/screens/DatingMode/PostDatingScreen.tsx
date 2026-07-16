@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -37,7 +38,17 @@ interface Props {
 }
 
 export function PostDatingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, datingSetup, lastRating, recordSession } = useSessionStore(
+  useShallow((state) => ({
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    coachingHistory: state.coachingHistory,
+    transcript: state.transcript,
+    datingSetup: state.datingSetup,
+    lastRating: state.lastRating,
+    recordSession: state.recordSession,
+  }))
+);
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -295,6 +306,8 @@ export function PostDatingScreen({ onNewSession, onHome }: Props) {
                         <TouchableOpacity
                           style={s.copyBtn}
                           activeOpacity={0.75}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Copy follow-up ${i + 1}`}
                           onPress={() => {
                             Share.share({ message: cleanText(f.text) }).catch(() => {});
                             setCopiedIndex(i);

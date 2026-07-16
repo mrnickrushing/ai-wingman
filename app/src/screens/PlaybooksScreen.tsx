@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -29,13 +30,19 @@ type Props = {
 };
 
 export function PlaybooksScreen({ onBack, onStartMode }: Props) {
-  const {
-    setSalesSetup,
+  const { setSalesSetup,
     setDatingSetup,
     setNetworkingSetup,
     setPitchingSetup,
-    setHardConvoSetup,
-  } = useSessionStore();
+    setHardConvoSetup, } = useSessionStore(
+  useShallow((state) => ({
+    setSalesSetup: state.setSalesSetup,
+    setDatingSetup: state.setDatingSetup,
+    setNetworkingSetup: state.setNetworkingSetup,
+    setPitchingSetup: state.setPitchingSetup,
+    setHardConvoSetup: state.setHardConvoSetup,
+  }))
+);
   const [customPlaybooks, setCustomPlaybooks] = useState<SavedPlaybook[]>([]);
   const [customTitle, setCustomTitle] = useState('');
   const [customDescription, setCustomDescription] = useState('');

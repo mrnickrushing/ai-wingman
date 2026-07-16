@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSessionStore } from '../store/sessionStore';
@@ -78,8 +79,7 @@ type Props = {
 };
 
 export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact = false }: Props) {
-  const {
-    sessionPhase,
+  const { sessionPhase,
     serverHealth,
     micPermissionGranted,
     isRecording,
@@ -94,8 +94,26 @@ export function SessionTelemetry({ onRetry, onReconnect, onRestartMic, compact =
     lastErrorAt,
     error,
     appState,
-    backgroundAudioState,
-  } = useSessionStore();
+    backgroundAudioState, } = useSessionStore(
+  useShallow((state) => ({
+    sessionPhase: state.sessionPhase,
+    serverHealth: state.serverHealth,
+    micPermissionGranted: state.micPermissionGranted,
+    isRecording: state.isRecording,
+    isConnected: state.isConnected,
+    isReconnecting: state.isReconnecting,
+    transcript: state.transcript,
+    coachingHistory: state.coachingHistory,
+    currentCoaching: state.currentCoaching,
+    lastTranscriptAt: state.lastTranscriptAt,
+    lastAudioChunkAt: state.lastAudioChunkAt,
+    micLevelDb: state.micLevelDb,
+    lastErrorAt: state.lastErrorAt,
+    error: state.error,
+    appState: state.appState,
+    backgroundAudioState: state.backgroundAudioState,
+  }))
+);
 
   const server = serverLabel(serverHealth);
   const mic = micLabel(micPermissionGranted, isRecording);

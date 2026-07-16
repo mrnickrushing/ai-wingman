@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 // BUG 8 FIX: all imports moved to the top before any function declarations
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -38,7 +39,17 @@ interface Props {
 }
 
 export function PostCallScreen({ onDone, onCallAgain }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, salesSetup, setRating: persistRating, recordSession } = useSessionStore(
+  useShallow((state) => ({
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    coachingHistory: state.coachingHistory,
+    transcript: state.transcript,
+    salesSetup: state.salesSetup,
+    setRating: state.setRating,
+    recordSession: state.recordSession,
+  }))
+);
   const [rating, setRating] = useState(0);
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -273,6 +284,8 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                       <TouchableOpacity
                         style={s.copyBtn}
                         activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Copy follow-up ${i + 1}`}
                         onPress={() => {
                           Share.share({ message: cleanText(f.text) }).catch(() => {});
                           setCopiedIndex(i);
@@ -305,6 +318,9 @@ export function PostCallScreen({ onDone, onCallAgain }: Props) {
                   onPress={() => handleRate(star)}
                   style={s.starBtn}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rate this call ${star} out of 5`}
+                  accessibilityState={{ selected: rating === star }}
                 >
                   <Text style={[s.star, rating >= star && s.starActive]}>★</Text>
                 </TouchableOpacity>

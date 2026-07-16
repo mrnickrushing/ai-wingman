@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -15,7 +16,12 @@ interface Props {
 }
 
 export function PreNetworkingScreen({ onStart, onBack }: Props) {
-  const { networkingSetup, setNetworkingSetup } = useSessionStore();
+  const { networkingSetup, setNetworkingSetup } = useSessionStore(
+  useShallow((state) => ({
+    networkingSetup: state.networkingSetup,
+    setNetworkingSetup: state.setNetworkingSetup,
+  }))
+);
   const [eventFocused, setEventFocused] = useState(false);
   const [attFocused, setAttFocused] = useState(false);
 

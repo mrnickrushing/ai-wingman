@@ -1,19 +1,27 @@
 import { Platform } from 'react-native';
-import Purchases, { LOG_LEVEL, type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
+import Purchases, {
+  LOG_LEVEL,
+  PURCHASES_ERROR_CODE,
+  type CustomerInfo,
+  type PurchasesError,
+  type PurchasesPackage,
+} from 'react-native-purchases';
 import type { WingmanAccount } from './auth';
 
 type PurchaseStatus = {
   configured: boolean;
   active: boolean;
+  priceString: string | null;
   message: string;
 };
 
-const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ?? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 const ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? 'pro';
 const PACKAGE_IDENTIFIER = process.env.EXPO_PUBLIC_REVENUECAT_PACKAGE_ID ?? '$rc_monthly';
 
 let configuredForUser: string | null = null;
+let purchasesConfigured = false;
 
 function getApiKey(): string | undefined {
   if (Platform.OS === 'ios') return IOS_API_KEY;
@@ -35,14 +43,20 @@ async function configurePurchases(account: WingmanAccount): Promise<void> {
     );
   }
 
-  if (configuredForUser === account.id) return;
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
-  Purchases.configure({
-    apiKey,
-    appUserID: account.id,
-  } as Parameters<typeof Purchases.configure>[0]);
-  configuredForUser = account.id;
-  await Purchases.logIn(account.id).catch(() => null);
+  if (!purchasesConfigured) {
+    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
+    Purchases.configure({
+      apiKey,
+      appUserID: account.id,
+    } as Parameters<typeof Purchases.configure>[0]);
+    purchasesConfigured = true;
+    configuredForUser = account.id;
+    return;
+  }
+  if (configuredForUser !== account.id) {
+    await Purchases.logIn(account.id);
+    configuredForUser = account.id;
+  }
 }
 
 async function getMonthlyPackage(): Promise<PurchasesPackage> {
@@ -51,8 +65,7 @@ async function getMonthlyPackage(): Promise<PurchasesPackage> {
   const available = current?.availablePackages ?? [];
   const preferred = available.find((pkg) => pkg.identifier === PACKAGE_IDENTIFIER);
   const monthly = current?.monthly ?? available.find((pkg) => pkg.packageType === 'MONTHLY');
-  const fallback = available[0];
-  const selected = preferred ?? monthly ?? fallback;
+  const selected = preferred?.packageType === 'MONTHLY' ? preferred : monthly;
   if (!selected) {
     throw new Error('No monthly membership product is available in RevenueCat.');
   }
@@ -61,30 +74,52 @@ async function getMonthlyPackage(): Promise<PurchasesPackage> {
 
 export async function getPurchaseStatus(account: WingmanAccount | null): Promise<PurchaseStatus> {
   if (!account) {
-    return { configured: false, active: false, message: 'Create or sign in to an account first.' };
+    return {
+      configured: false,
+      active: false,
+      priceString: null,
+      message: 'Create or sign in to an account first.',
+    };
   }
   try {
     await configurePurchases(account);
-    const info = await Purchases.getCustomerInfo();
+    const [info, monthlyPackage] = await Promise.all([
+      Purchases.getCustomerInfo(),
+      getMonthlyPackage(),
+    ]);
     return {
       configured: true,
       active: hasEntitlement(info),
+      priceString: monthlyPackage.product.priceString,
       message: hasEntitlement(info) ? 'Membership is active.' : 'Membership is available.',
     };
   } catch (err) {
     return {
       configured: false,
       active: false,
+      priceString: null,
       message: err instanceof Error ? err.message : 'Purchases are not configured for this build.',
     };
   }
 }
 
-export async function purchaseMembership(account: WingmanAccount | null): Promise<CustomerInfo> {
+export async function purchaseMembership(account: WingmanAccount | null): Promise<CustomerInfo | null> {
   if (!account) throw new Error('Create or sign in to an account first.');
   await configurePurchases(account);
   const pkg = await getMonthlyPackage();
-  const result = await Purchases.purchasePackage(pkg);
+  let result;
+  try {
+    result = await Purchases.purchasePackage(pkg);
+  } catch (error) {
+    const purchaseError = error as Partial<PurchasesError>;
+    if (
+      purchaseError.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+      || purchaseError.userCancelled === true
+    ) {
+      return null;
+    }
+    throw error;
+  }
   if (!hasEntitlement(result.customerInfo)) {
     throw new Error(`Purchase completed, but the "${ENTITLEMENT_ID}" entitlement is not active.`);
   }
@@ -105,4 +140,10 @@ export async function manageMembership(account: WingmanAccount | null): Promise<
   if (!account) throw new Error('Create or sign in to an account first.');
   await configurePurchases(account);
   await Purchases.showManageSubscriptions();
+}
+
+export async function logoutPurchases(): Promise<void> {
+  if (!purchasesConfigured || !configuredForUser) return;
+  await Purchases.logOut().catch(() => undefined);
+  configuredForUser = null;
 }

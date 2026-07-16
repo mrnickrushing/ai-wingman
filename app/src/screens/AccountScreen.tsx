@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, SafeAreaView,
@@ -32,7 +33,15 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
     detail: 'Tap check to verify the backend.',
     color: '#64748b',
   });
-  const { sessionPhase, serverHealth, lastTranscriptAt, lastAudioChunkAt, lastErrorAt } = useSessionStore();
+  const { sessionPhase, serverHealth, lastTranscriptAt, lastAudioChunkAt, lastErrorAt } = useSessionStore(
+  useShallow((state) => ({
+    sessionPhase: state.sessionPhase,
+    serverHealth: state.serverHealth,
+    lastTranscriptAt: state.lastTranscriptAt,
+    lastAudioChunkAt: state.lastAudioChunkAt,
+    lastErrorAt: state.lastErrorAt,
+  }))
+);
 
   useEffect(() => {
     loadLaunchSnapshot().then((s) => {

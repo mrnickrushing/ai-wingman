@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -32,7 +33,17 @@ interface Props {
 }
 
 export function PostPitchingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, pitchingSetup, lastRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, pitchingSetup, lastRating, recordSession } = useSessionStore(
+  useShallow((state) => ({
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    coachingHistory: state.coachingHistory,
+    transcript: state.transcript,
+    pitchingSetup: state.pitchingSetup,
+    lastRating: state.lastRating,
+    recordSession: state.recordSession,
+  }))
+);
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
 

@@ -59,14 +59,19 @@ export type ClientMessage =
   | { type: 'audio_chunk'; data: string; mimeType?: string; sampleRate?: number; channels?: number }   // base64-encoded audio, either PCM stream or container file
   | { type: 'end_session' };
 
-// Messages from server → client
-export type ServerMessage =
-  | { type: 'session_started'; sessionId: string }
+export type SessionServerMessage =
   | { type: 'transcript'; text: string; isFinal: boolean }
   | { type: 'coaching'; text: string }
   | { type: 'coaching_audio'; audio: string; mimeType: string }
-  | { type: 'error'; message: string }
-  | { type: 'session_ended' };
+  | { type: 'error'; message: string };
+
+// Every asynchronous message emitted by a Session is tagged with its immutable
+// id so a late provider response cannot bleed into a replacement session.
+export type ServerMessage =
+  | { type: 'session_started'; sessionId: string }
+  | ({ sessionId: string } & SessionServerMessage)
+  | { type: 'error'; message: string; sessionId?: string }
+  | { type: 'session_ended'; sessionId: string };
 
 export interface ConversationTurn {
   role: 'user' | 'assistant';

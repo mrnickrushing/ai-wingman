@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { generateTextMessageCoaching } from '../services/claude';
 import { verifyToken } from '../services/jwt';
+import { findById, hasActivePremium } from '../db/accounts';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -24,9 +26,13 @@ function requireAccountId(req: Request, res: Response): string | null {
   return payload.sub;
 }
 
-router.post('/text', async (req: Request, res: Response) => {
+router.post('/text', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
+  const account = await findById(accountId);
+  if (!account || !hasActivePremium(account)) {
+    return res.status(403).json({ error: 'An active membership is required.' });
+  }
 
   const {
     thread,
@@ -65,6 +71,6 @@ router.post('/text', async (req: Request, res: Response) => {
     suggestion,
     accountId,
   });
-});
+}));
 
 export default router;

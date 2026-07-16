@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL = 'https://api.elevenlabs.io/v1';
 
-export async function textToSpeech(text: string): Promise<Buffer> {
+export async function textToSpeech(text: string, signal?: AbortSignal): Promise<Buffer> {
   const voiceId = process.env.ELEVENLABS_VOICE_ID ?? '21m00Tcm4TlvDq8ikWAM';
 
   const response = await axios.post(
@@ -25,6 +25,7 @@ export async function textToSpeech(text: string): Promise<Buffer> {
       },
       responseType: 'arraybuffer',
       timeout: 5000,
+      signal,
     }
   );
 

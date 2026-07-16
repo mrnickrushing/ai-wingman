@@ -232,6 +232,8 @@ export function CoachingBubble({ text, speaking, onDismiss }: Props) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                 onDismiss();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss coaching tip"
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
               style={s.dismissBtn}
             >

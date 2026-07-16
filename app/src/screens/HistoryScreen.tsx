@@ -37,8 +37,9 @@ function formatDuration(seconds: number): string {
   return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
 }
 
-function buildTimeline(transcriptText: string): Array<{ timestamp: string | null; speaker: string | null; body: string }> {
-  const lines = transcriptText.trim().split('\n').map((line) => line.trim()).filter(Boolean);
+function buildTimeline(transcriptText?: string | null): Array<{ timestamp: string | null; speaker: string | null; body: string }> {
+  const text = typeof transcriptText === 'string' ? transcriptText : String(transcriptText ?? '');
+  const lines = text.trim().split('\n').map((line) => line.trim()).filter(Boolean);
   return lines.slice(0, 8).map((line) => {
     const match = line.match(/^\[(\d{2}:\d{2}(?::\d{2})?)\]\s*(?:(You|Wingman|Coach):\s*)?(.*)$/i);
     if (match) {

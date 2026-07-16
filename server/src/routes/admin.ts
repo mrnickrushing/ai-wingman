@@ -1,15 +1,22 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { countAccounts, listAccounts } from '../db/accounts';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
+router.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many admin requests.' },
+}));
 
-function asyncHandler(fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler {
-  return (req: Request, res: Response, _next: NextFunction) => {
-    Promise.resolve(fn(req, res)).catch((err) => {
-      console.error(`[admin] ${req.method} ${req.path} failed:`, (err as Error).message);
-      if (!res.headersSent) res.status(500).json({ error: 'Something went wrong.' });
-    });
-  };
+function safeEqual(actual: string, expected: string): boolean {
+  const left = Buffer.from(actual);
+  const right = Buffer.from(expected);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 // Shared-secret gate. The Cloudflare admin dashboard worker calls these with an
@@ -21,7 +28,8 @@ function requireAdminKey(req: Request, res: Response): boolean {
     res.status(503).json({ error: 'Admin API not configured' });
     return false;
   }
-  if (req.headers['x-admin-key'] !== expected) {
+  const provided = req.headers['x-admin-key'];
+  if (typeof provided !== 'string' || !safeEqual(provided, expected)) {
     res.status(401).json({ error: 'Unauthorized' });
     return false;
   }

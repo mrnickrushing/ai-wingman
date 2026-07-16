@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -101,7 +102,12 @@ function MicButton({ isRecording }: { isRecording: boolean }) {
   });
 
   return (
-    <View style={mic.wrap}>
+    <View
+      style={mic.wrap}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={isRecording ? 'Microphone listening' : 'Microphone not listening'}
+    >
       {/* Ring 1 */}
       <Animated.View
         style={[
@@ -143,12 +149,27 @@ function MicButton({ isRecording }: { isRecording: boolean }) {
 
 export function ActiveCallScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
-  const {
-    isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
+  const { isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
     elapsedSeconds, wordsSelf, salesSetup, setCurrentCoaching, setError,
-    coachingHistory, getSessionConfig,
-  } = useSessionStore();
+    coachingHistory, getSessionConfig, } = useSessionStore(
+  useShallow((state) => ({
+    isConnected: state.isConnected,
+    isReconnecting: state.isReconnecting,
+    isRecording: state.isRecording,
+    isWingmanSpeaking: state.isWingmanSpeaking,
+    error: state.error,
+    transcript: state.transcript,
+    currentCoaching: state.currentCoaching,
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    salesSetup: state.salesSetup,
+    setCurrentCoaching: state.setCurrentCoaching,
+    setError: state.setError,
+    coachingHistory: state.coachingHistory,
+    getSessionConfig: state.getSessionConfig,
+  }))
+);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
@@ -244,7 +265,13 @@ export function ActiveCallScreen({ onEnd }: Props) {
 
         {/* Error banner */}
         {error && (
-          <TouchableOpacity style={s.errorBanner} onPress={() => setError(null)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={s.errorBanner}
+            onPress={() => setError(null)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Dismiss error: ${error}`}
+          >
             <Text style={s.errorText}>⚠️ {error}</Text>
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
@@ -320,7 +347,13 @@ export function ActiveCallScreen({ onEnd }: Props) {
           <View style={s.controls}>
             {/* UPGRADE 13: upgraded mic button */}
             <MicButton isRecording={isRecording} />
-            <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              onPress={handleEnd}
+              style={s.endBtn}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="End sales call"
+            >
               <Text style={s.endBtnText}>End Call</Text>
             </TouchableOpacity>
           </View>

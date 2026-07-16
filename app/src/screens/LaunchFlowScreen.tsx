@@ -24,7 +24,7 @@ import {
   loadLaunchSnapshot,
   loginEmailAccount,
   markIntroSeen,
-  markPremium,
+  syncSubscription,
   registerEmailAccount,
   signInWithApple,
   signInWithGoogle,
@@ -60,8 +60,6 @@ const INTRO_CARDS = [
 type LaunchStage = 'loading' | 'intro' | 'account' | 'paywall';
 type AccountMode = 'create' | 'signin';
 
-const DEFAULT_PRICE = '$9.99/mo';
-
 type Props = {
   onComplete: () => void;
   skipIntro?: boolean;
@@ -78,10 +76,11 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [purchaseStatus, setPurchaseStatus] = useState<string | null>(null);
+  const [membershipPrice, setMembershipPrice] = useState<string | null>(null);
   const contentAnim = useRef(new Animated.Value(0)).current;
 
   const googleConfig = useMemo(() => {
-    const { iosClientId, androidClientId, webClientId, expoClientId } = getGoogleClientIds();
+    const { iosClientId, androidClientId, webClientId } = getGoogleClientIds();
 
     if (Platform.OS === 'web') {
       return { webClientId };
@@ -90,14 +89,12 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     return {
       iosClientId,
       androidClientId,
-      expoClientId,
-      clientId: Platform.OS === 'ios' ? iosClientId : androidClientId ?? expoClientId,
     };
   }, []);
   const googleConfigured = Boolean(
     Platform.OS === 'web'
       ? googleConfig.webClientId
-      : googleConfig.iosClientId || googleConfig.androidClientId || googleConfig.expoClientId
+      : googleConfig.iosClientId || googleConfig.androidClientId
   );
   useEffect(() => {
     let active = true;
@@ -201,9 +198,12 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
         ],
       });
 
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return a verifiable identity token. Please try again.');
+      }
+
       const next = await signInWithApple({
-        userId: credential.user,
-        email: credential.email ?? undefined,
+        identityToken: credential.identityToken,
         displayName: [credential.fullName?.givenName, credential.fullName?.familyName]
           .filter(Boolean)
           .join(' '),
@@ -222,7 +222,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     setLoadingAction('google');
     setError(null);
     try {
-      const next = await signInWithGoogle({ idToken: token, fallbackEmail: email, fallbackName: fullName });
+      const next = await signInWithGoogle({ idToken: token });
       setSnapshot(next);
       setStage('paywall');
     } catch (err) {
@@ -236,8 +236,9 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     setLoadingAction('paywall');
     setError(null);
     try {
-      await purchaseMembership(snapshot?.account ?? null);
-      const next = await markPremium();
+      const purchase = await purchaseMembership(snapshot?.account ?? null);
+      if (!purchase) return;
+      const next = await syncSubscription();
       setSnapshot(next);
       onComplete();
     } catch (err) {
@@ -252,7 +253,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
     setError(null);
     try {
       await restoreMembership(snapshot?.account ?? null);
-      const next = await markPremium();
+      const next = await syncSubscription();
       setSnapshot(next);
       onComplete();
     } catch (err) {
@@ -263,21 +264,28 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
   };
 
   useEffect(() => {
-    if (stage !== 'paywall') return;
+    if (stage !== 'paywall' || snapshot?.account?.premium) return;
     let active = true;
     getPurchaseStatus(snapshot?.account ?? null)
-      .then((status) => {
+      .then(async (status) => {
         if (!active) return;
         setPurchaseStatus(status.message);
+        setMembershipPrice(status.priceString);
+        if (status.active) {
+          const next = await syncSubscription();
+          if (!active || !next.account?.premium) return;
+          setSnapshot(next);
+          onComplete();
+        }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
-        setPurchaseStatus(null);
+        setPurchaseStatus(err instanceof Error ? err.message : null);
       });
     return () => {
       active = false;
     };
-  }, [snapshot?.account, stage]);
+  }, [onComplete, snapshot?.account, stage]);
 
   const introProgress = (introIndex + 1) / INTRO_CARDS.length;
   const accountLabel = accountMode === 'create' ? 'Create account' : 'Sign in';
@@ -337,7 +345,7 @@ export function LaunchFlowScreen({ onComplete, skipIntro = false }: Props) {
 
             {stage === 'paywall' && (
               <PaywallStage
-                price={DEFAULT_PRICE}
+                price={membershipPrice}
                 loading={loadingAction === 'paywall'}
                 restoring={loadingAction === 'restore'}
                 account={snapshot?.account ?? null}
@@ -674,7 +682,7 @@ function PaywallStage({
   status,
   error,
 }: {
-  price: string;
+  price: string | null;
   loading: boolean;
   restoring: boolean;
   account: LaunchSnapshot['account'];
@@ -694,7 +702,9 @@ function PaywallStage({
     <View style={s.stageShell}>
       <View style={s.headerBlock}>
         <Text style={s.kicker}>MEMBERSHIP</Text>
-        <Text style={s.title}>Unlock Wingman for {price}</Text>
+        <Text style={s.title}>
+          {price ? `Unlock Wingman for ${price}/mo` : 'Unlock Wingman membership'}
+        </Text>
         <Text style={s.subtitle}>
           One account, one membership, and the full app experience.
         </Text>
@@ -711,7 +721,7 @@ function PaywallStage({
         <View style={s.priceBlock}>
           <ShimmerBar />
           <View style={s.priceRow}>
-            <Text style={s.priceValue}>$9.99</Text>
+            <Text style={s.priceValue}>{price ?? 'Loading…'}</Text>
             <View>
               <Text style={s.priceLabel}>per month</Text>
               <Text style={s.priceMeta}>Cancel anytime · No commitment</Text>
@@ -765,6 +775,7 @@ function Field({
       <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
         {...props}
+        accessibilityLabel={props.accessibilityLabel ?? label}
         placeholderTextColor="rgba(148,163,184,0.65)"
         style={[s.field, props.style]}
       />
@@ -772,13 +783,7 @@ function Field({
   );
 }
 
-type GoogleConfig = {
-  androidClientId?: string;
-  iosClientId?: string;
-  webClientId?: string;
-  expoClientId?: string;
-  clientId?: string;
-};
+type GoogleConfig = Parameters<typeof Google.useIdTokenAuthRequest>[0];
 
 function GoogleButton({
   loading,
@@ -794,7 +799,13 @@ function GoogleButton({
   if (!enabled) {
     return (
       <>
-        <Pressable style={[s.googleButton, s.googleButtonDisabled]} disabled>
+        <Pressable
+          style={[s.googleButton, s.googleButtonDisabled]}
+          disabled
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Google"
+          accessibilityState={{ disabled: true }}
+        >
           <View style={s.googleLogo}>
             <Text style={s.googleLogoText}>G</Text>
           </View>
@@ -819,14 +830,7 @@ function GoogleAuthButton({
   onToken: (token: string) => void;
   config: GoogleConfig;
 }) {
-  let request: ReturnType<typeof Google.useIdTokenAuthRequest>[0] = null;
-  let response: ReturnType<typeof Google.useIdTokenAuthRequest>[1] = null;
-  let promptGoogle: ReturnType<typeof Google.useIdTokenAuthRequest>[2] | null = null;
-  try {
-    [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config as any);
-  } catch {
-    request = null;
-  }
+  const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(config);
 
   useEffect(() => {
     if (response?.type !== 'success') return;
@@ -850,6 +854,9 @@ function GoogleAuthButton({
       style={[s.googleButton, !request && s.googleButtonDisabled]}
       onPress={handlePress}
       disabled={!request || loading}
+      accessibilityRole="button"
+      accessibilityLabel="Continue with Google"
+      accessibilityState={{ disabled: !request || loading, busy: loading }}
     >
       <View style={s.googleLogo}>
         <Text style={s.googleLogoText}>G</Text>

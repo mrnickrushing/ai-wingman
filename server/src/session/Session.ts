@@ -10,7 +10,7 @@ import {
   generateHardConversationCoaching,
 } from '../services/claude';
 import { textToSpeech } from '../services/elevenlabs';
-import { SessionConfig, ServerMessage, ConversationTurn } from '../types';
+import { SessionConfig, SessionServerMessage, ConversationTurn } from '../types';
 
 // --- Rolling context window tuning -------------------------------------------
 // Keep the most recent KEEP_RECENT_TURNS turns verbatim; everything older is
@@ -23,6 +23,7 @@ const RESUMMARIZE_EVERY = 20;
 // Rough token budget. We estimate ~4 chars/token; if the assembled context
 // would blow past this we force a resummary regardless of turn count.
 const MAX_CONTEXT_TOKENS = 80_000;
+const MAX_HISTORY_TURNS = 200;
 const CHARS_PER_TOKEN = 4;
 const RECENT_TRANSCRIPT_TURNS = 10;
 const MIN_COACH_INTERVAL_MS = 1200;
@@ -59,7 +60,10 @@ export class Session {
   readonly id: string;
   private history: ConversationTurn[] = [];
   private isCoaching = false;
-  private wordCount = 0;
+  private ended = false;
+  private readonly startedAtMs = Date.now();
+  private endedAtMs: number | null = null;
+  private readonly abortController = new AbortController();
   private latestTranscript = '';
   private coachedTranscript = '';
   private transcriptSinceCoach: string[] = [];
@@ -81,6 +85,7 @@ export class Session {
   private summarizedUpTo = 0;
   // Turn count at the last summarization, so we only resummarize periodically.
   private lastSummaryAtTurn = 0;
+  private isSummarizing = false;
 
   // --- TTS pipeline state ---
   // Coaching audio is generated chunk-by-chunk as Claude streams. Chunks are
@@ -92,7 +97,8 @@ export class Session {
   constructor(
     id: string,
     private ws: WebSocket,
-    private config: SessionConfig
+    private config: SessionConfig,
+    readonly accountId: string
   ) {
     this.id = id;
   }
@@ -116,8 +122,11 @@ export class Session {
       this.config.keywords ?? [],
       { sampleRate, channels },
       ({ text, isFinal }) => {
-        if (!text.trim()) return;
-        this.wordCount += isFinal ? text.split(/\s+/).filter(Boolean).length : 0;
+        if (this.ended || !text.trim()) return;
+        if (this.config.interactionMode === 'roleplay') {
+          if (isFinal) this.queueRoleplayTranscript(text);
+          return;
+        }
         this.send({ type: 'transcript', text, isFinal });
         if (isFinal) {
           this.recordTranscript(text);
@@ -127,7 +136,7 @@ export class Session {
         }
       },
       (message) => {
-        console.warn(`[Session ${this.id}] Live transcription fallback: ${message}`);
+        console.warn('[Session %s] Live transcription fallback: %s', this.id, message);
         this.transcriptionMode = 'chunked';
         void this.liveTranscriber?.close();
         this.liveTranscriber = null;
@@ -142,7 +151,7 @@ export class Session {
    */
   async receiveAudio(base64Chunk: string, mimeType?: string, sampleRate = PCM_SAMPLE_RATE, channels = PCM_CHANNELS): Promise<void> {
     const run = async (): Promise<void> => {
-      if (!base64Chunk) return;
+      if (this.ended || !base64Chunk) return;
 
       let buf: Buffer;
       try {
@@ -154,6 +163,7 @@ export class Session {
       if (buf.byteLength < 1024) return;
 
       const isPcmStream = mimeType === 'audio/pcm';
+      let audio = buf;
       if (isPcmStream) {
         const live = this.ensureLiveTranscriber(sampleRate, channels);
         if (this.transcriptionMode === 'live' && live.isHealthy) {
@@ -163,36 +173,21 @@ export class Session {
           void live.close();
           this.liveTranscriber = null;
         }
-        const wav = wrapPcmInWav(buf, sampleRate, channels);
-        let text: string;
-        try {
-          text = await transcribeChunk(wav, this.config.keywords ?? []);
-        } catch (err) {
-          const msg = (err as Error).message ?? 'Transcription failed';
-          console.error(`[Session ${this.id}] PCM transcription error:`, msg);
-          this.send({ type: 'error', message: `Transcription error: ${msg}` });
-          return;
-        }
-        if (!text) return;
-
-        this.wordCount += text.split(/\s+/).filter(Boolean).length;
-        this.send({ type: 'transcript', text, isFinal: true });
-        this.recordTranscript(text);
-        this.transcriptSinceCoach.push(text);
-        this.latestTranscript = this.buildRecentTranscriptWindow();
-        void this.maybeCoach();
-        return;
+        audio = wrapPcmInWav(buf, sampleRate, channels);
       }
 
       let text: string;
       try {
-        text = await transcribeChunk(buf, this.config.keywords ?? []);
+        text = await transcribeChunk(audio, this.config.keywords ?? [], this.abortController.signal);
       } catch (err) {
+        if (this.ended || (err as Error).name === 'AbortError') return;
         const msg = (err as Error).message ?? 'Transcription failed';
-        console.error(`[Session ${this.id}] Transcription error:`, msg);
+        const operation = isPcmStream ? 'PCM transcription' : 'Transcription';
+        console.error('[Session %s] %s error: %s', this.id, operation, msg);
         this.send({ type: 'error', message: `Transcription error: ${msg}` });
         return;
       }
+      if (this.ended) return;
       if (!text) return;
 
       if (this.config.interactionMode === 'roleplay') {
@@ -200,7 +195,6 @@ export class Session {
         return;
       }
 
-      this.wordCount += text.split(/\s+/).filter(Boolean).length;
       // Always surface the transcript to the client, even while a coaching
       // request is already in flight, so the UI never loses words.
       this.send({ type: 'transcript', text, isFinal: true });
@@ -217,6 +211,7 @@ export class Session {
   }
 
   private queueRoleplayTranscript(fragment: string): void {
+    if (this.ended) return;
     const clean = fragment.trim();
     if (!clean) return;
 
@@ -231,7 +226,7 @@ export class Session {
   }
 
   private async flushRoleplayTranscript(): Promise<void> {
-    if (this.roleplayTranscriptFlushing) return;
+    if (this.ended || this.roleplayTranscriptFlushing) return;
     if (this.roleplayTranscriptTimer) {
       clearTimeout(this.roleplayTranscriptTimer);
       this.roleplayTranscriptTimer = null;
@@ -244,7 +239,6 @@ export class Session {
     this.roleplayTranscriptBuffer = [];
 
     try {
-      this.wordCount += transcript.split(/\s+/).filter(Boolean).length;
       this.send({ type: 'transcript', text: transcript, isFinal: true });
       this.recordTranscript(transcript);
       this.transcriptSinceCoach.push(transcript);
@@ -252,7 +246,7 @@ export class Session {
       void this.maybeCoach();
     } finally {
       this.roleplayTranscriptFlushing = false;
-      if (this.roleplayTranscriptBuffer.length > 0) {
+      if (!this.ended && this.roleplayTranscriptBuffer.length > 0) {
         void this.flushRoleplayTranscript();
       }
     }
@@ -271,7 +265,7 @@ export class Session {
    * transcript and the existing WebSocket message shape are unchanged.
    */
   private async maybeCoach(): Promise<void> {
-    if (this.isCoaching) return;
+    if (this.ended || this.isCoaching) return;
     const transcript = this.latestTranscript;
     if (!transcript.trim()) return;
     const newWords = this.transcriptSinceCoach.join(' ').split(/\s+/).filter(Boolean).length;
@@ -291,6 +285,7 @@ export class Session {
     try {
       if (this.config.interactionMode === 'roleplay') {
         const turn = await this.generateRoleplayResponse(transcript);
+        if (this.ended) return;
         if (!turn) {
           throw new Error('Could not generate a roleplay response right now.');
         }
@@ -306,10 +301,11 @@ export class Session {
       const onChunk = (chunk: string) => {
         // Pipe each streamed chunk to TTS immediately (fire-and-forget); the
         // queue preserves order and serializes playback.
-        this.enqueueTts(chunk);
+        if (!this.ended) this.enqueueTts(chunk);
       };
 
       const coaching = await this.generateCoaching(transcript, onChunk);
+      if (this.ended) return;
 
       if (coaching && coaching !== 'HOLD') {
         this.transcriptSinceCoach = [];
@@ -325,13 +321,14 @@ export class Session {
         this.transcriptSinceCoach = this.transcriptSinceCoach.slice(-RECENT_TRANSCRIPT_TURNS);
       }
     } catch (err) {
+      if (this.ended || (err as Error).name === 'AbortError') return;
       const msg = (err as Error).message ?? 'Coaching failed';
-      console.error(`[Session ${this.id}] Coaching error:`, msg);
+      console.error('[Session %s] Coaching error: %s', this.id, msg);
       this.send({ type: 'error', message: `Coaching error: ${msg}` });
     } finally {
       this.isCoaching = false;
       // New speech came in while we were coaching — coach on it now.
-      if (this.latestTranscript !== this.coachedTranscript) {
+      if (!this.ended && this.latestTranscript !== this.coachedTranscript) {
         void this.maybeCoach();
       }
     }
@@ -357,6 +354,7 @@ export class Session {
         .join('\n'),
       userMessage: transcript,
       turnCount: this.history.length,
+      signal: this.abortController.signal,
     });
   }
 
@@ -374,7 +372,8 @@ export class Session {
           c.datingProfileUrl ?? '',
           c.datingIntent ?? '',
           history,
-          onChunk
+          onChunk,
+          this.abortController.signal
         );
       case 'networking':
         return generateNetworkingCoaching(
@@ -382,7 +381,8 @@ export class Session {
           c.eventName ?? '',
           c.attendeeList ?? '',
           history,
-          onChunk
+          onChunk,
+          this.abortController.signal
         );
       case 'pitching':
         return generatePitchingCoaching(
@@ -391,7 +391,8 @@ export class Session {
           c.pitchDeck ?? '',
           c.audienceType ?? '',
           history,
-          onChunk
+          onChunk,
+          this.abortController.signal
         );
       case 'hard_conversations':
         return generateHardConversationCoaching(
@@ -400,7 +401,8 @@ export class Session {
           c.situation ?? '',
           c.conversationGoal ?? '',
           history,
-          onChunk
+          onChunk,
+          this.abortController.signal
         );
       default:
         return generateSalesCoaching(
@@ -409,7 +411,8 @@ export class Session {
           c.callGoal ?? '',
           c.objectionLibrary ?? '',
           history,
-          onChunk
+          onChunk,
+          this.abortController.signal
         );
     }
   }
@@ -493,6 +496,7 @@ export class Session {
    * past MAX_CONTEXT_TOKENS. Runs off the live path so it never delays a tip.
    */
   private async maybeRollUpContext(): Promise<void> {
+    if (this.ended || this.isSummarizing) return;
     const totalTurns = this.history.length;
     if (totalTurns <= KEEP_RECENT_TURNS) return;
 
@@ -504,15 +508,30 @@ export class Session {
     const summarizeEnd = totalTurns - KEEP_RECENT_TURNS;
     if (summarizeEnd <= this.summarizedUpTo) return;
 
-    const newlyOldTurns = this.history.slice(this.summarizedUpTo, summarizeEnd);
-    const summary = await summarizeConversation(newlyOldTurns, this.rollingSummary);
-    // summarizeConversation returns the prior summary on failure, so this is
-    // safe even if the summary call errored — we just don't advance the cursor.
-    if (summary && summary !== this.rollingSummary) {
-      this.rollingSummary = summary;
-      this.summarizedUpTo = summarizeEnd;
+    this.isSummarizing = true;
+    try {
+      const newlyOldTurns = this.history.slice(this.summarizedUpTo, summarizeEnd);
+      const summary = await summarizeConversation(
+        newlyOldTurns,
+        this.rollingSummary,
+        this.abortController.signal
+      );
+      if (this.ended) return;
+      // summarizeConversation returns the prior summary on failure, so this is
+      // safe even if the summary call errored — we just don't advance the cursor.
+      if (summary && summary !== this.rollingSummary) {
+        this.rollingSummary = summary;
+        this.history.splice(0, summarizeEnd);
+        this.summarizedUpTo = 0;
+      } else if (this.history.length > MAX_HISTORY_TURNS) {
+        // A repeated summarization outage must not turn into an unbounded heap.
+        this.history.splice(0, this.history.length - MAX_HISTORY_TURNS);
+        this.summarizedUpTo = 0;
+      }
+      this.lastSummaryAtTurn = this.history.length;
+    } finally {
+      this.isSummarizing = false;
     }
-    this.lastSummaryAtTurn = totalTurns;
   }
 
   private estimateContextTokens(): number {
@@ -533,60 +552,77 @@ export class Session {
    * queue (useWingmanSession) already plays clips back to back in order.
    */
   private enqueueTts(text: string): void {
-    if (!text.trim()) return;
+    if (this.ended || !text.trim()) return;
     this.ttsQueue.push(text);
     void this.drainTts();
   }
 
   private async drainTts(): Promise<void> {
-    if (this.ttsDraining) return;
+    if (this.ended || this.ttsDraining) return;
     if (!process.env.ELEVENLABS_API_KEY) {
       this.ttsQueue = [];
       return;
     }
     this.ttsDraining = true;
     try {
-      while (this.ttsQueue.length > 0) {
+      while (!this.ended && this.ttsQueue.length > 0) {
         const text = this.ttsQueue.shift()!;
         try {
-          const audio = await textToSpeech(text);
+          const audio = await textToSpeech(text, this.abortController.signal);
+          if (this.ended) return;
           this.send({
             type: 'coaching_audio',
             audio: audio.toString('base64'),
             mimeType: 'audio/mpeg',
           });
         } catch (err) {
-          console.error(`[Session ${this.id}] TTS error:`, (err as Error).message);
+          if (!this.ended && (err as Error).name !== 'CanceledError') {
+            console.error('[Session %s] TTS error: %s', this.id, (err as Error).message);
+          }
         }
       }
     } finally {
       this.ttsDraining = false;
       // A chunk may have been enqueued between the loop exit and clearing the
       // flag; pick it up rather than stranding it.
-      if (this.ttsQueue.length > 0) void this.drainTts();
+      if (!this.ended && this.ttsQueue.length > 0) void this.drainTts();
     }
   }
 
-  private send(message: ServerMessage): void {
-    if (this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
+  private send(message: SessionServerMessage): void {
+    if (!this.ended && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ ...message, sessionId: this.id }));
     }
   }
 
   end(): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.endedAtMs = Date.now();
+    this.abortController.abort();
     this.transcriptionMode = 'chunked';
     this.ttsQueue = [];
     if (this.roleplayTranscriptTimer) {
       clearTimeout(this.roleplayTranscriptTimer);
       this.roleplayTranscriptTimer = null;
     }
-    void this.flushRoleplayTranscript();
+    this.roleplayTranscriptBuffer = [];
     if (this.liveTranscriber) {
       this.liveTranscriber.finalize();
-      void (async () => {
-        await new Promise((resolve) => setTimeout(resolve, 650));
-        await this.liveTranscriber?.close();
-      })();
+      void this.liveTranscriber.close();
+      this.liveTranscriber = null;
     }
+  }
+
+  get startedAt(): Date {
+    return new Date(this.startedAtMs);
+  }
+
+  get endedAt(): Date {
+    return new Date(this.endedAtMs ?? Date.now());
+  }
+
+  get durationSeconds(): number {
+    return Math.max(0, ((this.endedAtMs ?? Date.now()) - this.startedAtMs) / 1000);
   }
 }

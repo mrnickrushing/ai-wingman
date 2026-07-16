@@ -4,6 +4,8 @@ import { createSession, listSessionsByAccount, getSessionById, getSessionStats, 
 import { upsertAccountMemory } from '../db/accountMemory';
 import { verifyToken } from '../services/jwt';
 import { analyzeSession, SessionAnalysis } from '../services/claude';
+import { findById, hasActivePremium } from '../db/accounts';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -44,8 +46,13 @@ function toClientSession(s: DbSession) {
 
 // ── POST /sessions ──────────────────────────────────────────────────────────
 
-router.post('/', async (req: Request, res: Response) => {
-  const accountId = optionalAccountId(req);
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const accountId = requireAccountId(req, res);
+  if (!accountId) return;
+  const account = await findById(accountId);
+  if (!account || !hasActivePremium(account)) {
+    return res.status(403).json({ error: 'An active membership is required.' });
+  }
 
   const {
     mode, title, durationSeconds, wordsSpoken, coachingCount,
@@ -74,7 +81,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   const session = await createSession({
     id: randomUUID(),
-    accountId: accountId ?? null,
+    accountId,
     mode,
     title: title ?? '',
     durationSeconds: durationSeconds ?? 0,
@@ -104,29 +111,29 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   return res.json({ session: toClientSession(session) });
-});
+}));
 
 // ── GET /sessions/stats ─────────────────────────────────────────────────────
 
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
   const stats = await getSessionStats(accountId);
   return res.json(stats);
-});
+}));
 
 // ── GET /sessions ───────────────────────────────────────────────────────────
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
   const sessions = await listSessionsByAccount(accountId);
   return res.json({ sessions: sessions.map(toClientSession) });
-});
+}));
 
 // ── GET /sessions/:id ───────────────────────────────────────────────────────
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
   const session = await getSessionById(String(req.params.id));
@@ -135,6 +142,6 @@ router.get('/:id', async (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Forbidden.' });
   }
   return res.json({ session: toClientSession(session) });
-});
+}));
 
 export default router;

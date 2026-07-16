@@ -6,9 +6,9 @@ import { SessionConfig } from '../types';
 export class SessionManager {
   private sessions = new Map<string, Session>();
 
-  create(ws: WebSocket, config: SessionConfig): Session {
+  create(ws: WebSocket, config: SessionConfig, accountId: string): Session {
     const id = randomUUID();
-    const session = new Session(id, ws, config);
+    const session = new Session(id, ws, config, accountId);
     this.sessions.set(id, session);
     console.log(`[SessionManager] Created session ${id} (mode: ${config.mode})`);
     return session;
@@ -18,13 +18,19 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
-  end(id: string): void {
+  end(id: string): Session | null {
     const session = this.sessions.get(id);
     if (session) {
       session.end();
       this.sessions.delete(id);
       console.log(`[SessionManager] Ended session ${id}`);
+      return session;
     }
+    return null;
+  }
+
+  hasActiveSession(accountId: string): boolean {
+    return [...this.sessions.values()].some((session) => session.accountId === accountId);
   }
 
   endAll(): void {

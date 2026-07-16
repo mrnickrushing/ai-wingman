@@ -1,43 +1,31 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import {
   findByEmail, findByAppleId, findByGoogleSubject, findById,
-  createAccount, updateAccount, deleteAccount, DbAccount,
+  createAccount, updateAccount, deleteAccount, DbAccount, hasActivePremium,
 } from '../db/accounts';
 import { signToken, verifyToken } from '../services/jwt';
+import { verifyAppleIdentityToken, verifyGoogleIdentityToken } from '../services/oauth';
+import { isRevenueCatConfigured, syncRevenueCatSubscription } from '../services/revenuecat';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
-// Wrap an async handler so a rejected promise (e.g. a transient DB error)
-// returns a 500 JSON response instead of becoming an unhandled rejection that
-// hangs the request or crashes the process.
-function asyncHandler(fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler {
-  return (req: Request, res: Response, _next: NextFunction) => {
-    Promise.resolve(fn(req, res)).catch((err) => {
-      console.error(`[auth] ${req.method} ${req.path} failed:`, (err as Error).message);
-      if (!res.headersSent) res.status(500).json({ error: 'Something went wrong. Please try again.' });
-    });
-  };
-}
-
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-function hashPassword(password: string, salt: string): string {
+function legacyPasswordHash(password: string, salt: string): string {
+  // Verification-only compatibility for old rows; a match is immediately
+  // replaced with bcrypt before the login response is issued.
+  // lgtm[js/insufficient-password-hash]
   return crypto.createHmac('sha256', salt).update(password).digest('hex');
 }
 
-function newSalt(): string {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-function decodeJwtPayload<T>(token: string): T | null {
-  try {
-    const part = token.split('.')[1];
-    if (!part) return null;
-    return JSON.parse(Buffer.from(part, 'base64url').toString()) as T;
-  } catch {
-    return null;
-  }
+function safeHexEqual(actual: string, expected: string): boolean {
+  const left = Buffer.from(actual, 'hex');
+  const right = Buffer.from(expected, 'hex');
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 function toClientAccount(a: DbAccount) {
@@ -46,12 +34,37 @@ function toClientAccount(a: DbAccount) {
     provider: a.provider,
     email: a.email ?? '',
     displayName: a.display_name ?? '',
-    premium: a.premium,
+    premium: hasActivePremium(a),
     seenIntro: a.seen_intro,
     createdAt: a.created_at,
     updatedAt: a.updated_at,
   };
 }
+
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many sign-in attempts. Please try again later.' },
+});
+
+const registrationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 8,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many account requests. Please try again later.' },
+});
+
+const subscriptionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many membership checks. Please try again shortly.' },
+});
 
 function authHeader(req: Request): string | null {
   const h = req.headers.authorization;
@@ -69,26 +82,27 @@ function requireAuth(req: Request, res: Response): string | null {
 
 // ── POST /auth/register ──────────────────────────────────────────────────────
 
-router.post('/register', asyncHandler(async (req: Request, res: Response) => {
+router.post('/register', registrationLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { email, password, displayName } = req.body as {
     email?: string; password?: string; displayName?: string;
   };
   if (!email?.trim() || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
+  if (password.length < 10 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be between 10 and 128 characters.' });
+  }
   const normalEmail = email.trim().toLowerCase();
   if (await findByEmail(normalEmail)) {
     return res.status(409).json({ error: 'An account with that email already exists. Sign in instead.' });
   }
-  const salt = newSalt();
-  const hash = hashPassword(password, salt);
+  const hash = await bcrypt.hash(password, 12);
   const account = await createAccount({
     id: crypto.randomUUID(),
     provider: 'email',
     email: normalEmail,
     displayName: displayName?.trim() || normalEmail.split('@')[0],
     passwordHash: hash,
-    passwordSalt: salt,
   });
   const token = signToken(account.id, account.email);
   return res.json({ token, account: toClientAccount(account) });
@@ -96,19 +110,31 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
 
 // ── POST /auth/login ─────────────────────────────────────────────────────────
 
-router.post('/login', asyncHandler(async (req: Request, res: Response) => {
+router.post('/login', credentialLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email?.trim() || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
   const account = await findByEmail(email.trim().toLowerCase());
-  if (
-    !account
-    || account.provider !== 'email'
-    || !account.password_hash
-    || !account.password_salt
-    || hashPassword(password, account.password_salt) !== account.password_hash
-  ) {
+  let passwordValid = false;
+  if (account?.provider === 'email' && account.password_hash) {
+    if (account.password_hash.startsWith('$2')) {
+      passwordValid = await bcrypt.compare(password, account.password_hash);
+    } else if (account.password_salt) {
+      passwordValid = safeHexEqual(
+        legacyPasswordHash(password, account.password_salt),
+        account.password_hash
+      );
+      if (passwordValid) {
+        // Transparently upgrade legacy single-round hashes after a valid login.
+        await updateAccount(account.id, {
+          passwordHash: await bcrypt.hash(password, 12),
+          passwordSalt: '',
+        });
+      }
+    }
+  }
+  if (!account || !passwordValid) {
     return res.status(401).json({ error: 'Email or password is incorrect.' });
   }
   const token = signToken(account.id, account.email);
@@ -117,27 +143,36 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
 
 // ── POST /auth/apple ─────────────────────────────────────────────────────────
 
-router.post('/apple', asyncHandler(async (req: Request, res: Response) => {
-  const { userId, email, displayName } = req.body as {
-    userId?: string; email?: string; displayName?: string;
+router.post('/apple', credentialLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { identityToken, displayName } = req.body as {
+    identityToken?: string; displayName?: string;
   };
-  if (!userId) return res.status(400).json({ error: 'userId is required.' });
+  if (!identityToken) return res.status(400).json({ error: 'identityToken is required.' });
 
-  let account = await findByAppleId(userId);
-  const normalEmail = email?.trim().toLowerCase() || `apple-${userId}@apple.local`;
+  let identity;
+  try {
+    identity = await verifyAppleIdentityToken(identityToken);
+  } catch (error) {
+    console.warn('[auth] Rejected Apple identity token:', (error as Error).message);
+    return res.status(401).json({ error: 'Apple identity token is invalid or expired.' });
+  }
+
+  let account = await findByAppleId(identity.subject);
+  const normalEmail = identity.email || account?.email || `apple-${identity.subject}@apple.local`;
+  const safeName = displayName?.trim().slice(0, 120);
 
   if (account) {
     account = await updateAccount(account.id, {
       email: normalEmail,
-      displayName: displayName?.trim() || account.display_name || normalEmail.split('@')[0],
+      displayName: account.display_name || safeName || normalEmail.split('@')[0],
     }) ?? account;
   } else {
     account = await createAccount({
       id: crypto.randomUUID(),
       provider: 'apple',
       email: normalEmail,
-      displayName: displayName?.trim() || normalEmail.split('@')[0],
-      appleUserId: userId,
+      displayName: safeName || normalEmail.split('@')[0],
+      appleUserId: identity.subject,
     });
   }
   const token = signToken(account.id, account.email);
@@ -146,18 +181,21 @@ router.post('/apple', asyncHandler(async (req: Request, res: Response) => {
 
 // ── POST /auth/google ────────────────────────────────────────────────────────
 
-router.post('/google', asyncHandler(async (req: Request, res: Response) => {
-  const { idToken, fallbackEmail, fallbackName } = req.body as {
-    idToken?: string; fallbackEmail?: string; fallbackName?: string;
-  };
+router.post('/google', credentialLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { idToken } = req.body as { idToken?: string };
   if (!idToken) return res.status(400).json({ error: 'idToken is required.' });
 
-  const payload = decodeJwtPayload<{ sub?: string; email?: string; name?: string }>(idToken);
-  const subject = payload?.sub ?? idToken.slice(0, 32);
-  const normalEmail = (payload?.email ?? fallbackEmail ?? `google-${subject.slice(0, 16)}@google.local`).toLowerCase();
-  const name = payload?.name ?? fallbackName ?? normalEmail.split('@')[0];
+  let identity;
+  try {
+    identity = await verifyGoogleIdentityToken(idToken);
+  } catch (error) {
+    console.warn('[auth] Rejected Google identity token:', (error as Error).message);
+    return res.status(401).json({ error: 'Google identity token is invalid or expired.' });
+  }
+  const normalEmail = identity.email || `google-${identity.subject}@google.local`;
+  const name = identity.name || normalEmail.split('@')[0];
 
-  let account = await findByGoogleSubject(subject);
+  let account = await findByGoogleSubject(identity.subject);
   if (account) {
     account = await updateAccount(account.id, { email: normalEmail, displayName: name }) ?? account;
   } else {
@@ -166,7 +204,7 @@ router.post('/google', asyncHandler(async (req: Request, res: Response) => {
       provider: 'google',
       email: normalEmail,
       displayName: name,
-      googleSubject: subject,
+      googleSubject: identity.subject,
     });
   }
   const token = signToken(account.id, account.email);
@@ -183,12 +221,15 @@ router.get('/me', asyncHandler(async (req: Request, res: Response) => {
   return res.json({ account: toClientAccount(account) });
 }));
 
-// ── PATCH /auth/premium ──────────────────────────────────────────────────────
+// ── POST /auth/subscription/sync ─────────────────────────────────────────────
 
-router.patch('/premium', asyncHandler(async (req: Request, res: Response) => {
+router.post('/subscription/sync', subscriptionLimiter, asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAuth(req, res);
   if (!accountId) return;
-  const account = await updateAccount(accountId, { premium: true });
+  if (!isRevenueCatConfigured()) {
+    return res.status(503).json({ error: 'Membership verification is temporarily unavailable.' });
+  }
+  const account = await syncRevenueCatSubscription(accountId);
   if (!account) return res.status(404).json({ error: 'Account not found.' });
   return res.json({ account: toClientAccount(account) });
 }));

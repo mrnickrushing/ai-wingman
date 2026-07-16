@@ -434,7 +434,14 @@ function BottomNav({
         {items.map((item) => {
           const active = current === item.key;
           return (
-            <Pressable key={item.key} onPress={item.onPress} style={navStyles.item}>
+            <Pressable
+              key={item.key}
+              onPress={item.onPress}
+              style={navStyles.item}
+              accessibilityRole="tab"
+              accessibilityLabel={item.label}
+              accessibilityState={{ selected: active }}
+            >
               {active ? <View style={navStyles.activeIndicator} /> : null}
               <View style={navStyles.iconWrap}>
                 {/* Pulsing ambient glow ring behind active icon */}

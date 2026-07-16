@@ -6,11 +6,11 @@ export type WingmanEvent =
   | { type: 'disconnected' }
   | { type: 'reconnecting'; attempt: number }
   | { type: 'session_started'; sessionId: string }
-  | { type: 'transcript'; text: string; isFinal: boolean }
-  | { type: 'coaching'; text: string }
-  | { type: 'coaching_audio'; audio: string; mimeType: string }
-  | { type: 'error'; message: string }
-  | { type: 'session_ended' };
+  | { type: 'transcript'; sessionId: string; text: string; isFinal: boolean }
+  | { type: 'coaching'; sessionId: string; text: string }
+  | { type: 'coaching_audio'; sessionId: string; audio: string; mimeType: string }
+  | { type: 'error'; sessionId?: string; message: string }
+  | { type: 'session_ended'; sessionId: string };
 
 type EventHandler = (event: WingmanEvent) => void;
 
@@ -43,14 +43,16 @@ const SERVER_URL = resolveServerUrl();
 
 export const getWingmanServerUrl = (): string => SERVER_URL;
 
-// The health endpoint is plain HTTP(S), so convert the WebSocket scheme
-// (wss:// → https://, ws:// → http://) as well as the /ws path → /health.
-// Without the scheme swap, fetch() hits a wss:// URL and Railway returns 502.
-const getHealthUrl = (): string =>
-  SERVER_URL
-    .replace(/^wss:\/\//, 'https://')
-    .replace(/^ws:\/\//, 'http://')
-    .replace(/\/ws$/, '/health');
+// Build the matching HTTP health URL without carrying credentials or query
+// parameters across from the realtime endpoint.
+const getHealthUrl = (): string => {
+  const healthUrl = new URL(SERVER_URL);
+  healthUrl.protocol = healthUrl.protocol === 'wss:' ? 'https:' : 'http:';
+  healthUrl.pathname = healthUrl.pathname.replace(/\/ws$/, '/health');
+  healthUrl.search = '';
+  healthUrl.hash = '';
+  return healthUrl.toString();
+};
 
 const HEALTH_RETRY_STATUSES = new Set([502, 503, 504]);
 const HEALTH_RETRY_DELAYS_MS = [350, 900, 1600];
@@ -135,6 +137,7 @@ export class WingmanClient {
   private token: string | null = null;
   private intentionalClose = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private activeSessionId: string | null = null;
 
   on(handler: EventHandler): () => void {
     this.handlers.push(handler);
@@ -161,30 +164,46 @@ export class WingmanClient {
       try { this.ws.close(); } catch { /* noop */ }
     }
 
-    // The server reads the JWT from the query string (RN WebSocket can't set
-    // headers). Reconnects reuse the same stored token.
-    const url = this.token
-      ? `${SERVER_URL}?token=${encodeURIComponent(this.token)}`
-      : SERVER_URL;
-    this.ws = new WebSocket(url);
+    // Send credentials as a secondary WebSocket subprotocol so reverse-proxy
+    // access logs do not capture them in the request URL. Reconnects reuse the
+    // same stored token.
+    const socket = this.token
+      ? new WebSocket(SERVER_URL, ['ai-wingman', `jwt.${this.token}`])
+      : new WebSocket(SERVER_URL);
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    socket.onopen = () => {
+      if (this.ws !== socket) return;
       this.reconnectAttempts = 0;
+      this.activeSessionId = null;
       this.emit({ type: 'connected' });
       this.send({ type: 'start_session', config: this.config });
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) return;
       try {
         const msg = JSON.parse(event.data as string) as WingmanEvent;
+        if (msg.type === 'session_started') {
+          this.activeSessionId = msg.sessionId;
+        } else if (
+          'sessionId' in msg
+          && msg.sessionId
+          && msg.sessionId !== this.activeSessionId
+        ) {
+          return;
+        }
         this.emit(msg);
+        if (msg.type === 'session_ended') this.activeSessionId = null;
       } catch {
         // malformed message
       }
     };
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
       this.ws = null;
+      this.activeSessionId = null;
       this.emit({ type: 'disconnected' });
 
       // Auto-reconnect on unexpected drops (network blips mid-call).
@@ -198,7 +217,8 @@ export class WingmanClient {
       }
     };
 
-    this.ws.onerror = () => {
+    socket.onerror = () => {
+      if (this.ws !== socket) return;
       this.emit({ type: 'error', message: 'Connection error' });
     };
   }
@@ -214,6 +234,7 @@ export class WingmanClient {
   disconnect(): void {
     this.intentionalClose = true;
     this.config = null;
+    this.activeSessionId = null;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -38,7 +39,18 @@ interface Props {
 }
 
 export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, networkingSetup, loggedContacts, lastRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, networkingSetup, loggedContacts, lastRating, recordSession } = useSessionStore(
+  useShallow((state) => ({
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    coachingHistory: state.coachingHistory,
+    transcript: state.transcript,
+    networkingSetup: state.networkingSetup,
+    loggedContacts: state.loggedContacts,
+    lastRating: state.lastRating,
+    recordSession: state.recordSession,
+  }))
+);
   const [analysis, setAnalysis] = useState<SessionAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [copiedContact, setCopiedContact] = useState<number | null>(null);
@@ -220,6 +232,8 @@ export function PostNetworkingScreen({ onNewSession, onHome }: Props) {
                       <TouchableOpacity
                         style={s.copyBtn}
                         activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Copy message for ${contact}`}
                         onPress={() => {
                           Share.share({ message: cleanText(`Hi ${firstName(contact)}, great connecting at ${eventLabel}! I really enjoyed our chat — would love to keep the conversation going. Open to a quick call this week?`) }).catch(() => {});
                           setCopiedContact(i);

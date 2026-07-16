@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -40,7 +41,17 @@ interface Props {
 }
 
 export function PostHardConversationScreen({ onNewSession, onHome }: Props) {
-  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, hardConvoSetup, lastRating, recordSession } = useSessionStore();
+  const { elapsedSeconds, wordsSelf, coachingHistory, transcript, hardConvoSetup, lastRating, recordSession } = useSessionStore(
+  useShallow((state) => ({
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    coachingHistory: state.coachingHistory,
+    transcript: state.transcript,
+    hardConvoSetup: state.hardConvoSetup,
+    lastRating: state.lastRating,
+    recordSession: state.recordSession,
+  }))
+);
 
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [finalNumber, setFinalNumber] = useState('');

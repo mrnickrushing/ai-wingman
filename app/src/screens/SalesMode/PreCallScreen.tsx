@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -26,7 +27,12 @@ interface Props {
 }
 
 export function PreCallScreen({ onStart, onBack }: Props) {
-  const { salesSetup, setSalesSetup } = useSessionStore();
+  const { salesSetup, setSalesSetup } = useSessionStore(
+  useShallow((state) => ({
+    salesSetup: state.salesSetup,
+    setSalesSetup: state.setSalesSetup,
+  }))
+);
   const [step, setStep] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -170,7 +176,12 @@ export function PreCallScreen({ onStart, onBack }: Props) {
 }
 
 function StepProspect() {
-  const { salesSetup, setSalesSetup } = useSessionStore();
+  const { salesSetup, setSalesSetup } = useSessionStore(
+  useShallow((state) => ({
+    salesSetup: state.salesSetup,
+    setSalesSetup: state.setSalesSetup,
+  }))
+);
   return (
     <View style={s.stepBody}>
       <Text style={s.stepTitle}>Who are you calling?</Text>
@@ -206,7 +217,12 @@ function StepProspect() {
 }
 
 function StepGoal() {
-  const { salesSetup, setSalesSetup } = useSessionStore();
+  const { salesSetup, setSalesSetup } = useSessionStore(
+  useShallow((state) => ({
+    salesSetup: state.salesSetup,
+    setSalesSetup: state.setSalesSetup,
+  }))
+);
   return (
     <View style={s.stepBody}>
       <Text style={s.stepTitle}>What's your outcome?</Text>
@@ -240,7 +256,12 @@ function StepGoal() {
 }
 
 function StepObjections() {
-  const { salesSetup, setSalesSetup } = useSessionStore();
+  const { salesSetup, setSalesSetup } = useSessionStore(
+  useShallow((state) => ({
+    salesSetup: state.salesSetup,
+    setSalesSetup: state.setSalesSetup,
+  }))
+);
   const [editing, setEditing] = useState(false);
   const current = salesSetup.objectionLibrary || DEFAULT_OBJECTIONS.join('\n');
   const count = current.split('\n').filter(l => l.trim()).length;

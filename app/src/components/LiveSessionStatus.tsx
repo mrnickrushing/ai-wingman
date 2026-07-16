@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Animated, Easing } from 'react-native';
 import { useSessionStore } from '../store/sessionStore';
@@ -99,13 +100,19 @@ function SonarConnDot() {
 }
 
 export function LiveSessionStatus() {
-  const {
-    isRecording,
+  const { isRecording,
     isConnected,
     currentCoaching,
     lastTranscriptAt,
-    micLevelDb,
-  } = useSessionStore();
+    micLevelDb, } = useSessionStore(
+  useShallow((state) => ({
+    isRecording: state.isRecording,
+    isConnected: state.isConnected,
+    currentCoaching: state.currentCoaching,
+    lastTranscriptAt: state.lastTranscriptAt,
+    micLevelDb: state.micLevelDb,
+  }))
+);
 
   const transcriptAge = age(lastTranscriptAt);
   // BUG 5 FIX: threshold changed from -50 to -60 (more sensitive)

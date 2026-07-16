@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { logoutPurchases } from './purchases';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ async function writeLocalSnapshot(snapshot: LaunchSnapshot): Promise<void> {
 // ── Server API helpers ─────────────────────────────────────────────────────────
 
 type Ok<T> = { data: T; error?: never };
-type Err = { data?: never; error: string };
+type Err = { data?: never; error: string; status?: number };
 
 async function serverPost<T>(
   path: string,
@@ -134,7 +135,7 @@ async function serverPost<T>(
       method: 'POST', headers, body: JSON.stringify(body),
     });
     const json = await res.json() as Record<string, unknown>;
-    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}`, status: res.status };
     return { data: json as T };
   } catch (err) {
     return { error: (err as Error).message ?? 'Network error' };
@@ -147,7 +148,7 @@ async function serverGet<T>(path: string, token: string): Promise<Ok<T> | Err> {
       headers: { Authorization: `Bearer ${token}` },
     });
     const json = await res.json() as Record<string, unknown>;
-    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}`, status: res.status };
     return { data: json as T };
   } catch (err) {
     return { error: (err as Error).message ?? 'Network error' };
@@ -161,7 +162,7 @@ async function serverPatch<T>(path: string, token: string): Promise<Ok<T> | Err>
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
     const json = await res.json() as Record<string, unknown>;
-    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}` };
+    if (!res.ok) return { error: (json.error as string) ?? `Server error ${res.status}`, status: res.status };
     return { data: json as T };
   } catch (err) {
     return { error: (err as Error).message ?? 'Network error' };
@@ -197,7 +198,16 @@ export async function loadLaunchSnapshot(): Promise<LaunchSnapshot> {
   }
   // Refresh from server; fall back to local cache on network failure
   const result = await serverGet<{ account: ServerAccount }>('/auth/me', token);
-  if (result.error || !result.data) return readLocalSnapshot();
+  if (result.error || !result.data) {
+    if (result.status === 401) {
+      await clearToken();
+      const local = await readLocalSnapshot();
+      const signedOut = { seenIntro: local.seenIntro, account: null };
+      await writeLocalSnapshot(signedOut);
+      return signedOut;
+    }
+    return readLocalSnapshot();
+  }
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -252,13 +262,11 @@ export async function loginEmailAccount(input: {
 }
 
 export async function signInWithApple(input: {
-  userId: string;
-  email?: string;
+  identityToken: string;
   displayName?: string;
 }): Promise<LaunchSnapshot> {
   const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/apple', {
-    userId: input.userId,
-    email: input.email,
+    identityToken: input.identityToken,
     displayName: input.displayName,
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Apple sign-in failed.');
@@ -270,13 +278,9 @@ export async function signInWithApple(input: {
 
 export async function signInWithGoogle(input: {
   idToken: string;
-  fallbackEmail?: string;
-  fallbackName?: string;
 }): Promise<LaunchSnapshot> {
   const result = await serverPost<{ token: string; account: ServerAccount }>('/auth/google', {
     idToken: input.idToken,
-    fallbackEmail: input.fallbackEmail,
-    fallbackName: input.fallbackName,
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Google sign-in failed.');
   await saveToken(result.data.token);
@@ -285,10 +289,10 @@ export async function signInWithGoogle(input: {
   return snapshot;
 }
 
-export async function markPremium(): Promise<LaunchSnapshot> {
+export async function syncSubscription(): Promise<LaunchSnapshot> {
   const token = await loadToken();
   if (token && !isTokenExpired(token)) {
-    const result = await serverPatch<{ account: ServerAccount }>('/auth/premium', token);
+    const result = await serverPost<{ account: ServerAccount }>('/auth/subscription/sync', {}, token);
     if (!result.error && result.data) {
       const snapshot = snapshotFromServer(result.data.account);
       await writeLocalSnapshot(snapshot);
@@ -302,6 +306,7 @@ export async function markPremium(): Promise<LaunchSnapshot> {
 }
 
 export async function signOut(): Promise<LaunchSnapshot> {
+  await logoutPurchases();
   await clearToken();
   const local = await readLocalSnapshot();
   const next: LaunchSnapshot = { seenIntro: local.seenIntro, account: null };
@@ -319,6 +324,7 @@ export async function resetLaunchState(): Promise<void> {
       });
     } catch { /* ignore — local data still cleared */ }
   }
+  await logoutPurchases();
   await clearToken();
   await SecureStore.deleteItemAsync(SNAPSHOT_KEY);
 }

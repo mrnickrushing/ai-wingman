@@ -133,9 +133,15 @@ export class DeepgramLiveTranscriber {
  */
 export async function transcribeChunk(
   audio: Buffer,
-  keywords: string[] = []
+  keywords: string[] = [],
+  signal?: AbortSignal
 ): Promise<string> {
-  const { result, error } = await deepgram.listen.prerecorded.transcribeFile(audio, {
+  const requestClient = signal
+    ? createClient(process.env.DEEPGRAM_API_KEY!, {
+        global: { fetch: { options: { signal } } },
+      })
+    : deepgram;
+  const { result, error } = await requestClient.listen.prerecorded.transcribeFile(audio, {
     model: 'nova-3',
     language: 'en-US',
     smart_format: true,

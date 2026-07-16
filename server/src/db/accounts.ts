@@ -10,9 +10,25 @@ export interface DbAccount {
   apple_user_id: string | null;
   google_subject: string | null;
   premium: boolean;
+  subscription_status: string;
+  subscription_entitlement: string | null;
+  subscription_product_id: string | null;
+  subscription_period_type: string | null;
+  subscription_store: string | null;
+  subscription_environment: string | null;
+  subscription_expires_at: string | null;
+  subscription_last_verified_at: string | null;
+  subscription_last_event_id: string | null;
   seen_intro: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export function hasActivePremium(account: DbAccount): boolean {
+  if (!account.premium || !account.subscription_last_verified_at) return false;
+  if (!['active', 'trial', 'grace_period'].includes(account.subscription_status)) return false;
+  if (!account.subscription_expires_at) return true;
+  return new Date(account.subscription_expires_at).getTime() > Date.now();
 }
 
 export async function findByEmail(email: string): Promise<DbAccount | null> {
@@ -61,7 +77,12 @@ export interface AdminAccountRow {
 export async function countAccounts(): Promise<{ total: number; premium: number }> {
   const { rows } = await pool.query<{ total: string; premium: string }>(
     `SELECT COUNT(*)::text AS total,
-            COUNT(*) FILTER (WHERE premium)::text AS premium
+            COUNT(*) FILTER (
+              WHERE premium
+                AND subscription_last_verified_at IS NOT NULL
+                AND subscription_status IN ('active', 'trial', 'grace_period')
+                AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())
+            )::text AS premium
        FROM accounts`
   );
   return {
@@ -72,7 +93,13 @@ export async function countAccounts(): Promise<{ total: number; premium: number 
 
 export async function listAccounts(limit = 200): Promise<AdminAccountRow[]> {
   const { rows } = await pool.query<AdminAccountRow>(
-    `SELECT id, provider, email, display_name, premium, created_at
+    `SELECT id, provider, email, display_name,
+            (premium
+              AND subscription_last_verified_at IS NOT NULL
+              AND subscription_status IN ('active', 'trial', 'grace_period')
+              AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())
+            ) AS premium,
+            created_at
        FROM accounts
       ORDER BY created_at DESC
       LIMIT $1`,
@@ -138,6 +165,70 @@ export async function updateAccount(
     values
   );
   return rows[0] ?? null;
+}
+
+export type SubscriptionState = {
+  active: boolean;
+  status: 'active' | 'trial' | 'grace_period' | 'expired' | 'inactive';
+  entitlement: string;
+  productId: string | null;
+  periodType: string | null;
+  store: string | null;
+  environment: string | null;
+  expiresAt: string | null;
+  eventId?: string | null;
+};
+
+export async function updateSubscriptionState(
+  id: string,
+  state: SubscriptionState
+): Promise<DbAccount | null> {
+  const { rows } = await pool.query<DbAccount>(
+    `UPDATE accounts
+        SET premium = $2,
+            subscription_status = $3,
+            subscription_entitlement = $4,
+            subscription_product_id = $5,
+            subscription_period_type = $6,
+            subscription_store = $7,
+            subscription_environment = $8,
+            subscription_expires_at = $9,
+            subscription_last_verified_at = NOW(),
+            subscription_last_event_id = COALESCE($10, subscription_last_event_id),
+            updated_at = NOW()
+      WHERE id = $1
+      RETURNING *`,
+    [
+      id,
+      state.active,
+      state.status,
+      state.entitlement,
+      state.productId,
+      state.periodType,
+      state.store,
+      state.environment,
+      state.expiresAt,
+      state.eventId ?? null,
+    ]
+  );
+  return rows[0] ?? null;
+}
+
+export async function recordSubscriptionEvent(fields: {
+  id: string;
+  accountId: string | null;
+  type: string;
+  environment: string | null;
+  eventTimestampMs: number | null;
+}): Promise<boolean> {
+  const result = await pool.query(
+    `INSERT INTO subscription_events
+       (id, account_id, event_type, environment, event_timestamp_ms)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (id) DO NOTHING`,
+    [fields.id, fields.accountId, fields.type, fields.environment, fields.eventTimestampMs]
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function deleteAccount(id: string): Promise<void> {

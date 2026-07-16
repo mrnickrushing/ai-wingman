@@ -14,7 +14,8 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "734907398246-8sviv3dbi0siu18p33mjuromspdi1rbr.apps.googleusercontent.com",
         "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
         "EXPO_PUBLIC_REVENUECAT_PACKAGE_ID": "$rc_monthly",
-        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_OttrUHeiQVFAqpgoQyuUyYGTHzH"
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_OttrUHeiQVFAqpgoQyuUyYGTHzH",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "appl_OttrUHeiQVFAqpgoQyuUyYGTHzH"
       }
     },
     "development": {

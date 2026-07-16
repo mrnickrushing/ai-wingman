@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -25,7 +26,12 @@ interface Props {
 }
 
 export function PreHardConversationScreen({ onStart, onBack }: Props) {
-  const { hardConvoSetup, setHardConvoSetup } = useSessionStore();
+  const { hardConvoSetup, setHardConvoSetup } = useSessionStore(
+  useShallow((state) => ({
+    hardConvoSetup: state.hardConvoSetup,
+    setHardConvoSetup: state.setHardConvoSetup,
+  }))
+);
   const [situationFocused, setSituationFocused] = useState(false);
   const [goalFocused, setGoalFocused] = useState(false);
 

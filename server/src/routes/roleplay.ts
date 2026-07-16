@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { generateRoleplayTurn } from '../services/claude';
 import { transcribeChunk } from '../services/deepgram';
 import { verifyToken } from '../services/jwt';
+import { findById, hasActivePremium } from '../db/accounts';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -25,9 +27,13 @@ function requireAccountId(req: Request, res: Response): string | null {
   return payload.sub;
 }
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
+  const account = await findById(accountId);
+  if (!account || !hasActivePremium(account)) {
+    return res.status(403).json({ error: 'An active membership is required.' });
+  }
 
   const {
     mode,
@@ -77,12 +83,16 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   return res.json({ turn, accountId });
-});
+}));
 
 // POST /coach/roleplay/transcribe — one-shot STT for the roleplay practice screen
-router.post('/transcribe', async (req: Request, res: Response) => {
+router.post('/transcribe', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
+  const account = await findById(accountId);
+  if (!account || !hasActivePremium(account)) {
+    return res.status(403).json({ error: 'An active membership is required.' });
+  }
 
   const { audio } = req.body as { audio?: string };
   if (!audio) {
@@ -97,6 +107,6 @@ router.post('/transcribe', async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Transcription failed.',
     });
   }
-});
+}));
 
 export default router;

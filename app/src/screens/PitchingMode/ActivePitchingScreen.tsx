@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -81,7 +82,12 @@ function MicButton({ isRecording, accentColor }: { isRecording: boolean; accentC
   });
 
   return (
-    <View style={micBtn.wrap}>
+    <View
+      style={micBtn.wrap}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={isRecording ? 'Microphone listening' : 'Microphone not listening'}
+    >
       <Animated.View style={[micBtn.ring, { borderColor: activeColor, transform: [{ scale: ring1Anim }], opacity: ring1Opacity }]} />
       <Animated.View style={[micBtn.ring, micBtn.ring2, { borderColor: activeColor, transform: [{ scale: ring2Anim }], opacity: ring2Opacity }]} />
       <Animated.View style={[micBtn.btn, isRecording && micBtn.btnActive, { borderColor }]}>
@@ -101,12 +107,27 @@ interface Props {
 
 export function ActivePitchingScreen({ onEnd }: Props) {
   const { start, stop } = useWingmanSession();
-  const {
-    isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
+  const { isConnected, isReconnecting, isRecording, isWingmanSpeaking, error,
     transcript, currentCoaching,
     elapsedSeconds, wordsSelf, pitchingSetup, setCurrentCoaching, setError,
-    coachingHistory, getSessionConfig,
-  } = useSessionStore();
+    coachingHistory, getSessionConfig, } = useSessionStore(
+  useShallow((state) => ({
+    isConnected: state.isConnected,
+    isReconnecting: state.isReconnecting,
+    isRecording: state.isRecording,
+    isWingmanSpeaking: state.isWingmanSpeaking,
+    error: state.error,
+    transcript: state.transcript,
+    currentCoaching: state.currentCoaching,
+    elapsedSeconds: state.elapsedSeconds,
+    wordsSelf: state.wordsSelf,
+    pitchingSetup: state.pitchingSetup,
+    setCurrentCoaching: state.setCurrentCoaching,
+    setError: state.setError,
+    coachingHistory: state.coachingHistory,
+    getSessionConfig: state.getSessionConfig,
+  }))
+);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [showCoaching, setShowCoaching] = useState(false);
@@ -183,7 +204,13 @@ export function ActivePitchingScreen({ onEnd }: Props) {
         </Animated.View>
 
         {error && (
-          <TouchableOpacity style={s.errorBanner} onPress={() => setError(null)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={s.errorBanner}
+            onPress={() => setError(null)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Dismiss error: ${error}`}
+          >
             <Text style={s.errorText}>⚠️ {error}</Text>
             <Text style={s.errorDismiss}>Dismiss ✕</Text>
           </TouchableOpacity>
@@ -249,7 +276,13 @@ export function ActivePitchingScreen({ onEnd }: Props) {
           </View>
           <View style={s.controls}>
             <MicButton isRecording={isRecording} accentColor="#f59e0b" />
-            <TouchableOpacity onPress={handleEnd} style={s.endBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              onPress={handleEnd}
+              style={s.endBtn}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="End pitching session"
+            >
               <Text style={s.endBtnText}>End</Text>
             </TouchableOpacity>
           </View>

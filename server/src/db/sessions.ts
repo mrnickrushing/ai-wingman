@@ -62,15 +62,37 @@ export async function getSessionById(id: string): Promise<DbSession | null> {
   return rows[0] ?? null;
 }
 
-// Total seconds of coaching an account has used in the current calendar month
-// (UTC). Used to enforce a fair-use monthly cap. Sessions are recorded after
-// they end, so this lags live usage by one session — fine for a soft cap.
+export async function recordCoachingUsage(fields: {
+  sessionId: string;
+  accountId: string;
+  startedAt: Date;
+  endedAt: Date;
+  durationSeconds: number;
+}): Promise<void> {
+  await pool.query(
+    `INSERT INTO coaching_usage
+       (session_id, account_id, started_at, ended_at, duration_seconds)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (session_id) DO NOTHING`,
+    [
+      fields.sessionId,
+      fields.accountId,
+      fields.startedAt,
+      fields.endedAt,
+      Math.max(0, Math.ceil(fields.durationSeconds)),
+    ]
+  );
+}
+
+// Total server-observed WebSocket coaching time in the current calendar month
+// (UTC). Client-supplied session summaries are deliberately not used for billing
+// or quota enforcement.
 export async function getMonthlyUsageSeconds(accountId: string): Promise<number> {
   const { rows } = await pool.query<{ total: string | null }>(
     `SELECT COALESCE(SUM(duration_seconds), 0)::text AS total
-       FROM sessions
+       FROM coaching_usage
       WHERE account_id = $1
-        AND created_at >= date_trunc('month', NOW() AT TIME ZONE 'UTC')`,
+        AND started_at >= date_trunc('month', NOW() AT TIME ZONE 'UTC')`,
     [accountId]
   );
   return parseInt(rows[0]?.total ?? '0', 10);

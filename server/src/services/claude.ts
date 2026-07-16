@@ -65,7 +65,8 @@ function firstTextBlock(content: Array<{ type?: string; text?: string }> | undef
 async function streamCoaching(
   systemPrompt: string,
   messages: Anthropic.MessageParam[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const createPlainCompletion = async (): Promise<string> => {
     const response = await anthropic.messages.create({
@@ -73,7 +74,7 @@ async function streamCoaching(
       max_tokens: COACHING_MAX_TOKENS,
       system: systemPrompt,
       messages,
-    });
+    }, { signal });
     return firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined) ?? 'HOLD';
   };
 
@@ -93,7 +94,7 @@ async function streamCoaching(
       max_tokens: COACHING_MAX_TOKENS,
       system: systemPrompt,
       messages,
-    });
+    }, { signal });
 
     stream.on('text', (textDelta) => chunker.push(textDelta));
 
@@ -102,6 +103,7 @@ async function streamCoaching(
     chunker.flush();
     return finalText || 'HOLD';
   } catch (error) {
+    if (signal?.aborted) throw error;
     const message = error instanceof Error ? error.message : String(error);
     // Anthropic can occasionally close a stream before a text content block is
     // emitted. Fall back to a normal completion so live coaching still works.
@@ -168,14 +170,15 @@ export async function generateSalesCoaching(
   callGoal: string,
   objectionLibrary: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const systemPrompt = SALES_SYSTEM_PROMPT
     .replace('{{PROSPECT_CONTEXT}}', prospectContext.trim() || 'Not provided')
     .replace('{{CALL_GOAL}}', callGoal.trim() || 'Book a follow-up call or close the deal')
     .replace('{{OBJECTION_LIBRARY}}', objectionLibrary.trim() || FALLBACK_OBJECTION_LIBRARY);
 
-  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk, signal);
 }
 
 // Shared live-coaching rules for the dating/networking/pitching modes. These
@@ -194,9 +197,10 @@ async function generateCoaching(
   systemPrompt: string,
   latestTranscript: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
-  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk);
+  return streamCoaching(systemPrompt, buildMessages(history, latestTranscript), onChunk, signal);
 }
 
 export async function generateDatingCoaching(
@@ -205,7 +209,8 @@ export async function generateDatingCoaching(
   profileUrl: string,
   intent: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const systemPrompt = `You are an expert dating coach whispering live coaching to someone on a date. They hear you through their earpiece — only they can hear you.
 
@@ -225,7 +230,7 @@ DATE: ${name.trim() || 'Not provided'}
 PROFILE: ${profileUrl.trim() || 'Not provided'}
 INTENT: ${intent.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk, signal);
 }
 
 export async function generateNetworkingCoaching(
@@ -233,7 +238,8 @@ export async function generateNetworkingCoaching(
   eventName: string,
   attendeeList: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const systemPrompt = `You are an expert networking coach whispering live coaching to someone working a room. They hear you through their earpiece — only they can hear you.
 
@@ -248,7 +254,7 @@ EVENT: ${eventName.trim() || 'Not provided'}
 TARGET CONTACTS:
 ${attendeeList.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk, signal);
 }
 
 export async function generatePitchingCoaching(
@@ -257,7 +263,8 @@ export async function generatePitchingCoaching(
   deck: string,
   audience: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const systemPrompt = `You are an expert pitch coach whispering live coaching to a presenter mid-pitch. They hear you through their earpiece — only they can hear you.
 
@@ -275,7 +282,7 @@ AUDIENCE: ${audience.trim() || 'Not provided'}
 DECK / KEY POINTS:
 ${deck.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk, signal);
 }
 
 /**
@@ -287,7 +294,8 @@ ${deck.trim() || 'Not provided'}`;
  */
 export async function summarizeConversation(
   turns: ConversationTurn[],
-  priorSummary = ''
+  priorSummary = '',
+  signal?: AbortSignal
 ): Promise<string> {
   if (turns.length === 0) return priorSummary;
 
@@ -311,7 +319,7 @@ export async function summarizeConversation(
           content: `${priorBlock}${transcript}\n\nSummarize the key points of this conversation so far in 3-5 sentences for context.`,
         },
       ],
-    });
+    }, { signal });
     const summary = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined) ?? '';
     return summary || priorSummary;
   } catch {
@@ -622,6 +630,7 @@ export async function generateRoleplayTurn(input: {
   transcript: string;
   userMessage: string;
   turnCount: number;
+  signal?: AbortSignal;
 }): Promise<RoleplayTurn | null> {
   const prompt = `You are playing the OTHER person in a realistic practice conversation. Stay in character.
 
@@ -674,7 +683,7 @@ Rules:
           content: prompt,
         },
       ],
-    });
+    }, { signal: input.signal });
     const text = firstTextBlock(response.content as Array<{ type?: string; text?: string }> | undefined);
     if (!text) return null;
     return parseRoleplayTurn(text);
@@ -689,7 +698,8 @@ export async function generateHardConversationCoaching(
   situation: string,
   conversationGoal: string,
   history: ConversationTurn[],
-  onChunk?: ChunkHandler
+  onChunk?: ChunkHandler,
+  signal?: AbortSignal
 ): Promise<string> {
   const systemPrompt = `${getHardConversationPrompt(scenario)}
 
@@ -700,5 +710,5 @@ ${LIVE_RULES}
 SITUATION: ${situation.trim() || 'Not provided'}
 GOAL: ${conversationGoal.trim() || 'Not provided'}`;
 
-  return generateCoaching(systemPrompt, latestTranscript, history, onChunk);
+  return generateCoaching(systemPrompt, latestTranscript, history, onChunk, signal);
 }

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -17,7 +18,12 @@ interface Props {
 }
 
 export function PreDatingScreen({ onStart, onBack }: Props) {
-  const { datingSetup, setDatingSetup } = useSessionStore();
+  const { datingSetup, setDatingSetup } = useSessionStore(
+  useShallow((state) => ({
+    datingSetup: state.datingSetup,
+    setDatingSetup: state.setDatingSetup,
+  }))
+);
   const [nameFocused, setNameFocused] = useState(false);
   const [urlFocused, setUrlFocused] = useState(false);
 

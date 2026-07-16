@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ScrollView, Text, StyleSheet, View, Animated } from 'react-native';
+import { FlatList, Text, StyleSheet, View, Animated, Platform } from 'react-native';
 import { TranscriptEntry } from '../types';
 
 interface Props {
@@ -8,40 +8,49 @@ interface Props {
 }
 
 export function TranscriptView({ entries, searchTerm = '' }: Props) {
-  const scrollRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList<TranscriptEntry>>(null);
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
   useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
+    listRef.current?.scrollToEnd({ animated: true });
   }, [entries.length]);
 
-  if (entries.length === 0) {
-    return (
-      <View style={s.empty}>
-        <View style={s.emptyDots}>
-          {[0, 1, 2].map(i => <PulseDot key={i} delay={i * 200} />)}
-        </View>
-        <Text style={s.emptyText}>Listening…</Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView
-      ref={scrollRef}
-      style={s.scroll}
+    <FlatList
+      ref={listRef}
+      data={entries}
+      keyExtractor={(entry) => entry.id}
+      style={s.list}
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
-    >
-      {entries.map((entry, i) => (
-        <View key={entry.id} style={[s.line, !entry.isFinal && s.lineInterim]}>
+      nestedScrollEnabled
+      initialNumToRender={16}
+      maxToRenderPerBatch={12}
+      updateCellsBatchingPeriod={50}
+      windowSize={7}
+      removeClippedSubviews={Platform.OS !== 'web'}
+      onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+      ListEmptyComponent={(
+        <View style={s.empty} accessibilityLiveRegion="polite">
+          <View style={s.emptyDots} importantForAccessibility="no-hide-descendants">
+            {[0, 1, 2].map(i => <PulseDot key={i} delay={i * 200} />)}
+          </View>
+          <Text style={s.emptyText}>Listening…</Text>
+        </View>
+      )}
+      renderItem={({ item: entry }) => (
+        <View
+          style={[s.line, !entry.isFinal && s.lineInterim]}
+          accessible
+          accessibilityLabel={`${entry.isFinal ? 'Transcript' : 'Live transcript'}: ${entry.text}`}
+        >
           <View style={[s.speaker, entry.isFinal ? s.speakerFinal : s.speakerInterim]} />
           <Text style={[s.lineText, !entry.isFinal && s.lineTextInterim]}>
             {renderText(entry.text, normalizedSearch)}
           </Text>
         </View>
-      ))}
-    </ScrollView>
+      )}
+    />
   );
 }
 
@@ -80,9 +89,9 @@ function PulseDot({ delay }: { delay: number }) {
 }
 
 const s = StyleSheet.create({
-  scroll: { flex: 1 },
+  list: { height: 220, flexGrow: 0 },
   content: {
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 8,
+    flexGrow: 1, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 8,
   },
   line: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,

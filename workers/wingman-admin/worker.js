@@ -784,8 +784,12 @@ function redirect(path) {
 }
 function getCookie(request, name) {
   const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return match?.[1] ?? null;
+  for (const part of cookie.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() === name) return part.slice(separator + 1);
+  }
+  return null;
 }
 
 // Calls the Railway server's admin API (where the real account data lives).

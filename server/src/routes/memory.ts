@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { verifyToken } from '../services/jwt';
 import { getAccountMemory } from '../db/accountMemory';
 import { listSessionsByAccount } from '../db/sessions';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -25,7 +26,7 @@ function requireAccountId(req: Request, res: Response): string | null {
   return payload.sub;
 }
 
-router.get('/brief', async (req: Request, res: Response) => {
+router.get('/brief', asyncHandler(async (req: Request, res: Response) => {
   const accountId = requireAccountId(req, res);
   if (!accountId) return;
 
@@ -75,6 +76,6 @@ router.get('/brief', async (req: Request, res: Response) => {
     followUps,
     brief,
   });
-});
+}));
 
 export default router;

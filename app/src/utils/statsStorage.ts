@@ -16,9 +16,10 @@ export interface PersistedStats {
 
 export async function loadStats(): Promise<PersistedStats> {
   try {
-    const entries = await AsyncStorage.getMany([
+    const pairs = await AsyncStorage.multiGet([
       KEYS.sessions, KEYS.bestScore, KEYS.streak, KEYS.lastSessionDate,
     ]);
+    const entries = Object.fromEntries(pairs);
     return {
       sessions: parseInt(entries[KEYS.sessions] ?? '0', 10) || 0,
       bestScore: parseInt(entries[KEYS.bestScore] ?? '0', 10) || 0,
@@ -49,12 +50,12 @@ export async function recordSessionStats(score: number): Promise<PersistedStats>
       else newStreak = 1; // streak broken
     }
 
-    await AsyncStorage.setMany({
-      [KEYS.sessions]: newSessions.toString(),
-      [KEYS.bestScore]: newBestScore.toString(),
-      [KEYS.streak]: newStreak.toString(),
-      [KEYS.lastSessionDate]: today,
-    });
+    await AsyncStorage.multiSet([
+      [KEYS.sessions, newSessions.toString()],
+      [KEYS.bestScore, newBestScore.toString()],
+      [KEYS.streak, newStreak.toString()],
+      [KEYS.lastSessionDate, today],
+    ]);
 
     return { sessions: newSessions, bestScore: newBestScore, streak: newStreak, lastSessionDate: today };
   } catch {

@@ -33,6 +33,29 @@ workflows:
       - name: Install npm dependencies
         script: |
           npm install
+      - name: Write Expo public env file
+        script: |
+          set -e
+          if [ -z "$EXPO_PUBLIC_REVENUECAT_IOS_API_KEY" ]; then
+            echo "FATAL: EXPO_PUBLIC_REVENUECAT_IOS_API_KEY is empty in this Codemagic build environment." >&2
+            echo "Purchases would silently fail to configure in the shipped app — failing the build instead." >&2
+            exit 1
+          fi
+          : > app/.env
+          write_env() {
+            printf '%s=%s\n' "$1" "$(printf '%s' "$2" | sed 's/\$/\\$/g')" >> app/.env
+          }
+          write_env EXPO_PUBLIC_SERVER_URL "$EXPO_PUBLIC_SERVER_URL"
+          write_env EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID "$EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_PACKAGE_ID "$EXPO_PUBLIC_REVENUECAT_PACKAGE_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_IOS_API_KEY "$EXPO_PUBLIC_REVENUECAT_IOS_API_KEY"
+          write_env EXPO_PUBLIC_SENTRY_DSN "$EXPO_PUBLIC_SENTRY_DSN"
+          write_env EXPO_UPDATE_CHANNEL "$EXPO_UPDATE_CHANNEL"
+          echo "Wrote app/.env with $(grep -c . app/.env) entries (values hidden)."
       - name: Expo prebuild
         script: |
           cd app
@@ -187,6 +210,29 @@ workflows:
       - name: Install npm dependencies
         script: |
           npm install
+      - name: Write Expo public env file
+        script: |
+          set -e
+          if [ -z "$EXPO_PUBLIC_REVENUECAT_IOS_API_KEY" ]; then
+            echo "FATAL: EXPO_PUBLIC_REVENUECAT_IOS_API_KEY is empty in this Codemagic build environment." >&2
+            echo "Purchases would silently fail to configure in the shipped update — failing the build instead." >&2
+            exit 1
+          fi
+          : > app/.env
+          write_env() {
+            printf '%s=%s\n' "$1" "$(printf '%s' "$2" | sed 's/\$/\\$/g')" >> app/.env
+          }
+          write_env EXPO_PUBLIC_SERVER_URL "$EXPO_PUBLIC_SERVER_URL"
+          write_env EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID"
+          write_env EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID "$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID "$EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_PACKAGE_ID "$EXPO_PUBLIC_REVENUECAT_PACKAGE_ID"
+          write_env EXPO_PUBLIC_REVENUECAT_IOS_API_KEY "$EXPO_PUBLIC_REVENUECAT_IOS_API_KEY"
+          write_env EXPO_PUBLIC_SENTRY_DSN "$EXPO_PUBLIC_SENTRY_DSN"
+          write_env EXPO_UPDATE_CHANNEL "$EXPO_UPDATE_CHANNEL"
+          echo "Wrote app/.env with $(grep -c . app/.env) entries (values hidden)."
       - name: Publish Expo update
         script: |
           cd app

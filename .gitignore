@@ -13,3 +13,11 @@ app/.expo-shared/
 
 # Build outputs
 server/dist/
+
+# iOS signing credentials — never commit these
+credentials.json
+*.p12
+*.mobileprovision
+*.cer
+*.key
+

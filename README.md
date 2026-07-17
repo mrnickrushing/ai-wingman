@@ -247,7 +247,7 @@ Use a full rebuild for:
 
 The repo is wired for:
 
-- Codemagic iOS builds
+- EAS Build iOS builds (`@rushingtechs/ai-wingman` project)
 - TestFlight distribution
 - Expo OTA publishing
 - Railway backend deployment
@@ -257,6 +257,15 @@ The current native app identity is:
 - name: `AI Wingman`
 - bundle id: `com.rushingtechnologies.aiwingman`
 - scheme: `aiwingman`
+
+### iOS builds and TestFlight
+
+`npm run build:ios:production` (in `app/`) builds and auto-submits to TestFlight in one step. It needs two things present on whatever machine runs it:
+
+- `app/credentials.json` — local iOS signing credentials (distribution certificate + provisioning profile). See `.gitignore` — this file and any `.p12`/`.mobileprovision`/`.cer`/`.key` are never committed.
+- `ASC_API_KEY_PATH` environment variable pointing at an App Store Connect API key `.p8` file, exported in the shell before running the build (e.g. `export ASC_API_KEY_PATH=/path/to/AuthKey_XXXXXXXXXX.p8`). `app/eas.json`'s `submit.production.ios.ascApiKeyPath` reads this from the invoking shell's environment — it is not pulled from EAS's stored environment variables.
+
+The iOS build number is tracked remotely by EAS (`cli.appVersionSource: "remote"` in `eas.json`), so it stays in sync no matter which machine or checkout runs the build.
 
 ---
 

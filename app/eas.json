@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 14.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "production": {
@@ -35,6 +35,17 @@
         "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
         "EXPO_PUBLIC_REVENUECAT_PACKAGE_ID": "$rc_monthly",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_OttrUHeiQVFAqpgoQyuUyYGTHzH"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "$ASC_API_KEY_PATH",
+        "ascApiKeyId": "XT33U8LLNU",
+        "ascApiKeyIssuerId": "638afb5f-f026-4653-b69e-fe9f413da87d",
+        "appleTeamId": "PH4AKDQ4Q7",
+        "ascAppId": "6779877401"
       }
     }
   }

@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen';
 import { ConsentScreen } from './src/screens/ConsentScreen';
+import { RecordingConsentDialog } from './src/components/RecordingConsentDialog';
 import { LaunchFlowScreen } from './src/screens/LaunchFlowScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { BriefsScreen } from './src/screens/BriefsScreen';
@@ -32,6 +33,11 @@ import { PreHardConversationScreen } from './src/screens/HardConversationsMode/P
 import { ActiveHardConversationScreen } from './src/screens/HardConversationsMode/ActiveHardConversationScreen';
 import { PostHardConversationScreen } from './src/screens/HardConversationsMode/PostHardConversationScreen';
 import { ConversationMode } from './src/types';
+import {
+  createLegalConsentAcceptance,
+  loadLegalConsent,
+  saveLegalConsent,
+} from './src/services/legalConsent';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (SENTRY_DSN) {
@@ -52,8 +58,12 @@ type Screen =
   | 'pitching-precall' | 'pitching-active' | 'pitching-postcall'
   | 'hardconvo-precall' | 'hardconvo-active' | 'hardconvo-postcall';
 
+type RecordedSessionScreen = Extract<
+  Screen,
+  'sales-active' | 'dating-active' | 'networking-active' | 'pitching-active' | 'hardconvo-active'
+>;
+
 const ONBOARDED_KEY = 'wingman:onboarded';
-const CONSENT_KEY = 'wingman:consent:v1';
 
 async function applyAvailableUpdate() {
   if (__DEV__ || !Updates.isEnabled) return;
@@ -162,15 +172,16 @@ function WingmanApp() {
   const [consented, setConsented] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [roleplayMode, setRoleplayMode] = useState<ConversationMode>('sales');
+  const [pendingRecordedSession, setPendingRecordedSession] = useState<RecordedSessionScreen | null>(null);
   useNotifications();
 
   useEffect(() => { void applyAvailableUpdate(); }, []);
 
   useEffect(() => {
-    AsyncStorage.getMany([ONBOARDED_KEY, CONSENT_KEY])
-      .then((map) => {
-        setOnboarded(map[ONBOARDED_KEY] === 'true');
-        setConsented(map[CONSENT_KEY] === 'true');
+    Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), loadLegalConsent()])
+      .then(([onboardingValue, legalConsent]) => {
+        setOnboarded(onboardingValue === 'true');
+        setConsented(Boolean(legalConsent));
       })
       .catch(() => { setOnboarded(false); setConsented(false); });
   }, []);
@@ -180,9 +191,20 @@ function WingmanApp() {
     AsyncStorage.setItem(ONBOARDED_KEY, 'true').catch(() => {});
   };
 
-  const completeConsent = () => {
+  const completeConsent = async () => {
+    const acceptance = createLegalConsentAcceptance();
+    await saveLegalConsent(acceptance);
     setConsented(true);
-    AsyncStorage.setItem(CONSENT_KEY, 'true').catch(() => {});
+  };
+
+  const requestRecordedSession = (target: RecordedSessionScreen) => {
+    setPendingRecordedSession(target);
+  };
+
+  const confirmRecordedSession = () => {
+    const target = pendingRecordedSession;
+    setPendingRecordedSession(null);
+    if (target) setScreen(target);
   };
 
   const openMode = (mode: string) => {
@@ -255,7 +277,7 @@ function WingmanApp() {
             {screen === 'account' && (
               <AccountScreen
                 onBack={() => setScreen('home')}
-                onSignedOut={() => { setScreen('home'); setUnlocked(false); }}
+                onSignedOut={() => { setScreen('home'); setUnlocked(false); setConsented(false); }}
               />
             )}
 
@@ -285,57 +307,57 @@ function WingmanApp() {
 
             {/* Sales Mode */}
             {screen === 'sales-precall' && (
-              <PreCallScreen onStart={() => setScreen('sales-active')} onBack={() => setScreen('home')} />
+              <PreCallScreen onStart={() => requestRecordedSession('sales-active')} onBack={() => setScreen('home')} />
             )}
             {screen === 'sales-active' && (
               <ActiveCallScreen onEnd={() => setScreen('sales-postcall')} />
             )}
             {screen === 'sales-postcall' && (
-              <PostCallScreen onDone={() => setScreen('home')} onCallAgain={() => setScreen('sales-active')} />
+              <PostCallScreen onDone={() => setScreen('home')} onCallAgain={() => requestRecordedSession('sales-active')} />
             )}
 
             {/* Dating Mode */}
             {screen === 'dating-precall' && (
-              <PreDatingScreen onStart={() => setScreen('dating-active')} onBack={() => setScreen('home')} />
+              <PreDatingScreen onStart={() => requestRecordedSession('dating-active')} onBack={() => setScreen('home')} />
             )}
             {screen === 'dating-active' && (
               <ActiveDatingScreen onEnd={() => setScreen('dating-postcall')} />
             )}
             {screen === 'dating-postcall' && (
-              <PostDatingScreen onHome={() => setScreen('home')} onNewSession={() => setScreen('dating-active')} />
+              <PostDatingScreen onHome={() => setScreen('home')} onNewSession={() => requestRecordedSession('dating-active')} />
             )}
 
             {/* Networking Mode */}
             {screen === 'networking-precall' && (
-              <PreNetworkingScreen onStart={() => setScreen('networking-active')} onBack={() => setScreen('home')} />
+              <PreNetworkingScreen onStart={() => requestRecordedSession('networking-active')} onBack={() => setScreen('home')} />
             )}
             {screen === 'networking-active' && (
               <ActiveNetworkingScreen onEnd={() => setScreen('networking-postcall')} />
             )}
             {screen === 'networking-postcall' && (
-              <PostNetworkingScreen onHome={() => setScreen('home')} onNewSession={() => setScreen('networking-active')} />
+              <PostNetworkingScreen onHome={() => setScreen('home')} onNewSession={() => requestRecordedSession('networking-active')} />
             )}
 
             {/* Pitching Mode */}
             {screen === 'pitching-precall' && (
-              <PrePitchingScreen onStart={() => setScreen('pitching-active')} onBack={() => setScreen('home')} />
+              <PrePitchingScreen onStart={() => requestRecordedSession('pitching-active')} onBack={() => setScreen('home')} />
             )}
             {screen === 'pitching-active' && (
               <ActivePitchingScreen onEnd={() => setScreen('pitching-postcall')} />
             )}
             {screen === 'pitching-postcall' && (
-              <PostPitchingScreen onHome={() => setScreen('home')} onNewSession={() => setScreen('pitching-active')} />
+              <PostPitchingScreen onHome={() => setScreen('home')} onNewSession={() => requestRecordedSession('pitching-active')} />
             )}
 
             {/* Hard Conversations Mode */}
             {screen === 'hardconvo-precall' && (
-              <PreHardConversationScreen onStart={() => setScreen('hardconvo-active')} onBack={() => setScreen('home')} />
+              <PreHardConversationScreen onStart={() => requestRecordedSession('hardconvo-active')} onBack={() => setScreen('home')} />
             )}
             {screen === 'hardconvo-active' && (
               <ActiveHardConversationScreen onEnd={() => setScreen('hardconvo-postcall')} />
             )}
             {screen === 'hardconvo-postcall' && (
-              <PostHardConversationScreen onHome={() => setScreen('home')} onNewSession={() => setScreen('hardconvo-active')} />
+              <PostHardConversationScreen onHome={() => setScreen('home')} onNewSession={() => requestRecordedSession('hardconvo-active')} />
             )}
           </AnimatedScreen>
         </View>
@@ -352,6 +374,12 @@ function WingmanApp() {
             bottomInset={16}
           />
         ) : null}
+
+        <RecordingConsentDialog
+          visible={pendingRecordedSession !== null}
+          onCancel={() => setPendingRecordedSession(null)}
+          onConfirm={confirmRecordedSession}
+        />
       </View>
     </>
   );

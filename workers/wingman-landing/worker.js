@@ -382,7 +382,7 @@ async function submitWaitlist(e) {
 </nav>
 <main>
   <h1>Terms of Service</h1>
-  <div class="meta">Last updated: June 14, 2026 &nbsp;·&nbsp; Effective: June 14, 2026</div>
+  <div class="meta">Last updated: July 17, 2026 &nbsp;·&nbsp; Effective: July 17, 2026</div>
 
   <h2>1. Acceptance of Terms</h2>
   <p>By downloading, installing, or using AI Wingman ("the App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the App.</p>
@@ -391,13 +391,14 @@ async function submitWaitlist(e) {
   <p>AI Wingman is a real-time conversation coaching application that uses microphone input, AI speech-to-text, and AI language models to provide live coaching suggestions delivered via audio to your earpiece. The App is intended for personal productivity and professional development purposes.</p>
 
   <h2>3. Consent and Recording Notice</h2>
-  <p><strong>You are solely responsible for obtaining all necessary consents before using AI Wingman in any conversation.</strong> Recording laws vary by jurisdiction. In many places, all parties to a conversation must consent to being recorded. By using the App, you represent that:</p>
+  <p><strong>You must inform every participant and obtain their affirmative consent before each live AI Wingman session.</strong> The App captures, transmits, transcribes, and analyzes conversation audio. Recording, interception, and eavesdropping laws vary by jurisdiction, and the laws of more than one location may apply. By using the App, you represent that:</p>
   <ul>
-    <li>You have obtained all legally required consents from all conversation participants</li>
+    <li>Every conversation participant knows AI Wingman will process the conversation and has affirmatively agreed before the session starts</li>
     <li>You understand and comply with applicable wiretapping, eavesdropping, and recording laws in your jurisdiction</li>
-    <li>You will not use the App for any unlawful surveillance or interception</li>
+    <li>You will not use the App covertly or for unlawful surveillance, interception, harassment, or deception</li>
+    <li>You will end the session immediately if any participant withdraws consent</li>
   </ul>
-  <p>AI Wingman accepts no liability for your failure to comply with applicable recording and consent laws.</p>
+  <p>During an active session, audio capture may continue while your screen is locked or the App is in the background until you end the session. If you are unsure whether your intended use is lawful, do not start the session and consult a qualified attorney.</p>
 
   <h2>4. Permitted Use</h2>
   <p>You may use AI Wingman for lawful personal and professional purposes. You may not:</p>
@@ -425,7 +426,7 @@ async function submitWaitlist(e) {
   <p>Purchases are processed by Apple and are subject to Apple's <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Terms of Use (EULA)</a> and our <a href="/privacy">Privacy Policy</a>. Refunds for App Store purchases are handled by Apple in accordance with its policies. For billing questions, contact <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>.</p>
 
   <h2>7. AI Disclaimer</h2>
-  <p>AI Wingman uses artificial intelligence — including automated speech recognition and large language models — to generate coaching suggestions in real time. <strong>AI-generated output may be inaccurate, incomplete, biased, or inappropriate for your specific situation.</strong> All suggestions are provided for informational purposes only and do not constitute professional legal, financial, medical, psychological, or other professional advice. You are solely responsible for reviewing any suggestion and for any decision or action you take. Do not rely on AI Wingman in situations where an error could result in harm.</p>
+  <p>AI Wingman uses artificial intelligence — including automated speech recognition and large language models — to generate coaching suggestions in real time. <strong>AI-generated output may be inaccurate, incomplete, biased, or inappropriate for your specific situation.</strong> AI Wingman is not a doctor, therapist, lawyer, financial advisor, human-resources professional, or emergency service. Suggestions are informational only and do not constitute professional advice, diagnosis, treatment, or a substitute for a qualified professional. You are solely responsible for reviewing any suggestion and for every decision or action you take. Do not rely on AI Wingman in an emergency or where an error could cause harm; contact local emergency services or an appropriate qualified professional instead.</p>
 
   <h2>8. Limitation of Liability</h2>
   <p>To the maximum extent permitted by law, AI Wingman and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the App, including but not limited to lost revenue, lost profits, or relationship harm.</p>
@@ -434,7 +435,7 @@ async function submitWaitlist(e) {
   <p>We may terminate or suspend your account at our discretion for violations of these Terms. You may cancel your account at any time through the App or by emailing support.</p>
 
   <h2>10. Changes to Terms</h2>
-  <p>We may update these Terms from time to time. Continued use of the App after changes constitutes acceptance of the updated Terms. Material changes will be notified via email or in-app notice.</p>
+  <p>We may update these Terms from time to time. Material changes will be presented in the App and may require renewed affirmative acceptance before you can continue using AI Wingman.</p>
 
   <h2>11. Contact</h2>
   <p>Questions about these Terms? Email us at <a href="mailto:support@rushingtechnologies.com">support@rushingtechnologies.com</a>.</p>
@@ -655,7 +656,7 @@ async function submitSupport(e) {
 </nav>
 <main>
   <h1>Privacy Policy</h1>
-  <div class="meta">Last updated: June 14, 2026 &nbsp;·&nbsp; Effective: June 14, 2026</div>
+  <div class="meta">Last updated: July 17, 2026 &nbsp;·&nbsp; Effective: July 17, 2026</div>
 
   <p>AI Wingman ("we", "us"), operated by Rushing Technologies, respects your privacy. This policy explains what we collect, how we use it, and the choices you have. By using the App, you agree to this Privacy Policy.</p>
 
@@ -694,11 +695,11 @@ async function submitSupport(e) {
   <ul>
     <li><strong>Access &amp; deletion:</strong> you can delete your account and associated data at any time from the App's account settings, or by emailing us.</li>
     <li><strong>Notifications:</strong> you can disable notifications in your device settings.</li>
-    <li><strong>Microphone:</strong> the App only listens during an active session that you start and stop.</li>
+    <li><strong>Microphone:</strong> the App only listens during an active session that you start and stop. Capture may continue while the screen is locked or the App is in the background until you end that session.</li>
   </ul>
 
   <h2>6. Consent &amp; Recording</h2>
-  <p>You are responsible for complying with recording and consent laws in your jurisdiction. Please review our <a href="/terms">Terms of Service</a> for details.</p>
+  <p>Before every live session, you must inform every participant that AI Wingman will capture, transmit, transcribe, and analyze the conversation and obtain their affirmative consent. You are responsible for complying with all recording, interception, and consent laws that apply. Please review our <a href="/terms">Terms of Service</a> for details.</p>
 
   <h2>7. Children</h2>
   <p>AI Wingman is not directed to children under 17, and we do not knowingly collect personal information from them.</p>

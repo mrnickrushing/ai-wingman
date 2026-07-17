@@ -9,7 +9,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rushingtechnologies.aiwingman",
-      "buildNumber": "62",
+      "buildNumber": "63",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "AI Wingman listens to your conversation to provide real-time coaching.",

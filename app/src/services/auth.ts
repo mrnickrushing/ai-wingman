@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { logoutPurchases } from './purchases';
+import { clearLegalConsent, loadLegalConsent } from './legalConsent';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,6 +170,12 @@ async function serverPatch<T>(path: string, token: string): Promise<Ok<T> | Err>
   }
 }
 
+async function syncCurrentLegalConsent(token: string): Promise<void> {
+  const acceptance = await loadLegalConsent().catch(() => null);
+  if (!acceptance) return;
+  await serverPost('/auth/legal-acceptance', acceptance, token);
+}
+
 // ── Server ↔ local type mapping ────────────────────────────────────────────────
 
 type ServerAccount = {
@@ -209,6 +216,7 @@ export async function loadLaunchSnapshot(): Promise<LaunchSnapshot> {
     return readLocalSnapshot();
   }
   const snapshot = snapshotFromServer(result.data.account);
+  await syncCurrentLegalConsent(token).catch(() => {});
   await writeLocalSnapshot(snapshot);
   return snapshot;
 }
@@ -241,6 +249,7 @@ export async function registerEmailAccount(input: {
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Registration failed.');
   await saveToken(result.data.token);
+  await syncCurrentLegalConsent(result.data.token).catch(() => {});
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -256,6 +265,7 @@ export async function loginEmailAccount(input: {
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Login failed.');
   await saveToken(result.data.token);
+  await syncCurrentLegalConsent(result.data.token).catch(() => {});
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -271,6 +281,7 @@ export async function signInWithApple(input: {
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Apple sign-in failed.');
   await saveToken(result.data.token);
+  await syncCurrentLegalConsent(result.data.token).catch(() => {});
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -284,6 +295,7 @@ export async function signInWithGoogle(input: {
   });
   if (result.error || !result.data) throw new Error(result.error ?? 'Google sign-in failed.');
   await saveToken(result.data.token);
+  await syncCurrentLegalConsent(result.data.token).catch(() => {});
   const snapshot = snapshotFromServer(result.data.account);
   await writeLocalSnapshot(snapshot);
   return snapshot;
@@ -308,6 +320,7 @@ export async function syncSubscription(): Promise<LaunchSnapshot> {
 export async function signOut(): Promise<LaunchSnapshot> {
   await logoutPurchases();
   await clearToken();
+  await clearLegalConsent();
   const local = await readLocalSnapshot();
   const next: LaunchSnapshot = { seenIntro: local.seenIntro, account: null };
   await writeLocalSnapshot(next);
@@ -326,6 +339,7 @@ export async function resetLaunchState(): Promise<void> {
   }
   await logoutPurchases();
   await clearToken();
+  await clearLegalConsent();
   await SecureStore.deleteItemAsync(SNAPSHOT_KEY);
 }
 

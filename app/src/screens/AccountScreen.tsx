@@ -2,7 +2,7 @@ import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, SafeAreaView,
-  Alert, ScrollView, ActivityIndicator, TouchableOpacity,
+  Alert, ScrollView, ActivityIndicator, TouchableOpacity, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadLaunchSnapshot, signOut, resetLaunchState, type LaunchSnapshot } from '../services/auth';
@@ -10,6 +10,10 @@ import { checkWingmanServerHealth, getWingmanServerUrl } from '../services/wingm
 import { manageMembership, restoreMembership } from '../services/purchases';
 import { runWingmanPreflight } from '../hooks/useWingmanSession';
 import { useSessionStore } from '../store/sessionStore';
+import { LEGAL_CONSENT_VERSION } from '../services/legalConsent';
+
+const TERMS_URL = 'https://aiwingman.rushingtechnologies.com/terms';
+const PRIVACY_URL = 'https://aiwingman.rushingtechnologies.com/privacy';
 
 const PROVIDER_LABEL: Record<string, string> = {
   email: 'Email',
@@ -237,9 +241,17 @@ export function AccountScreen({ onBack, onSignedOut }: Props) {
             </SettingsCard>
 
             <SettingsCard title="Privacy">
-              <Row label="Live audio" value="Not stored" valueColor="#4ade80" />
+              <Row label="Raw audio" value="Discarded after processing" valueColor="#4ade80" />
               <Divider />
-              <Row label="Recaps" value="Saved to account history" />
+              <Row label="Transcripts & recaps" value="Saved up to 90 days" />
+            </SettingsCard>
+
+            <SettingsCard title="Legal & consent">
+              <Row label="Agreement version" value={LEGAL_CONSENT_VERSION} />
+              <Divider />
+              <ActionRow label="Terms of Service" loading={false} disabled={false} onPress={() => { void Linking.openURL(TERMS_URL); }} />
+              <Divider />
+              <ActionRow label="Privacy Policy" loading={false} disabled={false} onPress={() => { void Linking.openURL(PRIVACY_URL); }} />
             </SettingsCard>
 
             <View style={s.card}>

@@ -17,6 +17,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { checkWingmanServerHealth, wingmanClient } from '../services/wingmanClient';
 import { getAuthToken } from '../services/auth';
+import { hasCurrentLegalConsent } from '../services/legalConsent';
 import { useSessionStore } from '../store/sessionStore';
 import { TranscriptEntry, CoachingEntry, type SessionConfig } from '../types';
 
@@ -774,6 +775,20 @@ export function useWingmanSession() {
     const store = useSessionStore.getState();
     try {
       store.reset();
+      if (!(await hasCurrentLegalConsent())) {
+        store.setSessionPhase('error');
+        store.setError('Review and accept the current AI and recording agreements before starting a session.');
+        return;
+      }
+
+      const permission = await requestRecordingPermissionsAsync();
+      const microphoneGranted = 'granted' in permission ? permission.granted : false;
+      if (!microphoneGranted) {
+        store.setSessionPhase('error');
+        store.setError('Microphone permission is required to start a live coaching session.');
+        return;
+      }
+
       store.setAppState(AppState.currentState as AppStateStatus);
       store.setBackgroundAudioState('idle');
       store.setBackgroundEnteredAt(null);

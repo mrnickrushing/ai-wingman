@@ -5,7 +5,6 @@ import {
   NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { requestRecordingPermissionsAsync } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -22,7 +21,7 @@ const SLIDES: Slide[] = [
   {
     emoji: '🎧',
     title: 'Your AI in your ear',
-    body: 'AI Wingman listens to your conversation and whispers live coaching through your AirPods. Completely invisible. Insanely effective.',
+    body: 'During sessions you start, AI Wingman listens and delivers real-time coaching through your AirPods.',
     gradient: ['#0c0c22', '#050510'],
     orbColor: 'rgba(99,102,241,0.14)',
   },
@@ -35,8 +34,8 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: '🤫',
-    title: 'Go invisible',
-    body: "Put your phone in your pocket. Wear your AirPods. Let Wingman do the work. Nobody knows it's there.",
+    title: 'Consent first. Then coach.',
+    body: 'Tell everyone how the app listens and get their agreement before every live conversation. Then wear your AirPods and start the session.',
     gradient: ['#050c14', '#050510'],
     orbColor: 'rgba(34,211,238,0.09)',
   },
@@ -75,12 +74,7 @@ export function OnboardingScreen({ onComplete }: Props) {
     scrollRef.current?.scrollTo({ x: i * SCREEN_WIDTH, animated: true });
   };
 
-  const handleStart = async () => {
-    try {
-      await requestRecordingPermissionsAsync();
-    } catch {
-      // ignore — proceed regardless of permission outcome
-    }
+  const handleStart = () => {
     onComplete();
   };
 
@@ -121,11 +115,11 @@ export function OnboardingScreen({ onComplete }: Props) {
 
                 {i === 2 && (
                   <View style={s.stepsRow}>
-                    <Text style={s.stepText}>📱 Pocket</Text>
+                    <Text style={s.stepText}>💬 Inform</Text>
                     <Text style={s.stepArrow}>→</Text>
-                    <Text style={s.stepText}>🎧 AirPods</Text>
+                    <Text style={s.stepText}>✓ Get consent</Text>
                     <Text style={s.stepArrow}>→</Text>
-                    <Text style={s.stepText}>🚀 Crush it</Text>
+                    <Text style={s.stepText}>🎧 Start</Text>
                   </View>
                 )}
               </View>
@@ -172,7 +166,7 @@ export function OnboardingScreen({ onComplete }: Props) {
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={s.ctaGrad}
               >
-                <Text style={s.ctaText}>Allow Microphone &amp; Start</Text>
+                <Text style={s.ctaText}>Review required agreements</Text>
               </LinearGradient>
             </TouchableOpacity>
           )}

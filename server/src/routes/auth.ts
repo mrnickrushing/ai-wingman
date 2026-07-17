@@ -4,12 +4,16 @@ import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import {
   findByEmail, findByAppleId, findByGoogleSubject, findById,
-  createAccount, updateAccount, deleteAccount, DbAccount, hasActivePremium,
+  createAccount, updateAccount, deleteAccount, DbAccount, hasActivePremium, recordLegalAcceptance,
 } from '../db/accounts';
 import { signToken, verifyToken } from '../services/jwt';
 import { verifyAppleIdentityToken, verifyGoogleIdentityToken } from '../services/oauth';
 import { isRevenueCatConfigured, syncRevenueCatSubscription } from '../services/revenuecat';
 import { asyncHandler } from '../middleware/asyncHandler';
+import {
+  CURRENT_LEGAL_AGREEMENT_VERSION,
+  isValidLegalAcceptance,
+} from '../services/legalConsent';
 
 const router = Router();
 
@@ -242,6 +246,31 @@ router.patch('/seen-intro', asyncHandler(async (req: Request, res: Response) => 
   const account = await updateAccount(accountId, { seenIntro: true });
   if (!account) return res.status(404).json({ error: 'Account not found.' });
   return res.json({ account: toClientAccount(account) });
+}));
+
+// ── POST /auth/legal-acceptance ──────────────────────────────────────────────
+
+router.post('/legal-acceptance', asyncHandler(async (req: Request, res: Response) => {
+  const accountId = requireAuth(req, res);
+  if (!accountId) return;
+
+  const acceptance = req.body as {
+    version?: unknown;
+    acceptedAt?: unknown;
+    acknowledgments?: unknown;
+  };
+
+  if (!isValidLegalAcceptance(acceptance)) {
+    return res.status(400).json({ error: 'A complete current legal acceptance is required.' });
+  }
+
+  await recordLegalAcceptance({
+    accountId,
+    agreementVersion: acceptance.version,
+    clientAcceptedAt: new Date(acceptance.acceptedAt).toISOString(),
+    acknowledgments: acceptance.acknowledgments,
+  });
+  return res.json({ ok: true, version: CURRENT_LEGAL_AGREEMENT_VERSION });
 }));
 
 // ── DELETE /auth/account ─────────────────────────────────────────────────────

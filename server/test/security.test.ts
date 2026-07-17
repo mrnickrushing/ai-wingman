@@ -5,6 +5,11 @@ import authRouter from '../src/routes/auth';
 import { hasActivePremium, type DbAccount } from '../src/db/accounts';
 import { signToken, verifyToken } from '../src/services/jwt';
 import { verifyAppleIdentityToken, verifyGoogleIdentityToken } from '../src/services/oauth';
+import {
+  CURRENT_LEGAL_AGREEMENT_VERSION,
+  REQUIRED_LEGAL_ACKNOWLEDGMENTS,
+  isValidLegalAcceptance,
+} from '../src/services/legalConsent';
 
 process.env.JWT_SECRET = '0123456789abcdef0123456789abcdef';
 
@@ -55,4 +60,28 @@ test('the client-writable premium route no longer exists', () => {
   const paths = stack.map((layer) => layer.route?.path).filter(Boolean);
   assert.equal(paths.includes('/premium'), false);
   assert.equal(paths.includes('/subscription/sync'), true);
+});
+
+test('legal acceptance requires the current version and every exact acknowledgment', () => {
+  const now = Date.parse('2026-07-17T12:00:00.000Z');
+  const complete = {
+    version: CURRENT_LEGAL_AGREEMENT_VERSION,
+    acceptedAt: '2026-07-17T11:59:00.000Z',
+    acknowledgments: [...REQUIRED_LEGAL_ACKNOWLEDGMENTS],
+  };
+
+  assert.equal(isValidLegalAcceptance(complete, now), true);
+  assert.equal(isValidLegalAcceptance({ ...complete, version: '2025-01-01' }, now), false);
+  assert.equal(isValidLegalAcceptance({
+    ...complete,
+    acknowledgments: complete.acknowledgments.slice(0, -1),
+  }, now), false);
+  assert.equal(isValidLegalAcceptance({
+    ...complete,
+    acknowledgments: [...complete.acknowledgments, 'unexpected'],
+  }, now), false);
+  assert.equal(isValidLegalAcceptance({
+    ...complete,
+    acceptedAt: '2026-07-17T12:06:00.000Z',
+  }, now), false);
 });

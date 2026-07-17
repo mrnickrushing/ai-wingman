@@ -231,6 +231,30 @@ export async function recordSubscriptionEvent(fields: {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function recordLegalAcceptance(fields: {
+  accountId: string;
+  agreementVersion: string;
+  clientAcceptedAt: string;
+  acknowledgments: string[];
+}): Promise<void> {
+  await pool.query(
+    `INSERT INTO legal_acceptances
+       (account_id, agreement_version, client_accepted_at, acknowledgments_json)
+     VALUES ($1, $2, $3, $4::jsonb)
+     ON CONFLICT (account_id, agreement_version)
+     DO UPDATE SET
+       client_accepted_at = EXCLUDED.client_accepted_at,
+       acknowledgments_json = EXCLUDED.acknowledgments_json,
+       accepted_at = NOW()`,
+    [
+      fields.accountId,
+      fields.agreementVersion,
+      fields.clientAcceptedAt,
+      JSON.stringify(fields.acknowledgments),
+    ]
+  );
+}
+
 export async function deleteAccount(id: string): Promise<void> {
   await pool.query('DELETE FROM accounts WHERE id = $1', [id]);
 }
